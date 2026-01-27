@@ -26,6 +26,7 @@ VIDEO. Include a demo video of your game here (you don't have to wait until the 
 ## Your Group
 
 GROUP PHOTO. Add a group photo here.
+![56c06f5ec6637c886f714ad5747c9ef1](https://github.com/user-attachments/assets/912356cb-d3f9-4d59-86cc-0887810f2660)
 
 - Group member 1, name, email, role
 - Group member 2, name, email, role
