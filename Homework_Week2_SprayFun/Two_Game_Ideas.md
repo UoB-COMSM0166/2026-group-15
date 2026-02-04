@@ -1,5 +1,4 @@
-
-###### Game Inspiration
+# Two Game Ideas
 We have selected two game concepts for further development. 
 
 The first is a Minecraft-themed 2D platformer. We plan to leverage the iconic pixel art and classic mechanics of Minecraft—such as biome-hopping (from grasslands to deep caves), tool upgrades, and using items like water buckets and TNT—to create a familiar yet fresh exploration and survival experience. 
