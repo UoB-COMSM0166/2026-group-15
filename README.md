@@ -59,7 +59,7 @@ GROUP PHOTO. Add a group photo here.
 | Puzzle Game / Match-3 | Candy Crush Saga | Players swap tiles to match three or more items to meet level objectives within limited moves. | Add obstacles (chocolate, ice, chains) requiring multiple matches to clear. | Ensuring solvable boards & non-repetitive patterns; smooth animations & particle effects |
 
 
-# Two Game Ideas
+###### Two Game Ideas
 
 We have selected two game concepts for further development.
 
