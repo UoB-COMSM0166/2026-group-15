@@ -71,6 +71,13 @@ The second is an environmental puzzle game centered on a core "time reversal" me
 
 A key design feature is that the game encourages players to retrace their steps. During the final phase, players must return along the same path they previously traveled. However, the environment has changed due to their actions, causing new tools, routes, or interactions to appear. This allows players to evaluate whether their choices have successfully led to a cleaner, healthier city. While the theme is impactful and the rewind mechanic is innovative, the main challenges was the complexity of tracking and reversing player's states and the additional asset for branching narratives.
 
+
+
+
+https://github.com/user-attachments/assets/4a29aa32-1bd0-4df8-8a10-b927c0467f35
+
+
+
 ### Design
 
 - 15% ~750 words 
