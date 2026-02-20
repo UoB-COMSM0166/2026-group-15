@@ -4,9 +4,7 @@
 
 https://uob-comsm0166.github.io/2026-group-15/SuperCatAndSteve/
 
-## Start Modify
-
-## Git 团队协作工作流（PowerShell 版）
+## Start Modify with Git
 
 ### 1. 首次克隆仓库
 
