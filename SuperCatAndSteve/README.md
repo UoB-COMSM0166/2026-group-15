@@ -1,5 +1,9 @@
 # SuperCatAndSteve
 
+## Try the Game
+
+https://uob-comsm0166.github.io/2026-group-15/SuperCatAndSteve/
+
 ## Getting Started
 
 Open `index.html` in your web browser and start editing `sketch.js`.

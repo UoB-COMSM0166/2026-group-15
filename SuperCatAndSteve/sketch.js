@@ -286,7 +286,7 @@ class Player {
 
   draw() {
     const img = window.steveSprite;
-    const offsetY = 4;  // 向下偏移，让贴图底部贴地
+    const offsetY = 0;  // 向下偏移，让贴图底部贴地
     if (img && img.width > 0) image(img, this.x, this.y + offsetY, this.w, this.h);
     else { fill(50, 100, 255); rect(this.x, this.y, this.w, this.h); }
   }
