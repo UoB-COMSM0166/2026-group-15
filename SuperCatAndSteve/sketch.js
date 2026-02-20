@@ -412,7 +412,7 @@ function setup() {
     ['enlarged_grass_block_side.png', 'grassBlock'], ['enlarged_dirt.png', 'dirtBlock'],
     ['enlarged_stone.png', 'stoneBlock'], ['enlarged_deepslate.png', 'deepslateBlock']
   ];
-  assets.forEach(([file, key]) => loadImage(`/assets/${file}`, img => window[key] = img, () => console.warn(`${file} 加载失败`)));
+  assets.forEach(([file, key]) => loadImage(`assets/${file}`, img => window[key] = img, () => console.warn(`${file} 加载失败`)));
 }
 
 function draw() {
