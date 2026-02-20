@@ -4,7 +4,7 @@
 
 https://uob-comsm0166.github.io/2026-group-15/SuperCatAndSteve/
 
-## Start Modify with Git
+## Start Modifying with Git
 
 ### 1. 首次克隆仓库
 
