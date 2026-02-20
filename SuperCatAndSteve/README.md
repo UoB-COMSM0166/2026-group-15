@@ -4,6 +4,10 @@
 
 https://uob-comsm0166.github.io/2026-group-15/SuperCatAndSteve/
 
+## Set up the Environment for p5.js on Your Computer
+
+https://p5js.org/tutorials/setting-up-your-environment/#vscode
+
 ## Start Modifying with Git
 
 ### 1. 首次克隆仓库
