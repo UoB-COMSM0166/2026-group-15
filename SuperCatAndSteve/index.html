@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SuperCatAndSteve</title>
+    <link rel="stylesheet" href="css/style.css">
+    <script src="js/p5.js"></script>
+    <script>
+      // 用 file:// 打开时关闭校验与友好错误检查，避免在 _renderer 未就绪时触发 getter 报错
+      if (typeof p5 !== 'undefined') {
+        p5.disableSketchChecker = true;
+        p5.disableFriendlyErrors = true;
+      }
+    </script>
+    <!-- Temporarily disabled p5.sound to check for conflicts -->
+    <!-- <script src="js/addons/p5.sound.min.js"></script> -->
+</head>
+<body>
+    <div id="game-container" class="game-container"></div>
+    <script src="sketch.js"></script>
+</body>
+</html>
