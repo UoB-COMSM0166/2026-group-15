@@ -126,10 +126,11 @@ We then wrote acceptance criteria in the Given–When–Then format to turn thos
 
 ### Design
 
-<img width="1590" height="700" alt="3339b730d5d336317972099c83ecc550" src="https://github.com/user-attachments/assets/90a6071f-1597-4cbf-b18e-b410dedcc5cd" />
-
 - 15% ~750 words 
-- System architecture. Class diagrams, behavioural diagrams. 
+- System architecture. Class diagrams, behavioural diagrams.
+
+- <img width="1590" height="700" alt="3339b730d5d336317972099c83ecc550" src="https://github.com/user-attachments/assets/b58ce78b-cf50-478e-ae06-c9fbae35e6a1" />
+
 
 ### Implementation
 
