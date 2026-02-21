@@ -76,7 +76,7 @@ class Game {
   }
 
   updateHintCat() {
-    this.playerHistory.push({ x: this.player.x, y: this.player.y, h: this.player.h, t: millis() });
+    this.playerHistory.push({ x: this.player.x, y: this.player.y, h: this.player.h, facingRight: this.player.facingRight, t: millis() });
     const cutoff = millis() - HINT_CAT_DELAY_MS - 50;
     while (this.playerHistory.length && this.playerHistory[0].t < cutoff) this.playerHistory.shift();
     this.level.hintCat.follow(this.getDelayedState());
@@ -84,7 +84,7 @@ class Game {
 
   getDelayedState() {
     const targetT = millis() - HINT_CAT_DELAY_MS;
-    if (!this.playerHistory.length) return { x: this.player.x, y: this.player.y, h: this.player.h };
+    if (!this.playerHistory.length) return { x: this.player.x, y: this.player.y, h: this.player.h, facingRight: this.player.facingRight };
     let best = this.playerHistory[0];
     for (let s of this.playerHistory) {
       if (s.t <= targetT) best = s; else break;
@@ -246,13 +246,14 @@ class Platform {
 // ====== Player 类 ======
 class Player {
   constructor(x, y) {
-    Object.assign(this, { x, y, w: 32, h: 64, vx: 0, vy: 0, speed: 2, jumpForce: -6.32, gravity: 0.5, onGround: false, maxHealth: 10, health: 10, inventory: [] });
+    Object.assign(this, { x, y, w: 32, h: 64, vx: 0, vy: 0, speed: 2, jumpForce: -6.32, gravity: 0.5, onGround: false, maxHealth: 10, health: 10, inventory: [], facingRight: true });
   }
 
   update(platforms) {
     this.vx = 0;
     if (keyIsDown(LEFT_ARROW) || keyIsDown(65)) this.vx = -this.speed;
     if (keyIsDown(RIGHT_ARROW) || keyIsDown(68)) this.vx = this.speed;
+    if (this.vx !== 0) this.facingRight = this.vx > 0;
     this.vy += this.gravity;
 
     this.x += this.vx;
@@ -285,8 +286,8 @@ class Player {
   takeDamage(amount) { this.health = max(0, this.health - amount); }
 
   draw() {
-    const img = window.steveSprite;
-    const offsetY = 0;  // 向下偏移，让贴图底部贴地
+    const img = this.facingRight ? window.alexSpriteRight : window.alexSpriteLeft;
+    const offsetY = 0;
     if (img && img.width > 0) image(img, this.x, this.y + offsetY, this.w, this.h);
     else { fill(50, 100, 255); rect(this.x, this.y, this.w, this.h); }
   }
@@ -332,15 +333,16 @@ class Tool extends Item {
 
 // ====== HintCat 类 ======
 class HintCat {
-  constructor(x, y) { Object.assign(this, { x, y, w: 32, h: 32, messages: ["按 A/D 或 ←/→ 移动", "按空格跳跃", "收集污染物！"] }); }
+  constructor(x, y) { Object.assign(this, { x, y, w: 32, h: 16, facingRight: true, messages: ["按 A/D 或 ←/→ 移动", "按空格跳跃", "收集污染物！"] }); }
 
   follow(state) {
     this.x = max(0, state.x - this.w - HINT_CAT_GAP);
-    this.y = state.y + state.h - this.h;  // 底部对齐
+    this.y = state.y + state.h - this.h;
+    this.facingRight = state.facingRight !== false;
   }
 
   draw() {
-    const img = window.catSprite;
+    const img = this.facingRight ? window.catSpriteRight : window.catSpriteLeft;
     if (img && img.width > 0) image(img, this.x, this.y, this.w, this.h);
     else { fill(255, 200, 0); rect(this.x, this.y, this.w, this.h); }
     fill(255); textSize(14);
@@ -405,7 +407,9 @@ function setup() {
 
   // 加载贴图
   const assets = [
-    ['player.png', 'steveSprite'], ['cat.png', 'catSprite'], ['zombie.png', 'zombieSprite'],
+    ['Alex_left.png', 'alexSpriteLeft'], ['Alex_right.png', 'alexSpriteRight'],
+    ['cat_left.png', 'catSpriteLeft'], ['cat_right.png', 'catSpriteRight'],
+    ['zombie.png', 'zombieSprite'],
     ['scissor.png', 'scissorSprite'],
     ['heart_container.png', 'heartContainer'], ['heart_fill.png', 'heartFill'],
     ['inventory_container.png', 'invContainer'],
