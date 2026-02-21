@@ -21,6 +21,7 @@ cd 2026-group-15
 ### 2. 开始新工作前，获取最新代码
 
 ```powershell
+cd C:\Users\redmi\2026-group-15
 git checkout main
 git pull origin main
 ```
