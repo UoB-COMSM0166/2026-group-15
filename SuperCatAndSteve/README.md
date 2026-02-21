@@ -80,6 +80,13 @@ git branch -d feature/my-new-feature
 
 ### 常见问题处理
 
+#### 在本地查看游戏
+
+```powershell
+cd "D:\SE displine and practice\SuperCatAndSteve"
+python -m http.server 8000
+```
+
 #### 推送被拒绝（远程有更新）
 
 ```powershell
