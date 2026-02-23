@@ -76,16 +76,22 @@ let game;
 class Game {
   constructor() {
     this.level = new ForestLevel();
-    this.player = new Player(80, 60);
+    this.level.loadAssets();
+    //this.player = new Player(80, 60); 
     this.uiManager = new UIManager();
     this.playerHistory = [];
     this.cameraX = 0;
     this.mouseDownTime = 0;
     this.lastAttackTime = 0;
     this.lastEnemyContactDamageTime = 0;  // 上次因接触敌人扣血的时间
+    //游戏状态：start playing gameover victory
+    this.state = "start";
   }
 
-  setup() { this.level.loadAssets(); }
+  setup() { 
+    const groundY = this.level.terrainHeights[0];
+    this.player = new Player(80, groundY - 64);
+   }
 
   update() {
     this.player.update(this.level.platforms);
@@ -93,6 +99,11 @@ class Game {
     this.updateHintCat();
     this.checkCollisions();
     this.updateMining();
+    if (this.player.health <= 0) {
+      this.state = "gameover";
+    }
+    // 胜利条件：收集到 2 分
+      if (this.player.score >= 2) this.state = "victory";
   }
 
   /** 获取玩家脚下所在的地形行（列 col 的表面起算） */
@@ -264,14 +275,20 @@ class Game {
       this.lastEnemyContactDamageTime = now;
       break;
     }
-    for (let i = this.level.enemies.length - 1; i >= 0; i--) {
-      const enemy = this.level.enemies[i];
-      if (!enemy.isDead) continue;
-      this.level.enemies.splice(i, 1);
-    }
-    for (let i = this.level.items.length - 1; i >= 0; i--) {
-      if (this.player.collidesWith(this.level.items[i])) {
-        this.player.collect(this.level.items[i]);
+for (let i = this.level.items.length - 1; i >= 0; i--) {
+      // 1. 先把当前物品存入一个变量，比如叫 item
+      const item = this.level.items[i]; 
+
+      if (this.player.collidesWith(item)) {
+        
+        // 2. 使用刚才定义的变量 item 进行判断
+        if (item instanceof Pollutant) {
+          this.player.score += 1;
+          console.log("得分！当前总分:", this.player.score);
+        }
+        
+        // 3. 收集并移除
+        this.player.collect(item);
         this.level.items.splice(i, 1);
       }
     }
@@ -299,6 +316,7 @@ class Level {
     this.terrainHeights = [];
     this.tileMap = Array.from({ length: TERRAIN_COLS }, () => []);
     this.terrainBlocks = Array.from({ length: TERRAIN_COLS }, () => []);  // [col][row] = Platform
+    this.pollutants = []; 
   }
   loadAssets() {}
   draw() {}
@@ -361,9 +379,13 @@ class ForestLevel extends Level {
     this.enemies.push(new Enemy(17 * TILE_SIZE, groundY(17) - 64, 64, 64));  // 第17列地面
 
     // 污染物（平台上 + 地面上）
-    this.items.push(new Pollutant(p1.x + 4, p1.y - 18, 24, 18));           // 平台
-    this.items.push(new Pollutant(36 * TILE_SIZE + 4, groundY(36) - 18, 24, 18)); // 地面 col 36
-    this.items.push(new Pollutant(48 * TILE_SIZE + 4, groundY(48) - 18, 24, 18)); // 地面 col 48
+    //this.items.push(new Pollutant(450, groundY(15) - 30, 24, 18,"cigarette"));
+    //this.items.push(new Pollutant(600, groundY(17) - 30, 24, 18,"plastic_bottle"));
+    this.items.push(new Pollutant(p1.x + 4, p1.y - 18, 24, 18, "cigarette"));           // 平台
+    this.items.push(new Pollutant(36 * TILE_SIZE + 4, groundY(36) - 18, 24, 18, "cigarette")); // 地面 col 36
+    this.items.push(new Pollutant(48 * TILE_SIZE + 4, groundY(48) - 18, 24, 18, "plastic_bottle")); // 地面 col 48
+    this.items.push(new Pollutant(200, groundY(10) - TILE_SIZE, "cigarette", 1));
+    this.items.push(new Pollutant(400, groundY(20) - TILE_SIZE, "plastic_bottle", 1));
 
     // 工具（平台上 + 地面上，居中放置）Tool(x, y, w, h, toolType)
     // toolType 为 pic/tool 下文件名不含 .png，如 'scissor' 'bucket'
@@ -450,6 +472,7 @@ class Player {
   constructor(x, y) {
     Object.assign(this, { x, y, w: 32, h: 64, vx: 0, vy: 0, speed: 2, jumpForce: -6.32, gravity: 0.5, onGround: false, maxHealth: 10, health: 10, inventory: [], facingRight: true });
     this.equippedWeaponType = 'wooden_sword';  // 手持武器，通过挖掘对应矿石升级
+    this.score = 0;
   }
 
   update(platforms) {
@@ -547,12 +570,28 @@ class Item {
 }
 
 class Pollutant extends Item {
-  constructor(x, y, w, h) { super(x, y, w, h, null); this.displayName = '污染物'; }
-  draw() {
-    if (this.sprite) image(this.sprite, this.x, this.y, this.w, this.h);
-    else { fill(100, 200, 100); rect(this.x, this.y, this.w, this.h); }  // 绿色
+  constructor(x, y, w, h, type) {
+    super(x, y, w, h, null);
+    this.type = type;
+    this.value = 1;
   }
+
+  draw() {
+    if (this.collected) return;
+    // 每一帧绘制时尝试获取最新的图片资源
+    let currentSprite = window[this.type]; 
+    
+    if (currentSprite && currentSprite.width > 0) {
+      image(currentSprite, this.x, this.y, this.w, this.h);
+    } else {
+      // 备选方案：如果图片没加载出来，画个色块
+      fill(100, 200, 100);
+      rect(this.x, this.y, this.w, this.h);
+    }
+  }
+
 }
+
 
 class Tool extends Item {
   constructor(x, y, w = 24, h = 24, toolType = 'scissor') {
@@ -658,8 +697,13 @@ class UIManager {
         }
       }
     }
+    // 分数显示
+    fill(255);
+    textSize(20);
+    text("Score: " + game.player.score, 50, 50);
   }
 }
+
 
 // ====== p5.js 生命周期 ======
 function setup() {
@@ -667,6 +711,7 @@ function setup() {
   c.elt.tabIndex = 0;
   c.elt.focus();
   c.elt.classList.add('game-canvas');
+  c.elt.addEventListener('click', () => c.elt.focus());
   c.parent('game-container');
 
   game = new Game();
@@ -675,6 +720,9 @@ function setup() {
   // 加载贴图
   const load = (path, key) => loadImage(path, img => window[key] = img, () => console.warn(`${path} 加载失败`));
 
+  // 新增：污染物图片
+  load('assets/pic/pollutant/cigarette.png', 'cigarette');
+  load('assets/pic/pollutant/plastic_bottle.png', 'plastic_bottle');
   // 玩家与猫（assets/pic/player_cat）
   load('assets/pic/player_cat/Alex_left.png', 'alexSpriteLeft');
   load('assets/pic/player_cat/Alex_right.png', 'alexSpriteRight');
@@ -695,6 +743,9 @@ function setup() {
   load('assets/heart_fill.png', 'heartFill');
   load('assets/pic/inventory_container.png', 'invContainer');
 
+
+
+
   // 地面/平台贴图（assets/pic/ground 中全部）
   const groundTiles = [
     'grass_block_side', 'dirt', 'stone', 'deepslate',
@@ -702,25 +753,104 @@ function setup() {
     'diamond_ore', 'gold_ore', 'iron_ore'
   ];
   groundTiles.forEach(name => loadImage(`assets/pic/ground/${name}.png`, img => window[`tile_${name.replace(/-/g, '_')}`] = img, () => console.warn(`pic/ground/${name}.png 加载失败`)));
+  //加载游戏开始界面
+  loadImage('assets/pic/bg/startscreen.png', img => window.startBg = img, () => console.warn('加载失败'));
+
+
+
 }
 
+//每一帧更新游戏状态并绘制
+//加入游戏状态管理：开始界面、游戏进行中、结束界面
 function draw() {
-  game.update();
-  game.draw();
+  if (game.state === "start") {
+    drawStartScreen();
+  }
+  else if (game.state === "playing") {
+    game.update();
+    game.draw();
+      if (game.player.score >= 2) { // 假设收集2个污染物胜利
+        game.state = "victory";
+      }
+      if (game.player.health <= 0) {
+        game.state = "gameover";
+      }
+  }
+
+  if (game.state === "gameover") {
+    drawGameOverScreen();
+  }
+  if (game.state === "victory") {
+    drawVictoryScreen();
+  }
 }
 
 function keyPressed() {
-  if (key === ' ' || keyCode === UP_ARROW) {
-    game.player.jump();
-    return false;
+   console.log("按键按下:", key, keyCode); // 测试用
+  //按ENTER开始游戏
+  if (game.state === "start" && (keyCode === ENTER ||keyCode === 13) ){
+    game.state = "playing";
+    return;
   }
-  if (key === 'f' || key === 'F' || keyCode === 70) {
-    game.tryAttack();
-    return false;
+
+  //游戏结束之后按ENTER重启游戏
+  if ((game.state === "gameover"|| game.state === "victory") &&(keyCode === ENTER ||keyCode === 13)) {
+    game.state = "playing";
+    game = new Game();   // 重置
+    game.setup();
+    return;
   }
-  if ([LEFT_ARROW, RIGHT_ARROW, UP_ARROW, DOWN_ARROW].includes(keyCode)) return false;
+  if (game.state === "playing"){
+      //人物控制
+    if (key === ' ' || keyCode === UP_ARROW  || keyCode === 38) {
+      game.player.jump();
+      return false;
+    }
+    if (key === 'f' || key === 'F' || keyCode === 70) {
+      game.tryAttack();
+      return false;
+    }
+    if ([LEFT_ARROW, RIGHT_ARROW, UP_ARROW, DOWN_ARROW].includes(keyCode)) return false;
+  }
 }
 
 function mouseReleased() {
   if (game) game.mouseDownTime = 0;
+}
+
+
+// ====== startscreen ======
+function drawStartScreen() {
+  if (window.startBg && startBg.width > 0) {
+    image(startBg, 0, 0, width, height); // 填满画布
+  } else {
+    background(50, 50, 100); // 加载失败显示背景色
+  }
+  fill(255, 165, 0)
+  textAlign(CENTER, CENTER);
+  textSize(24);
+  text("Press ENTER to Start", width / 2, height / 2 + 50);
+}
+
+//===== gameover screen ======
+function drawGameOverScreen() {
+  background(0);
+  fill(255, 0, 0);
+  textAlign(CENTER, CENTER);
+  textSize(48);
+  text("GAME OVER", width / 2, height / 2 - 40);
+  textSize(20);
+  fill(255);
+  text("Press ENTER to Restart", width / 2, height / 2 + 20);
+}
+
+
+function drawVictoryScreen() {
+  background(0, 100, 50); // 深绿色背景
+  fill(200, 255, 150); // 浅绿色文字
+  textAlign(CENTER, CENTER);
+  textSize(36);
+  text("Victory!", width / 2, height / 2 - 20);
+  textSize(24);
+  text("Press ENTER to Play Again", width / 2, height / 2 + 40);
 }
