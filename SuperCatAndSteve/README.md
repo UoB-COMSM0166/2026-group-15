@@ -1,5 +1,7 @@
 # SuperCatAndSteve
 
+sketch.js is our main code.
+
 ## Try the Game
 
 https://uob-comsm0166.github.io/2026-group-15/SuperCatAndSteve/
