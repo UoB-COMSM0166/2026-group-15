@@ -7,7 +7,10 @@ const TERRAIN_COLS = Math.ceil(WORLD_WIDTH / TILE_SIZE);
 const INVENTORY_SLOTS = 6;
 const HINT_CAT_DELAY_MS = 500;
 const HINT_CAT_GAP = 8;
+const HINT_POLLUTANT_RANGE = 96;
 const MINE_PRESS_MS = 500;  // 长按多久后破坏方块
+const WIN_SCORE = 3;
+const VICTORY_DELAY_MS = 1500;
 const ATTACK_COOLDOWN_MS = 400;  // 攻击冷却
 const PLAYER_ATTACK_RANGE = 48;   // 玩家可攻击敌人的距离（鼠标点击时）
 const ENEMY_DAMAGE_RANGE = 32;    // 敌人可伤害玩家的距离（≤此距离时每 1 秒扣 1 生命）
@@ -84,6 +87,9 @@ class Game {
     this.mouseDownTime = 0;
     this.lastAttackTime = 0;
     this.lastEnemyContactDamageTime = 0;  // 上次因接触敌人扣血的时间
+    this.shownOreHint = false;
+    this.oreHintUntil = 0;
+    this.victoryAt = 0;
     //游戏状态：start playing gameover victory
     this.state = "start";
   }
@@ -93,6 +99,12 @@ class Game {
     this.player = new Player(80, groundY - 64);
    }
 
+  resetHintState() {
+    this.shownOreHint = false;
+    this.oreHintUntil = 0;
+    this.victoryAt = 0;
+  }
+
   update() {
     this.player.update(this.level.platforms);
     this.updateCamera();
@@ -101,9 +113,15 @@ class Game {
     this.updateMining();
     if (this.player.health <= 0) {
       this.state = "gameover";
+      this.victoryAt = 0;
+      return;
     }
-    // 胜利条件：收集到 2 分
-      if (this.player.score >= 2) this.state = "victory";
+    if (this.player.score >= WIN_SCORE) {
+      if (!this.victoryAt) this.victoryAt = millis() + VICTORY_DELAY_MS;
+      if (millis() >= this.victoryAt) this.state = "victory";
+    } else {
+      this.victoryAt = 0;
+    }
   }
 
   /** 获取玩家脚下所在的地形行（列 col 的表面起算） */
@@ -161,7 +179,8 @@ class Game {
   }
 
   updateMining() {
-    if (!mouseIsPressed) {
+    const miningPressed = mouseIsPressed;
+    if (!miningPressed) {
       this.mouseDownTime = 0;
       return;
     }
@@ -207,6 +226,7 @@ class Game {
     const cutoff = millis() - HINT_CAT_DELAY_MS - 50;
     while (this.playerHistory.length && this.playerHistory[0].t < cutoff) this.playerHistory.shift();
     this.level.hintCat.follow(this.getDelayedState());
+    this.level.hintCat.setMessage(this.getHintMessage());
   }
 
   getDelayedState() {
@@ -241,6 +261,98 @@ class Game {
     const ex = enemy.x + enemy.w / 2;
     const ey = enemy.y + enemy.h / 2;
     return Math.sqrt((px - ex) ** 2 + (py - ey) ** 2);
+  }
+
+  distanceToItem(item) {
+    const px = this.player.x + this.player.w / 2;
+    const py = this.player.y + this.player.h / 2;
+    const ix = item.x + item.w / 2;
+    const iy = item.y + item.h / 2;
+    return Math.sqrt((px - ix) ** 2 + (py - iy) ** 2);
+  }
+
+  playerHasScissor() {
+    return this.player.inventory.some(item => item instanceof Tool && item.toolType === 'scissor');
+  }
+
+  canCollectItem() {
+    return this.player.inventory.length < INVENTORY_SLOTS;
+  }
+
+  isOreTile(tileType) {
+    return [
+      T.COPPER, T.DEEP_COPPER, T.DEEP_DIAMOND, T.DEEP_GOLD, T.DEEP_IRON,
+      T.DIAMOND, T.GOLD, T.IRON
+    ].includes(tileType);
+  }
+
+  shouldShowOreHint() {
+    if (this.shownOreHint) return false;
+    const px = this.player.x + this.player.w / 2;
+    const py = this.player.y + this.player.h / 2;
+    const range = HINT_POLLUTANT_RANGE;
+    const colMin = Math.max(0, Math.floor((px - range) / TILE_SIZE));
+    const colMax = Math.min(TERRAIN_COLS - 1, Math.floor((px + range) / TILE_SIZE));
+    for (let col = colMin; col <= colMax; col++) {
+      const surfaceY = this.level.terrainHeights[col];
+      if (surfaceY === undefined) continue;
+      const rows = this.level.tileMap[col] || [];
+      for (let row = 0; row < rows.length; row++) {
+        const tileType = rows[row];
+        if (!this.isOreTile(tileType)) continue;
+        const tx = col * TILE_SIZE + TILE_SIZE / 2;
+        const ty = surfaceY + row * TILE_SIZE + TILE_SIZE / 2;
+        if (Math.hypot(px - tx, py - ty) <= range) {
+          this.shownOreHint = true;
+          this.oreHintUntil = millis() + 4000;
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+
+  getHintMessage() {
+    let closestEnemyDist = Infinity;
+    for (const enemy of this.level.enemies) {
+      if (enemy.isDead) continue;
+      const d = this.distanceToEnemy(enemy);
+      if (d < closestEnemyDist) closestEnemyDist = d;
+    }
+    if (closestEnemyDist <= PLAYER_ATTACK_RANGE + 16) return "遇到僵尸！按F攻击";
+
+    this.shouldShowOreHint();
+    if (millis() < this.oreHintUntil) return "挖矿石提升武器";
+
+    let closestScissorDist = Infinity;
+    for (const item of this.level.items) {
+      if (!(item instanceof Tool) || item.toolType !== 'scissor') continue;
+      const d = this.distanceToItem(item);
+      if (d < closestScissorDist) closestScissorDist = d;
+    }
+    if (closestScissorDist <= HINT_POLLUTANT_RANGE && !this.playerHasScissor()) {
+      return "获取剪刀解救动物";
+    }
+
+    let closestBirdDist = Infinity;
+    for (const item of this.level.items) {
+      if (!(item instanceof TrappedBird)) continue;
+      const d = this.distanceToItem(item);
+      if (d < closestBirdDist) closestBirdDist = d;
+    }
+    if (closestBirdDist <= HINT_POLLUTANT_RANGE) {
+      return this.playerHasScissor() ? "用剪刀解救小鸟" : "获取剪刀解救小鸟";
+    }
+
+    let closestPollutantDist = Infinity;
+    for (const item of this.level.items) {
+      if (!(item instanceof Pollutant)) continue;
+      const d = this.distanceToItem(item);
+      if (d < closestPollutantDist) closestPollutantDist = d;
+    }
+    if (closestPollutantDist <= HINT_POLLUTANT_RANGE) return "发现污染物，靠近即可收集";
+
+    return null;
   }
 
   /** 按 F 键攻击：对距离 ≤ PLAYER_ATTACK_RANGE 的最近敌人造成一次伤害 */
@@ -280,6 +392,14 @@ for (let i = this.level.items.length - 1; i >= 0; i--) {
       const item = this.level.items[i]; 
 
       if (this.player.collidesWith(item)) {
+        if (item instanceof TrappedBird) {
+          if (!this.playerHasScissor()) continue;
+          if (!this.canCollectItem()) continue;
+          this.player.collect(new LittleBird(0, 0, 24, 24));
+          this.player.score += 1;
+          this.level.items.splice(i, 1);
+          continue;
+        }
         
         // 2. 使用刚才定义的变量 item 进行判断
         if (item instanceof Pollutant) {
@@ -342,8 +462,8 @@ class ForestLevel extends Level {
 
     // 地形定义：addTerrainColumn(列号, 高度, [贴图])
     const terrain = [
-      [0,5,[G,S,S,X,X]], [1,5,[G,Ir,S,X,X]], [2,5,[G,D,S,X,X]], [3,4,[G,S,S,X]], [4,4,[G,D,S,X]],
-      [5,4,[G,D,S,X]], [6,3,[S,S,X]], [7,3,[S,S,X]], [8,2,[S,X]], [9,2,[S,X]], [10,2,[S,X]],
+      [0,5,[G,S,S,X,X]], [1,5,[G,S,S,X,X]], [2,5,[G,D,S,X,X]], [3,4,[G,S,S,X]], [4,4,[G,D,S,X]],
+      [5,4,[G,D,S,X]], [6,3,[S,Ir,X]], [7,3,[S,S,X]], [8,2,[S,X]], [9,2,[S,X]], [10,2,[S,X]],
       [11,3,[S,S,X]], [12,3,[S,Ir,X]], [13,3,[G,S,X]], [14,3,[G,S,X]], [15,3,[G,S,X]],
       [16,4,[G,D,S,X]], [17,4,[G,S,S,X]], [18,4,[G,S,S,X]], [19,4,[G,D,S,X]],
       [20,3,[D,D,S]], [21,2,[D,S]], [22,2,[D,S]], [23,2,[D,S]], [24,3,[D,Ir,X]],
@@ -384,15 +504,26 @@ class ForestLevel extends Level {
     this.items.push(new Pollutant(p1.x + 4, p1.y - 18, 24, 18, "cigarette"));           // 平台
     this.items.push(new Pollutant(36 * TILE_SIZE + 4, groundY(36) - 18, 24, 18, "cigarette")); // 地面 col 36
     this.items.push(new Pollutant(48 * TILE_SIZE + 4, groundY(48) - 18, 24, 18, "plastic_bottle")); // 地面 col 48
-    this.items.push(new Pollutant(200, groundY(10) - TILE_SIZE, "cigarette", 1));
-    this.items.push(new Pollutant(400, groundY(20) - TILE_SIZE, "plastic_bottle", 1));
+
+    // 被困小鸟
+    const birdOffset = (TILE_SIZE - 24) / 2;
+    this.items.push(new TrappedBird(24 * TILE_SIZE + birdOffset, groundY(24) - 21, 24, 24));
+    this.items.push(new TrappedBird(p7.x + birdOffset, p7.y - 21, 24, 24));
 
     // 工具（平台上 + 地面上，居中放置）Tool(x, y, w, h, toolType)
     // toolType 为 pic/tool 下文件名不含 .png，如 'scissor' 'bucket'
     const toolOffset = (TILE_SIZE - 24) / 2;
-    this.items.push(new Tool(p3.x + toolOffset, p3.y - 24, 24, 24, 'scissor'));
+    this.items.push(new Tool(p3.x + toolOffset, p3.y - 21, 24, 24, 'scissor'));
     this.items.push(new Tool(8 * TILE_SIZE + toolOffset, groundY(8) - 24, 24, 24, 'bucket'));
-    this.items.push(new Tool(32 * TILE_SIZE + toolOffset, groundY(32) - 24, 24, 24, 'scissor'));
+    const buriedScissorCol = 16;
+    const buriedScissorRow = 2;
+    this.items.push(new Tool(
+      buriedScissorCol * TILE_SIZE + toolOffset,
+      groundY(buriedScissorCol) + buriedScissorRow * TILE_SIZE + (TILE_SIZE - 24) / 2,
+      24,
+      24,
+      'scissor'
+    ));
     this.items.push(new Tool(55 * TILE_SIZE + toolOffset, groundY(55) - 24, 24, 24, 'bucket'));
   }
 
@@ -592,6 +723,28 @@ class Pollutant extends Item {
 
 }
 
+class TrappedBird extends Item {
+  constructor(x, y, w = 24, h = 24) {
+    super(x, y, w, h, null);
+  }
+  draw() {
+    const img = window.trappedbird;
+    if (img && img.width > 0) image(img, this.x, this.y, this.w, this.h);
+    else { fill(200, 180, 80); rect(this.x, this.y, this.w, this.h); }
+  }
+}
+
+class LittleBird extends Item {
+  constructor(x, y, w = 24, h = 24) {
+    super(x, y, w, h, null);
+  }
+  draw() {
+    const img = window.littlebird;
+    if (img && img.width > 0) image(img, this.x, this.y, this.w, this.h);
+    else { fill(180, 200, 220); rect(this.x, this.y, this.w, this.h); }
+  }
+}
+
 
 class Tool extends Item {
   constructor(x, y, w = 24, h = 24, toolType = 'scissor') {
@@ -639,7 +792,11 @@ class Weapon extends Item {
 
 // ====== HintCat 类 ======
 class HintCat {
-  constructor(x, y) { Object.assign(this, { x, y, w: 32, h: 16, facingRight: true, messages: ["按 ←/→ 移动", "按空格跳跃", "收集污染物！"] }); }
+  constructor(x, y) { Object.assign(this, { x, y, w: 32, h: 16, facingRight: true, messages: ["移动: ←↑→ 跳跃: 空格键 挖矿: 长按鼠标"], message: null }); }
+
+  setMessage(message) {
+    this.message = message;
+  }
 
   follow(state) {
     this.x = max(0, state.x - this.w - HINT_CAT_GAP);
@@ -651,8 +808,57 @@ class HintCat {
     const img = this.facingRight ? window.catSpriteRight : window.catSpriteLeft;
     if (img && img.width > 0) image(img, this.x, this.y, this.w, this.h);
     else { fill(255, 200, 0); rect(this.x, this.y, this.w, this.h); }
-    fill(255); textSize(14);
-    text(this.messages[0], this.x + this.w + 4, this.y + 8);
+    const msg = this.message || this.messages[0];
+    if (msg) {
+      push();
+      textSize(12);
+      const paddingX = 6;
+      const paddingY = 5;
+      const maxCharsPerLine = 5;
+      let lines = [];
+      const defaultMsg = this.messages[0];
+      if (msg === defaultMsg) {
+        lines = ["移动: ←↑→", "跳跃: 空格键", "挖矿: 长按鼠标"];
+      } else {
+        const words = msg.split(" ");
+        let current = "";
+        for (const word of words) {
+          const needsSpace = current.length > 0;
+          const next = (needsSpace ? current + " " : current) + word;
+          if (next.length <= maxCharsPerLine) {
+            current = next;
+            continue;
+          }
+          if (current.length > 0) {
+            lines.push(current);
+            current = "";
+          }
+          if (word.length <= maxCharsPerLine) {
+            current = word;
+          } else {
+            for (let i = 0; i < word.length; i += maxCharsPerLine) {
+              lines.push(word.slice(i, i + maxCharsPerLine));
+            }
+          }
+        }
+        if (current) lines.push(current);
+      }
+      const lineH = 16;
+      const bubbleW = max(...lines.map(l => textWidth(l))) + paddingX * 2;
+      const bubbleH = lines.length * lineH + paddingY * 2;
+      const bubbleX = this.x + this.w / 2 - bubbleW / 2;
+      const bubbleY = max(6, this.y - bubbleH - 6);
+      noStroke();
+      fill(255, 210);
+      rect(bubbleX, bubbleY, bubbleW, bubbleH, 4);
+      fill(130);
+      textAlign(CENTER, CENTER);
+      for (let i = 0; i < lines.length; i++) {
+        const y = bubbleY + paddingY + lineH / 2 + i * lineH;
+        text(lines[i], bubbleX + bubbleW / 2, y);
+      }
+      pop();
+    }
   }
 }
 
@@ -686,12 +892,14 @@ class UIManager {
         let img = item.sprite;
         if (item instanceof Tool) img = window['tool_' + item.toolType];
         if (item instanceof Weapon) img = window['weapon_' + item.weaponType];
+        if (item instanceof LittleBird) img = window.littlebird;
         if (img && img.width > 0) {
           image(img, x, y, SLOT_SIZE, SLOT_SIZE);
         } else {
           if (item instanceof Pollutant) fill(100, 200, 100);
           else if (item instanceof Tool) fill(100, 150, 255);
           else if (item instanceof Weapon) fill(180, 120, 80);
+          else if (item instanceof LittleBird) fill(180, 200, 220);
           else fill(255, 255, 0);
           rect(x + 2, y + 2, SLOT_SIZE - 4, SLOT_SIZE - 4, 2);
         }
@@ -720,9 +928,11 @@ function setup() {
   // 加载贴图
   const load = (path, key) => loadImage(path, img => window[key] = img, () => console.warn(`${path} 加载失败`));
 
-  // 新增：污染物图片
+  // 新增：污染物及被困小动物
   load('assets/pic/pollutant/cigarette.png', 'cigarette');
   load('assets/pic/pollutant/plastic_bottle.png', 'plastic_bottle');
+  load('assets/pic/trappedbird.png', 'trappedbird');
+  load('assets/pic/littlebird.png', 'littlebird');
   // 玩家与猫（assets/pic/player_cat）
   load('assets/pic/player_cat/Alex_left.png', 'alexSpriteLeft');
   load('assets/pic/player_cat/Alex_right.png', 'alexSpriteRight');
@@ -769,12 +979,6 @@ function draw() {
   else if (game.state === "playing") {
     game.update();
     game.draw();
-      if (game.player.score >= 2) { // 假设收集2个污染物胜利
-        game.state = "victory";
-      }
-      if (game.player.health <= 0) {
-        game.state = "gameover";
-      }
   }
 
   if (game.state === "gameover") {
@@ -790,6 +994,7 @@ function keyPressed() {
   //按ENTER开始游戏
   if (game.state === "start" && (keyCode === ENTER ||keyCode === 13) ){
     game.state = "playing";
+    game.resetHintState();
     return;
   }
 
@@ -798,6 +1003,7 @@ function keyPressed() {
     game.state = "playing";
     game = new Game();   // 重置
     game.setup();
+    game.resetHintState();
     return;
   }
   if (game.state === "playing"){
