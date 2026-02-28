@@ -267,6 +267,8 @@ class Game {
 
   checkCollisions() {
     const now = millis();
+
+    //敌人伤害
     for (const enemy of this.level.enemies) {
       if (enemy.isDead) continue;
       if (this.distanceToEnemy(enemy) > ENEMY_DAMAGE_RANGE) continue;
@@ -275,12 +277,23 @@ class Game {
       this.lastEnemyContactDamageTime = now;
       break;
     }
-for (let i = this.level.items.length - 1; i >= 0; i--) {
-      // 1. 先把当前物品存入一个变量，比如叫 item
+
+    //物品拾取/碰撞
+    for (let i = this.level.items.length - 1; i >= 0; i--) {
+      // 先把当前物品存入一个变量，比如叫 item
       const item = this.level.items[i]; 
 
       if (this.player.collidesWith(item)) {
-        
+        // 1. 食物：回血并移除
+        if (item instanceof Food) {
+          this.player.health = min(
+            this.player.maxHealth,
+            this.player.health + item.healAmount
+          );
+
+          this.level.items.splice(i, 1);
+        }else {
+
         // 2. 使用刚才定义的变量 item 进行判断
         if (item instanceof Pollutant) {
           this.player.score += 1;
@@ -293,6 +306,7 @@ for (let i = this.level.items.length - 1; i >= 0; i--) {
       }
     }
   }
+}
 
   draw() {
     background(168, 193, 254);
@@ -394,6 +408,10 @@ class ForestLevel extends Level {
     this.items.push(new Tool(8 * TILE_SIZE + toolOffset, groundY(8) - 24, 24, 24, 'bucket'));
     this.items.push(new Tool(32 * TILE_SIZE + toolOffset, groundY(32) - 24, 24, 24, 'scissor'));
     this.items.push(new Tool(55 * TILE_SIZE + toolOffset, groundY(55) - 24, 24, 24, 'bucket'));
+
+    //食物
+    this.items.push(new Food(80, 100, 24, 24, "apple", 2));
+    this.items.push(new Food(140, 100, 24, 24, "enlarged_golden_apple", 5));
   }
 
   addTerrainColumn(col, heightTiles, tiles) {
@@ -737,6 +755,9 @@ function setup() {
 
   // 武器（assets/pic/weapon，威力从低到高：wooden / stone / iron / diamond）
   ['wooden_sword', 'stone_sword', 'iron_sword', 'diamond_sword'].forEach(name => load(`assets/pic/weapon/${name}.png`, `weapon_${name}`));
+
+  // 食物图片（assets/pic/food, 恢复效果从低到高：苹果和金苹果) 
+  ['apple', 'enlarged_golden_apple'].forEach(name =>load(`assets/pic/food/${name}.png`, `food_${name}`));
 
   // UI 等（心形在 assets 根目录，背包在 assets/pic）
   load('assets/heart_container.png', 'heartContainer');
