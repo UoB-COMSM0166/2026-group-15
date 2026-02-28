@@ -21,7 +21,7 @@ const T = {
   NONE: 0,
   GRASS: 1, DIRT: 2, STONE: 3, DEEP: 4,
   COPPER: 5, DEEP_COPPER: 6, DEEP_DIAMOND: 7, DEEP_GOLD: 8, DEEP_IRON: 9,
-  DIAMOND: 10, GOLD: 11, IRON: 12
+  DIAMOND: 10, GOLD: 11, IRON: 12,  LAVA: 13, ACID: 14, WATER: 15
 };
 
 // UI 常量
@@ -52,14 +52,18 @@ function getTextures() {
     [T.DEEP_IRON]: window.tile_deepslate_iron_ore,
     [T.DIAMOND]: window.tile_diamond_ore,
     [T.GOLD]: window.tile_gold_ore,
-    [T.IRON]: window.tile_iron_ore
+    [T.IRON]: window.tile_iron_ore,
+    [T.LAVA]: window.tile_lava,
+    [T.ACID]: window.tile_acid,
+    [T.WATER]: window.tile_water
   };
 }
 const FALLBACK_COLORS = {
   [T.GRASS]: [100, 180, 100], [T.DIRT]: [139, 90, 43], [T.STONE]: [128, 128, 128], [T.DEEP]: [80, 80, 80],
   [T.COPPER]: [180, 100, 80], [T.DEEP_COPPER]: [100, 70, 60], [T.DEEP_DIAMOND]: [80, 180, 220],
   [T.DEEP_GOLD]: [200, 160, 60], [T.DEEP_IRON]: [160, 140, 120], [T.DIAMOND]: [100, 200, 230],
-  [T.GOLD]: [220, 180, 50], [T.IRON]: [180, 160, 140]
+  [T.GOLD]: [220, 180, 50], [T.IRON]: [180, 160, 140], [T.LAVA]: [255, 80, 0],[T.ACID]: [120, 255, 120],
+  [T.WATER]: [80, 140, 255]
 };
 
 function drawTile(tileType, x, y) {
@@ -105,8 +109,46 @@ class Game {
     this.player.update(this.level.platforms);
     this.updateCamera();
     this.updateHintCat();
+    // 更新所有带 update 方法的物体（比如 TNT）
+    const now = millis();
+    for (const item of this.level.items) {
+     if (typeof item.update === "function") {
+      item.update(now, this.player);
+     }
+   }
     this.checkCollisions();
     this.updateMining();
+
+  // ===== Hazard pools: lava / acid with conversion =====
+const colUnder = Math.floor((this.player.x + this.player.w / 2) / TILE_SIZE);
+const rowUnder = this.getPlayerTerrainRow(colUnder);
+
+if (colUnder >= 0 && colUnder < TERRAIN_COLS && rowUnder >= 0) {
+  const t = this.level.tileMap[colUnder]?.[rowUnder];
+
+
+  // LAVA -> STONE（需要 enlarged_water_bucket）
+  if (t === T.LAVA) {
+  // 不再自动变石头
+  this.player.health = 0;
+}
+else if (t === T.ACID) {
+  this.player.health = 0;
+}
+
+  // ACID -> WATER（需要 limestone）
+  else if (t === T.ACID) {
+    if (this.hasTool('limestone')) {
+      this.level.tileMap[colUnder][rowUnder] = T.WATER;
+      this.consumeTool('limestone');
+    } else {
+      this.player.health = 0;
+    }
+  }
+}
+
+
+
     if (this.player.health <= 0) {
       this.state = "gameover";
       this.victoryAt = 0;
@@ -253,6 +295,21 @@ class Game {
     if (newTier > currentTier) this.player.equippedWeaponType = weapon;
   }
 
+  hasTool(toolType) {
+  return this.player.inventory.some(
+    it => it instanceof Tool && it.toolType === toolType
+  );
+}
+
+consumeTool(toolType) {
+  const idx = this.player.inventory.findIndex(
+    it => it instanceof Tool && it.toolType === toolType
+  );
+  if (idx !== -1) {
+    this.player.inventory.splice(idx, 1);
+  }
+}
+
   /** 玩家与敌人的中心距离 */
   distanceToEnemy(enemy) {
     const px = this.player.x + this.player.w / 2;
@@ -336,6 +393,38 @@ class Game {
     return false;
   }
 
+  isNearLava() {
+  // 玩家中心所在列
+  const playerCol = Math.floor((this.player.x + this.player.w / 2) / TILE_SIZE);
+
+  // 左右 2 格内检查是否出现 LAVA
+  for (let dx = -2; dx <= 2; dx++) {
+    const col = playerCol + dx;
+    if (col < 0 || col >= TERRAIN_COLS) continue;
+
+    const column = this.level.tileMap[col];
+    if (!column) continue;
+
+    if (column.includes(T.LAVA)) return true;
+  }
+  return false;
+}
+
+isNearAcid() {
+  const playerCol = Math.floor((this.player.x + this.player.w / 2) / TILE_SIZE);
+
+  for (let dx = -2; dx <= 2; dx++) {
+    const col = playerCol + dx;
+    if (col < 0 || col >= TERRAIN_COLS) continue;
+
+    const column = this.level.tileMap[col];
+    if (!column) continue;
+
+    if (column.includes(T.ACID)) return true;
+  }
+  return false;
+}
+
   getHintMessage() {
     const worldX = mouseX + this.cameraX;
     const worldY = mouseY;
@@ -352,6 +441,18 @@ class Game {
     if (this.isNearFloating()) return "两次跳跃：双击空格";
 
     if (this.isNearOre()) return "挖矿石提升武器";
+
+    const closestTntDist = this.getClosestDistance(
+     this.level.items,
+     (item) => item instanceof TNT,
+     this.distanceToItem
+);
+
+    if (closestTntDist <= HINT_POLLUTANT_RANGE)return "小心TNT！靠近会爆炸";
+
+    if (this.isNearLava()) return "靠近岩浆！收集水桶到背包并用鼠标点击倒水";
+
+    if (this.isNearAcid()) return "靠近酸池！收集石灰石到背包并用鼠标点击中和";
 
     const closestScissorDist = this.getClosestDistance(
       this.level.items,
@@ -403,42 +504,206 @@ class Game {
     }
   }
 
-  checkCollisions() {
-    const now = millis();
-    for (const enemy of this.level.enemies) {
-      if (enemy.isDead) continue;
-      if (this.distanceToEnemy(enemy) > ENEMY_DAMAGE_RANGE) continue;
-      if (now - this.lastEnemyContactDamageTime < ENEMY_CONTACT_DAMAGE_INTERVAL_MS) break;
-      this.player.takeDamage(1);
-      this.lastEnemyContactDamageTime = now;
-      break;
-    }
-for (let i = this.level.items.length - 1; i >= 0; i--) {
-      // 1. 先把当前物品存入一个变量，比如叫 item
-      const item = this.level.items[i]; 
+handleMousePressed(mx, my) {
+  const slotIndex = this.getInventorySlotAt(mx, my);
+  if (slotIndex === -1) return;
 
-      if (this.player.collidesWith(item)) {
-        if (item instanceof TrappedBird) {
-          if (!this.playerHasScissor()) continue;
-          if (!this.canCollectItem()) continue;
-          this.player.collect(new LittleBird(0, 0, 24, 24));
-          this.player.score += 1;
-          this.level.items.splice(i, 1);
-          continue;
-        }
-        
-        // 2. 使用刚才定义的变量 item 进行判断
-        if (item instanceof Pollutant) {
-          this.player.score += 1;
-          console.log("得分！当前总分:", this.player.score);
-        }
-        
-        // 3. 收集并移除
-        this.player.collect(item);
-        this.level.items.splice(i, 1);
+  // 记录选中的格子
+  this.player.selectedSlot = slotIndex;
+
+  const item = this.player.inventory[slotIndex];
+  if (!item) return;
+
+  // 只处理工具类
+  if (item instanceof Tool) {
+    // 点击的是水桶：尝试倒水（成功才消耗）
+    if (item.toolType === 'enlarged_water_bucket') {
+      const ok = this.tryUseWaterBucket();
+    }
+    // 点击的是石灰石：后面做 acid 时再加
+    if (item.toolType === 'limestone') {
+      this.tryUseLimestone();
+    }
+    console.log("clicked", item, item instanceof Tool ? item.toolType : null);
+
+  }
+}
+
+getInventorySlotAt(mx, my) {
+  // 复用你们 UIManager.drawHUD 里背包的计算方式
+  const invX = (width - INV_BAR_W) / 2;
+  const invY = height - INV_BAR_H - 12;
+
+  // 点击区域只算背包内部 6 个格子
+  const y0 = invY + INV_PADDING;
+  const y1 = y0 + SLOT_SIZE;
+  if (my < y0 || my > y1) return -1;
+
+  for (let i = 0; i < INVENTORY_SLOTS; i++) {
+    const x0 = invX + INV_PADDING + i * (SLOT_SIZE + SLOT_GAP);
+    const x1 = x0 + SLOT_SIZE;
+    if (mx >= x0 && mx <= x1) return i;
+  }
+  return -1;
+}
+
+tryUseWaterBucket() {
+  // 玩家脚底中心点（世界坐标）
+  const wx = this.player.x + this.player.w / 2;
+  const wy = this.player.y + this.player.h - 1;
+
+  // 我们检查：脚下这一列，以及右边一列（两格池）
+  const cols = [
+    Math.floor(wx / TILE_SIZE),
+    Math.floor((wx + TILE_SIZE) / TILE_SIZE)
+  ];
+
+  for (const col of cols) {
+    if (col < 0 || col >= TERRAIN_COLS) continue;
+
+    const surfaceY = this.level.terrainHeights[col];
+    if (surfaceY === undefined) continue;
+
+    // 关键：根据世界坐标 wy 反推 row（地表起算）
+    const row = Math.floor((wy - surfaceY) / TILE_SIZE);
+
+    // 同时检查 row 和 row+1（有的池子在坑里会低一格）
+    const rows = [row, row + 1];
+
+    for (const r of rows) {
+      const t = this.level.tileMap[col]?.[r];
+      if (t === T.LAVA) {
+  // 1) 当前命中的 lava → stone
+  this.level.tileMap[col][r] = T.STONE;
+
+  // 2) 右边一格（同一行）如果也是 lava，也一起变 stone
+  const rightCol = col + 1;
+  if (rightCol >= 0 && rightCol < TERRAIN_COLS) {
+    // 优先同一 row，再兜底 row+1（坑深一格时）
+    if (this.level.tileMap[rightCol]?.[r] === T.LAVA) {
+      this.level.tileMap[rightCol][r] = T.STONE;
+    } else if (this.level.tileMap[rightCol]?.[r + 1] === T.LAVA) {
+      this.level.tileMap[rightCol][r + 1] = T.STONE;
+    }
+  }
+
+  // 3) 消耗选中的水桶（从背包移除）
+  const s = this.player.selectedSlot;
+  if (s >= 0 && s < this.player.inventory.length) {
+    const item = this.player.inventory[s];
+    if (item instanceof Tool && item.toolType === 'enlarged_water_bucket') {
+      this.player.inventory.splice(s, 1);
+      this.player.selectedSlot = -1;
+    }
+  }
+  return true;
+    }
+    }
+  }
+
+  return false;
+}
+
+tryUseLimestone() {
+  // 以玩家脚下附近为中心，扫描一个小范围内的 ACID 并全部转化成 WATER
+  const wx = this.player.x + this.player.w / 2;
+  const wy = this.player.y + this.player.h - 1;
+
+  const baseCol = Math.floor(wx / TILE_SIZE);
+
+  // 左右多扫几列，保证站在池边也能命中（你池子在 21/22/23，玩家常站 20）
+  const cols = [baseCol - 1, baseCol, baseCol + 1, baseCol + 2,baseCol + 3];
+
+  let changed = 0;
+
+  for (const col of cols) {
+    if (col < 0 || col >= TERRAIN_COLS) continue;
+
+    const surfaceY = this.level.terrainHeights[col];
+    if (surfaceY === undefined) continue;
+
+    const row = Math.floor((wy - surfaceY) / TILE_SIZE);
+
+    // 上下多扫几行，避免池子“垫高/加深”后 row 对不上
+    const rows = [row - 1, row, row + 1, row + 2];
+
+    for (const r of rows) {
+      if (r < 0) continue;
+
+      const t = this.level.tileMap[col]?.[r];
+      if (t === T.ACID) {
+        this.level.tileMap[col][r] = T.WATER;
+        changed++;
       }
     }
   }
+
+  // 只要转化过至少 1 格，就消耗一次 limestone
+  if (changed > 0) {
+    const s = this.player.selectedSlot;
+    if (s >= 0 && s < this.player.inventory.length) {
+      const item = this.player.inventory[s];
+      if (item instanceof Tool && item.toolType === 'limestone') {
+        this.player.inventory.splice(s, 1);
+        this.player.selectedSlot = -1;
+      }
+    }
+    return true;
+  }
+
+  return false;
+}
+
+ checkCollisions() {
+  const now = millis();
+  for (const enemy of this.level.enemies) {
+    if (enemy.isDead) continue;
+    if (this.distanceToEnemy(enemy) > ENEMY_DAMAGE_RANGE) continue;
+    if (now - this.lastEnemyContactDamageTime < ENEMY_CONTACT_DAMAGE_INTERVAL_MS) break;
+    this.player.takeDamage(1);
+    this.lastEnemyContactDamageTime = now;
+    break;
+  }
+
+  for (let i = this.level.items.length - 1; i >= 0; i--) {
+    const item = this.level.items[i];
+
+    // TNT 爆炸后延迟移除（不需要玩家碰到）
+    if (item instanceof TNT && item.exploded && millis() >= item.removeAfter) {
+      this.level.items.splice(i, 1);
+      continue;
+    }
+
+    // 只有碰撞到才处理拾取/触发
+    if (!this.player.collidesWith(item)) continue;
+
+    // 0) TNT：碰到就触发，不进背包、不加分、不移除
+    if (item instanceof TNT) {
+      item.arm(millis());
+      continue;
+    }
+
+    // 1) TrappedBird：必须有剪刀才能救
+    if (item instanceof TrappedBird) {
+      if (!this.playerHasScissor()) continue;
+      if (!this.canCollectItem()) continue;
+      this.player.collect(new LittleBird(0, 0, 24, 24));
+      this.player.score += 1;
+      this.level.items.splice(i, 1);
+      continue;
+    }
+
+    // 2) 污染物加分
+    if (item instanceof Pollutant) {
+      this.player.score += 1;
+      console.log("得分！当前总分:", this.player.score);
+    }
+
+    // 3) 普通收集并移除（Tool/Weapon/Pollutant 都走这里）
+    this.player.collect(item);
+    this.level.items.splice(i, 1);
+  }
+}
 
   draw() {
     background(168, 193, 254);
@@ -488,11 +753,13 @@ class ForestLevel extends Level {
 
     // 地形定义：addTerrainColumn(列号, 高度, [贴图])
     const terrain = [
+
       [0,5,[G,S,S,X,X]], [1,5,[G,S,S,X,X]], [2,5,[G,D,S,X,X]], [3,4,[G,S,S,X]], [4,4,[G,D,S,X]],
-      [5,4,[G,D,S,X]], [6,3,[S,Ir,X]], [7,3,[S,S,X]], [8,2,[S,X]], [9,2,[S,X]], [10,2,[S,X]],
+      [5,4,[G,D,S,X]], [6,3,[S,Ir,X]], [7,3,[S,S,X]], [8,2,[S,X]], [9,2,[T.LAVA]], [10,2,[T.LAVA]],
+
       [11,3,[S,S,X]], [12,3,[S,Ir,X]], [13,3,[G,S,X]], [14,3,[G,S,X]], [15,3,[G,S,X]],
       [16,4,[G,D,S,X]], [17,4,[G,S,S,X]], [18,4,[G,S,S,X]], [19,4,[G,D,S,X]],
-      [20,3,[D,D,S]], [21,2,[D,S]], [22,2,[D,S]], [23,2,[D,S]], [24,3,[D,Ir,X]],
+      [20,3,[D,D,S]], [21,2,[T.ACID,S]], [22,2,[T.ACID,S]], [23,2,[T.ACID,S]], [24,3,[D,Ir,X]],
       [25,4,[G,D,S,X]], [26,5,[G,D,S,X,X]], [27,6,[G,D,S,S,X,X]], [28,6,[G,D,S,X,X,X]],
       [29,6,[G,D,S,S,X,X]], [30,5,[G,D,S,Ir,X]], [31,4,[G,D,S,X]], [32,3,[G,D,S]], [33,3,[G,D,S]],
       [34,3,[G,D,S]], [35,2,[G,D]], [36,2,[G,D]], [37,2,[G,D]], [38,3,[G,D,S]], [39,4,[G,D,S,X]],
@@ -531,16 +798,31 @@ class ForestLevel extends Level {
     this.items.push(new Pollutant(36 * TILE_SIZE + 4, groundY(36) - 18, 24, 18, "cigarette")); // 地面 col 36
     this.items.push(new Pollutant(48 * TILE_SIZE + 4, groundY(48) - 18, 24, 18, "plastic_bottle")); // 地面 col 48
 
-    // 被困小鸟
+        // TNT（不可收集，触发后爆炸）
+    this.items.push(new TNT(33 * TILE_SIZE - 30, groundY(33) - 18, 24, 18));
+
+    // 污染物（额外两处，保留）
+    this.items.push(new Pollutant(200, groundY(10) - TILE_SIZE, 24, 18, "cigarette"));
+    this.items.push(new Pollutant(400, groundY(20) - TILE_SIZE, 22, 31, "plastic_bottle"));
+
+    // 被困小鸟（main 新增）
     const birdOffset = (TILE_SIZE - 24) / 2;
     this.items.push(new TrappedBird(24 * TILE_SIZE + birdOffset, groundY(24) - 21, 24, 24));
     this.items.push(new TrappedBird(p7.x + birdOffset, p7.y - 21, 24, 24));
 
+
     // 工具（平台上 + 地面上，居中放置）Tool(x, y, w, h, toolType)
     // toolType 为 pic/tool 下文件名不含 .png，如 'scissor' 'bucket'
     const toolOffset = (TILE_SIZE - 24) / 2;
+
+    // 平台上的剪刀（用 main 的高度 -21）
     this.items.push(new Tool(p3.x + toolOffset, p3.y - 21, 24, 24, 'scissor'));
-    this.items.push(new Tool(8 * TILE_SIZE + toolOffset, groundY(8) - 24, 24, 24, 'bucket'));
+
+    // 水桶：用你们要求的 enlarged_water_bucket 替换 bucket
+    this.items.push(new Tool(8 * TILE_SIZE + toolOffset, groundY(8) - 24, 24, 24, 'enlarged_water_bucket'));
+    this.items.push(new Tool(55 * TILE_SIZE + toolOffset, groundY(55) - 24, 24, 24, 'enlarged_water_bucket'));
+
+    // main 新增：埋在地下的剪刀（保留）
     const buriedScissorCol = 16;
     const buriedScissorRow = 2;
     this.items.push(new Tool(
@@ -550,7 +832,10 @@ class ForestLevel extends Level {
       24,
       'scissor'
     ));
-    this.items.push(new Tool(55 * TILE_SIZE + toolOffset, groundY(55) - 24, 24, 24, 'bucket'));
+
+    // 你新增：石灰石
+    this.items.push(new Tool(14 * TILE_SIZE + toolOffset, groundY(14) - 24, 24, 24, 'limestone'));
+
   }
 
   addTerrainColumn(col, heightTiles, tiles) {
@@ -629,9 +914,13 @@ class Player {
   constructor(x, y) {
     Object.assign(this, { x, y, w: 32, h: 64, vx: 0, vy: 0, speed: 2, jumpForce: -6.32, gravity: 0.5, onGround: false, maxHealth: 10, health: 10, inventory: [], facingRight: true });
     this.equippedWeaponType = 'wooden_sword';  // 手持武器，通过挖掘对应矿石升级
+    
+
     this.score = 0;
+    this.selectedSlot = -1;   // 当前鼠标选中的背包格子
     this.maxJumps = 2;
     this.jumpsRemaining = this.maxJumps;
+
   }
 
   update(platforms) {
@@ -736,7 +1025,8 @@ class Item {
 }
 
 class Pollutant extends Item {
-  constructor(x, y, w, h, type) {
+
+   constructor(x, y, w, h, type) {
     super(x, y, w, h, null);
     this.type = type;
     this.value = 1;
@@ -756,6 +1046,79 @@ class Pollutant extends Item {
     }
   }
 
+}
+
+
+class TNT extends Pollutant {
+  constructor(x, y, w = 24, h = 18) {
+    super(x, y, w, h, "tnt");
+
+    // 状态
+    this.armed = false;       // 是否已被触发（开始倒计时）
+    this.exploded = false;    // 是否已爆炸
+    this.armTime = 0;         // 触发时刻（millis）
+    this.removeAfter = 0;     // 爆炸后移除时间（ms）
+
+    // 参数（写在类里，避免和组员全局常量冲突）
+    this.fuseMs = 2000;        // 2 秒后爆炸
+    this.blastRadius = 80;     // 爆炸范围（像素）
+    this.damage = 3;           // 伤害
+    this.postExplodeMs = 300;  // 爆炸后显示/保留时间
+  }
+
+  // 玩家第一次碰到时调用：开始倒计时（不要反复重置）
+  arm(now) {
+    if (this.armed || this.exploded) return;
+    this.armed = true;
+    this.armTime = now;
+  }
+
+  // 每帧更新：到点爆炸
+  update(now, player) {
+    if (!this.armed || this.exploded) return;
+    if (now - this.armTime >= this.fuseMs) {
+      this.explode(now, player);
+    }
+  }
+
+  explode(now, player) {
+    if (this.exploded) return;
+    this.exploded = true;
+    this.removeAfter = now + this.postExplodeMs;
+
+    // 计算玩家是否在爆炸范围内（中心点距离）
+    const tx = this.x + this.w / 2;
+    const ty = this.y + this.h / 2;
+    const px = player.x + player.w / 2;
+    const py = player.y + player.h / 2;
+    const d = Math.hypot(px - tx, py - ty);
+
+    if (d <= this.blastRadius) {
+      player.takeDamage(this.damage);
+    }
+  }
+
+  draw() {
+    if (this.exploded) return; // 爆炸后不画
+
+    const img = window[this.type];
+
+    // 点燃后：闪烁（每 100ms 变暗一次）
+    if (this.armed) {
+      const blink = Math.floor(millis() / 100) % 2 === 0;
+      if (blink) { push(); tint(255, 90); }
+
+      if (img && img.width > 0) image(img, this.x, this.y, this.w, this.h);
+      else { fill(255, 0, 0); rect(this.x, this.y, this.w, this.h); }
+
+      if (blink) pop();
+      return;
+    }
+
+    // 未触发：正常显示
+    if (img && img.width > 0) image(img, this.x, this.y, this.w, this.h);
+    else { fill(255, 0, 0); rect(this.x, this.y, this.w, this.h); }
+  }
 }
 
 class TrappedBird extends Item {
@@ -779,6 +1142,8 @@ class LittleBird extends Item {
     else { fill(180, 200, 220); rect(this.x, this.y, this.w, this.h); }
   }
 }
+
+
 
 
 class Tool extends Item {
@@ -971,6 +1336,7 @@ function setup() {
   // 新增：污染物及被困小动物
   load('assets/pic/pollutant/cigarette.png', 'cigarette');
   load('assets/pic/pollutant/plastic_bottle.png', 'plastic_bottle');
+  load('assets/pic/pollutant/tnt_side.png', 'tnt');
   load('assets/pic/animals/trappedbird.png', 'trappedbird');
   load('assets/pic/animals/littlebird.png', 'littlebird');
   // 玩家与猫（assets/pic/player_cat）
@@ -983,8 +1349,7 @@ function setup() {
   load('assets/pic/enemy/zombie.png', 'zombieSprite');
 
   // 工具（assets/pic/tool 中全部，新增图片时在此数组加入文件名不含 .png）
-  ['scissor', 'bucket'].forEach(name => load(`assets/pic/tool/${name}.png`, `tool_${name}`));
-
+  ['scissor', 'limestone', 'enlarged_water_bucket'].forEach(name =>load(`assets/pic/tool/${name}.png`, `tool_${name}`));
   // 武器（assets/pic/weapon，威力从低到高：wooden / stone / iron / diamond）
   ['wooden_sword', 'stone_sword', 'iron_sword', 'diamond_sword'].forEach(name => load(`assets/pic/weapon/${name}.png`, `weapon_${name}`));
 
@@ -1000,7 +1365,7 @@ function setup() {
   const groundTiles = [
     'grass_block_side', 'dirt', 'stone', 'deepslate',
     'copper_ore', 'deepslate_copper_ore', 'deepslate_diamond_ore', 'deepslate_gold_ore', 'deepslate_iron_ore',
-    'diamond_ore', 'gold_ore', 'iron_ore'
+    'diamond_ore', 'gold_ore', 'iron_ore','lava', 'acid', 'water'
   ];
   groundTiles.forEach(name => loadImage(`assets/pic/ground/${name}.png`, img => window[`tile_${name.replace(/-/g, '_')}`] = img, () => console.warn(`pic/ground/${name}.png 加载失败`)));
   //加载游戏开始界面
@@ -1060,8 +1425,13 @@ function keyPressed() {
   }
 }
 
-function mouseReleased() {
-  if (game) game.mouseDownTime = 0;
+function mousePressed() {
+  
+
+  if (!game || game.state !== "playing") return;
+  if (typeof game.handleMousePressed === "function") {
+    game.handleMousePressed(mouseX, mouseY);
+  }
 }
 
 
