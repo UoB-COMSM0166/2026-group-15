@@ -186,18 +186,15 @@ class Game {
 
     const worldX = mouseX + this.cameraX;
     const worldY = mouseY;
-    const candidates = this.getMineableTiles();
-
-    for (const t of candidates) {
-      if (!this.isPointInTerrainTile(worldX, worldY, t.col, t.row)) continue;
-      const bottomRow = (this.level.terrainBlocks[t.col]?.length || 0) - 1;
-      if (t.row === bottomRow) {
+    const pointedTile = this.getPointedMineableTile(worldX, worldY);
+    if (pointedTile) {
+      if (pointedTile.row === pointedTile.bottomRow) {
         this.state = "gameover";
         this.mouseDownTime = 0;
         return;
       }
-      const tileType = this.level.tileMap[t.col][t.row];
-      this.level.removeTerrainBlock(t.col, t.row);
+      const tileType = this.level.tileMap[pointedTile.col][pointedTile.row];
+      this.level.removeTerrainBlock(pointedTile.col, pointedTile.row);
       this.tryWeaponUpgrade(tileType);
       this.mouseDownTime = 0;
       return;
@@ -273,6 +270,26 @@ class Game {
     return Math.sqrt((px - ix) ** 2 + (py - iy) ** 2);
   }
 
+  getClosestDistance(list, predicate, distanceFn) {
+    let best = Infinity;
+    for (const obj of list) {
+      if (!predicate(obj)) continue;
+      const d = distanceFn.call(this, obj);
+      if (d < best) best = d;
+    }
+    return best;
+  }
+
+  getPointedMineableTile(worldX, worldY) {
+    const candidates = this.getMineableTiles();
+    for (const t of candidates) {
+      if (!this.isPointInTerrainTile(worldX, worldY, t.col, t.row)) continue;
+      const bottomRow = (this.level.terrainBlocks[t.col]?.length || 0) - 1;
+      return { col: t.col, row: t.row, bottomRow };
+    }
+    return null;
+  }
+
   playerHasScissor() {
     return this.player.inventory.some(item => item instanceof Tool && item.toolType === 'scissor');
   }
@@ -320,54 +337,45 @@ class Game {
   }
 
   getHintMessage() {
-    let closestEnemyDist = Infinity;
-    for (const enemy of this.level.enemies) {
-      if (enemy.isDead) continue;
-      const d = this.distanceToEnemy(enemy);
-      if (d < closestEnemyDist) closestEnemyDist = d;
-    }
-    if (closestEnemyDist <= PLAYER_ATTACK_RANGE + 16) return "遇到僵尸！按F攻击";
-
     const worldX = mouseX + this.cameraX;
     const worldY = mouseY;
-    const candidates = this.getMineableTiles();
-    for (const t of candidates) {
-      if (!this.isPointInTerrainTile(worldX, worldY, t.col, t.row)) continue;
-      const bottomRow = (this.level.terrainBlocks[t.col]?.length || 0) - 1;
-      if (t.row === bottomRow) return "最后一层不能挖 否则会掉下去";
-      break;
-    }
+    const pointedTile = this.getPointedMineableTile(worldX, worldY);
+    if (pointedTile && pointedTile.row === pointedTile.bottomRow) return "最后一层不能挖 否则会掉下去";
+
+    const closestEnemyDist = this.getClosestDistance(
+      this.level.enemies,
+      (enemy) => !enemy.isDead,
+      this.distanceToEnemy
+    );
+    if (closestEnemyDist <= PLAYER_ATTACK_RANGE + 16) return "遇到僵尸！按F攻击";
 
     if (this.isNearFloating()) return "两次跳跃：双击空格";
 
     if (this.isNearOre()) return "挖矿石提升武器";
 
-    let closestScissorDist = Infinity;
-    for (const item of this.level.items) {
-      if (!(item instanceof Tool) || item.toolType !== 'scissor') continue;
-      const d = this.distanceToItem(item);
-      if (d < closestScissorDist) closestScissorDist = d;
-    }
+    const closestScissorDist = this.getClosestDistance(
+      this.level.items,
+      (item) => item instanceof Tool && item.toolType === 'scissor',
+      this.distanceToItem
+    );
     if (closestScissorDist <= HINT_POLLUTANT_RANGE && !this.playerHasScissor()) {
       return "获取剪刀解救动物";
     }
 
-    let closestBirdDist = Infinity;
-    for (const item of this.level.items) {
-      if (!(item instanceof TrappedBird)) continue;
-      const d = this.distanceToItem(item);
-      if (d < closestBirdDist) closestBirdDist = d;
-    }
+    const closestBirdDist = this.getClosestDistance(
+      this.level.items,
+      (item) => item instanceof TrappedBird,
+      this.distanceToItem
+    );
     if (closestBirdDist <= HINT_POLLUTANT_RANGE) {
       return this.playerHasScissor() ? "用剪刀解救小鸟" : "获取剪刀解救小鸟";
     }
 
-    let closestPollutantDist = Infinity;
-    for (const item of this.level.items) {
-      if (!(item instanceof Pollutant)) continue;
-      const d = this.distanceToItem(item);
-      if (d < closestPollutantDist) closestPollutantDist = d;
-    }
+    const closestPollutantDist = this.getClosestDistance(
+      this.level.items,
+      (item) => item instanceof Pollutant,
+      this.distanceToItem
+    );
     if (closestPollutantDist <= HINT_POLLUTANT_RANGE) return "发现污染物，靠近即可收集";
 
     return null;
@@ -963,8 +971,8 @@ function setup() {
   // 新增：污染物及被困小动物
   load('assets/pic/pollutant/cigarette.png', 'cigarette');
   load('assets/pic/pollutant/plastic_bottle.png', 'plastic_bottle');
-  load('assets/pic/trappedbird.png', 'trappedbird');
-  load('assets/pic/littlebird.png', 'littlebird');
+  load('assets/pic/animals/trappedbird.png', 'trappedbird');
+  load('assets/pic/animals/littlebird.png', 'littlebird');
   // 玩家与猫（assets/pic/player_cat）
   load('assets/pic/player_cat/Alex_left.png', 'alexSpriteLeft');
   load('assets/pic/player_cat/Alex_right.png', 'alexSpriteRight');
