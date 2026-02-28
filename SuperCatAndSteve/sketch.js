@@ -393,6 +393,38 @@ consumeTool(toolType) {
     return false;
   }
 
+  isNearLava() {
+  // 玩家中心所在列
+  const playerCol = Math.floor((this.player.x + this.player.w / 2) / TILE_SIZE);
+
+  // 左右 2 格内检查是否出现 LAVA
+  for (let dx = -2; dx <= 2; dx++) {
+    const col = playerCol + dx;
+    if (col < 0 || col >= TERRAIN_COLS) continue;
+
+    const column = this.level.tileMap[col];
+    if (!column) continue;
+
+    if (column.includes(T.LAVA)) return true;
+  }
+  return false;
+}
+
+isNearAcid() {
+  const playerCol = Math.floor((this.player.x + this.player.w / 2) / TILE_SIZE);
+
+  for (let dx = -2; dx <= 2; dx++) {
+    const col = playerCol + dx;
+    if (col < 0 || col >= TERRAIN_COLS) continue;
+
+    const column = this.level.tileMap[col];
+    if (!column) continue;
+
+    if (column.includes(T.ACID)) return true;
+  }
+  return false;
+}
+
   getHintMessage() {
     const worldX = mouseX + this.cameraX;
     const worldY = mouseY;
@@ -409,6 +441,18 @@ consumeTool(toolType) {
     if (this.isNearFloating()) return "两次跳跃：双击空格";
 
     if (this.isNearOre()) return "挖矿石提升武器";
+
+    const closestTntDist = this.getClosestDistance(
+     this.level.items,
+     (item) => item instanceof TNT,
+     this.distanceToItem
+);
+
+    if (closestTntDist <= HINT_POLLUTANT_RANGE)return "小心TNT！靠近会爆炸";
+
+    if (this.isNearLava()) return "靠近岩浆！收集水桶到背包并用鼠标点击倒水";
+
+    if (this.isNearAcid()) return "靠近酸池！收集石灰石到背包并用鼠标点击中和";
 
     const closestScissorDist = this.getClosestDistance(
       this.level.items,
@@ -759,7 +803,7 @@ class ForestLevel extends Level {
 
     // 污染物（额外两处，保留）
     this.items.push(new Pollutant(200, groundY(10) - TILE_SIZE, 24, 18, "cigarette"));
-    this.items.push(new Pollutant(400, groundY(20) - TILE_SIZE, 24, 18, "plastic_bottle"));
+    this.items.push(new Pollutant(400, groundY(20) - TILE_SIZE, 22, 31, "plastic_bottle"));
 
     // 被困小鸟（main 新增）
     const birdOffset = (TILE_SIZE - 24) / 2;
