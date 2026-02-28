@@ -9,7 +9,7 @@ const HINT_CAT_DELAY_MS = 500;
 const HINT_CAT_GAP = 8;
 const HINT_POLLUTANT_RANGE = 96;
 const MINE_PRESS_MS = 500;  // 长按多久后破坏方块
-const WIN_SCORE = 3;
+const WIN_SCORE = 4;
 const VICTORY_DELAY_MS = 1500;
 const ATTACK_COOLDOWN_MS = 400;  // 攻击冷却
 const PLAYER_ATTACK_RANGE = 48;   // 玩家可攻击敌人的距离（鼠标点击时）
@@ -87,8 +87,6 @@ class Game {
     this.mouseDownTime = 0;
     this.lastAttackTime = 0;
     this.lastEnemyContactDamageTime = 0;  // 上次因接触敌人扣血的时间
-    this.shownOreHint = false;
-    this.oreHintUntil = 0;
     this.victoryAt = 0;
     //游戏状态：start playing gameover victory
     this.state = "start";
@@ -100,8 +98,6 @@ class Game {
    }
 
   resetHintState() {
-    this.shownOreHint = false;
-    this.oreHintUntil = 0;
     this.victoryAt = 0;
   }
 
@@ -194,6 +190,12 @@ class Game {
 
     for (const t of candidates) {
       if (!this.isPointInTerrainTile(worldX, worldY, t.col, t.row)) continue;
+      const bottomRow = (this.level.terrainBlocks[t.col]?.length || 0) - 1;
+      if (t.row === bottomRow) {
+        this.state = "gameover";
+        this.mouseDownTime = 0;
+        return;
+      }
       const tileType = this.level.tileMap[t.col][t.row];
       this.level.removeTerrainBlock(t.col, t.row);
       this.tryWeaponUpgrade(tileType);
@@ -222,7 +224,7 @@ class Game {
   }
 
   updateHintCat() {
-    this.playerHistory.push({ x: this.player.x, y: this.player.y, h: this.player.h, facingRight: this.player.facingRight, t: millis() });
+    this.playerHistory.push({ x: this.player.x, y: this.player.y, w: this.player.w, h: this.player.h, facingRight: this.player.facingRight, t: millis() });
     const cutoff = millis() - HINT_CAT_DELAY_MS - 50;
     while (this.playerHistory.length && this.playerHistory[0].t < cutoff) this.playerHistory.shift();
     this.level.hintCat.follow(this.getDelayedState());
@@ -231,7 +233,7 @@ class Game {
 
   getDelayedState() {
     const targetT = millis() - HINT_CAT_DELAY_MS;
-    if (!this.playerHistory.length) return { x: this.player.x, y: this.player.y, h: this.player.h, facingRight: this.player.facingRight };
+    if (!this.playerHistory.length) return { x: this.player.x, y: this.player.y, w: this.player.w, h: this.player.h, facingRight: this.player.facingRight };
     let best = this.playerHistory[0];
     for (let s of this.playerHistory) {
       if (s.t <= targetT) best = s; else break;
@@ -286,8 +288,7 @@ class Game {
     ].includes(tileType);
   }
 
-  shouldShowOreHint() {
-    if (this.shownOreHint) return false;
+  isNearOre() {
     const px = this.player.x + this.player.w / 2;
     const py = this.player.y + this.player.h / 2;
     const range = HINT_POLLUTANT_RANGE;
@@ -303,11 +304,17 @@ class Game {
         const tx = col * TILE_SIZE + TILE_SIZE / 2;
         const ty = surfaceY + row * TILE_SIZE + TILE_SIZE / 2;
         if (Math.hypot(px - tx, py - ty) <= range) {
-          this.shownOreHint = true;
-          this.oreHintUntil = millis() + 4000;
           return true;
         }
       }
+    }
+    return false;
+  }
+
+  isNearFloating() {
+    for (const p of this.level.platforms) {
+      if (!p._floating) continue;
+      if (this.isInReachZone(p.x, p.y, p.w, p.h)) return true;
     }
     return false;
   }
@@ -321,8 +328,19 @@ class Game {
     }
     if (closestEnemyDist <= PLAYER_ATTACK_RANGE + 16) return "遇到僵尸！按F攻击";
 
-    this.shouldShowOreHint();
-    if (millis() < this.oreHintUntil) return "挖矿石提升武器";
+    const worldX = mouseX + this.cameraX;
+    const worldY = mouseY;
+    const candidates = this.getMineableTiles();
+    for (const t of candidates) {
+      if (!this.isPointInTerrainTile(worldX, worldY, t.col, t.row)) continue;
+      const bottomRow = (this.level.terrainBlocks[t.col]?.length || 0) - 1;
+      if (t.row === bottomRow) return "最后一层不能挖 否则会掉下去";
+      break;
+    }
+
+    if (this.isNearFloating()) return "两次跳跃：双击空格";
+
+    if (this.isNearOre()) return "挖矿石提升武器";
 
     let closestScissorDist = Infinity;
     for (const item of this.level.items) {
@@ -604,6 +622,8 @@ class Player {
     Object.assign(this, { x, y, w: 32, h: 64, vx: 0, vy: 0, speed: 2, jumpForce: -6.32, gravity: 0.5, onGround: false, maxHealth: 10, health: 10, inventory: [], facingRight: true });
     this.equippedWeaponType = 'wooden_sword';  // 手持武器，通过挖掘对应矿石升级
     this.score = 0;
+    this.maxJumps = 2;
+    this.jumpsRemaining = this.maxJumps;
   }
 
   update(platforms) {
@@ -629,7 +649,7 @@ class Player {
           this.x = this.vx > 0 ? p.x - this.w : p.x + p.w;
           this.vx = 0;
         } else {
-          if (this.vy > 0) { this.y = p.y - this.h; this.onGround = true; }
+          if (this.vy > 0) { this.y = p.y - this.h; this.onGround = true; this.jumpsRemaining = this.maxJumps; }
           else if (this.vy < 0) this.y = p.y + p.h;
           this.vy = 0;
         }
@@ -637,7 +657,14 @@ class Player {
     }
   }
 
-  jump() { if (this.onGround) { this.vy = this.jumpForce; this.onGround = false; } }
+  jump() {
+    if (this.jumpsRemaining <= 0) return;
+    const isSecondJump = this.jumpsRemaining === 1;
+    const boost = isSecondJump ? 1.35 : 1;
+    this.vy = this.jumpForce * boost;
+    this.onGround = false;
+    this.jumpsRemaining -= 1;
+  }
   collidesWith(obj) { return rectCollision(this.x, this.y, this.w, this.h, obj.x, obj.y, obj.w, obj.h); }
   collect(item) { if (this.inventory.length < INVENTORY_SLOTS) this.inventory.push(item); }
   takeDamage(amount) { this.health = max(0, this.health - amount); }
@@ -799,7 +826,11 @@ class HintCat {
   }
 
   follow(state) {
-    this.x = max(0, state.x - this.w - HINT_CAT_GAP);
+    const playerW = state.w || 32;
+    const behindX = (state.facingRight !== false)
+      ? (state.x - this.w - HINT_CAT_GAP)
+      : (state.x + playerW + HINT_CAT_GAP);
+    this.x = constrain(behindX, 0, WORLD_WIDTH - this.w);
     this.y = state.y + state.h - this.h;
     this.facingRight = state.facingRight !== false;
   }
