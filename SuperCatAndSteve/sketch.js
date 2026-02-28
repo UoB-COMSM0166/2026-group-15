@@ -890,6 +890,7 @@ class UIManager {
       const item = player.inventory[i];
       if (item) {
         let img = item.sprite;
+        if (item instanceof Pollutant) img = window[item.type];
         if (item instanceof Tool) img = window['tool_' + item.toolType];
         if (item instanceof Weapon) img = window['weapon_' + item.weaponType];
         if (item instanceof LittleBird) img = window.littlebird;
