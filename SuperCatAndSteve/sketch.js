@@ -7,7 +7,10 @@ const TERRAIN_COLS = Math.ceil(WORLD_WIDTH / TILE_SIZE);
 const INVENTORY_SLOTS = 6;
 const HINT_CAT_DELAY_MS = 500;
 const HINT_CAT_GAP = 8;
+const HINT_POLLUTANT_RANGE = 96;
 const MINE_PRESS_MS = 500;  // 长按多久后破坏方块
+const WIN_SCORE = 4;
+const VICTORY_DELAY_MS = 1500;
 const ATTACK_COOLDOWN_MS = 400;  // 攻击冷却
 const PLAYER_ATTACK_RANGE = 48;   // 玩家可攻击敌人的距离（鼠标点击时）
 const ENEMY_DAMAGE_RANGE = 32;    // 敌人可伤害玩家的距离（≤此距离时每 1 秒扣 1 生命）
@@ -18,7 +21,7 @@ const T = {
   NONE: 0,
   GRASS: 1, DIRT: 2, STONE: 3, DEEP: 4,
   COPPER: 5, DEEP_COPPER: 6, DEEP_DIAMOND: 7, DEEP_GOLD: 8, DEEP_IRON: 9,
-  DIAMOND: 10, GOLD: 11, IRON: 12
+  DIAMOND: 10, GOLD: 11, IRON: 12,  LAVA: 13, ACID: 14, WATER: 15
 };
 
 // UI 常量
@@ -49,14 +52,18 @@ function getTextures() {
     [T.DEEP_IRON]: window.tile_deepslate_iron_ore,
     [T.DIAMOND]: window.tile_diamond_ore,
     [T.GOLD]: window.tile_gold_ore,
-    [T.IRON]: window.tile_iron_ore
+    [T.IRON]: window.tile_iron_ore,
+    [T.LAVA]: window.tile_lava,
+    [T.ACID]: window.tile_acid,
+    [T.WATER]: window.tile_water
   };
 }
 const FALLBACK_COLORS = {
   [T.GRASS]: [100, 180, 100], [T.DIRT]: [139, 90, 43], [T.STONE]: [128, 128, 128], [T.DEEP]: [80, 80, 80],
   [T.COPPER]: [180, 100, 80], [T.DEEP_COPPER]: [100, 70, 60], [T.DEEP_DIAMOND]: [80, 180, 220],
   [T.DEEP_GOLD]: [200, 160, 60], [T.DEEP_IRON]: [160, 140, 120], [T.DIAMOND]: [100, 200, 230],
-  [T.GOLD]: [220, 180, 50], [T.IRON]: [180, 160, 140]
+  [T.GOLD]: [220, 180, 50], [T.IRON]: [180, 160, 140], [T.LAVA]: [255, 80, 0],[T.ACID]: [120, 255, 120],
+  [T.WATER]: [80, 140, 255]
 };
 
 function drawTile(tileType, x, y) {
@@ -84,6 +91,7 @@ class Game {
     this.mouseDownTime = 0;
     this.lastAttackTime = 0;
     this.lastEnemyContactDamageTime = 0;  // 上次因接触敌人扣血的时间
+    this.victoryAt = 0;
     //游戏状态：start playing gameover victory
     this.state = "start";
   }
@@ -93,17 +101,65 @@ class Game {
     this.player = new Player(80, groundY - 64);
    }
 
+  resetHintState() {
+    this.victoryAt = 0;
+  }
+
   update() {
     this.player.update(this.level.platforms);
     this.updateCamera();
     this.updateHintCat();
+    // 更新所有带 update 方法的物体（比如 TNT）
+    const now = millis();
+    for (const item of this.level.items) {
+     if (typeof item.update === "function") {
+      item.update(now, this.player);
+     }
+   }
     this.checkCollisions();
     this.updateMining();
+
+  // ===== Hazard pools: lava / acid with conversion =====
+const colUnder = Math.floor((this.player.x + this.player.w / 2) / TILE_SIZE);
+const rowUnder = this.getPlayerTerrainRow(colUnder);
+
+if (colUnder >= 0 && colUnder < TERRAIN_COLS && rowUnder >= 0) {
+  const t = this.level.tileMap[colUnder]?.[rowUnder];
+
+
+  // LAVA -> STONE（需要 enlarged_water_bucket）
+  if (t === T.LAVA) {
+  // 不再自动变石头
+  this.player.health = 0;
+}
+else if (t === T.ACID) {
+  this.player.health = 0;
+}
+
+  // ACID -> WATER（需要 limestone）
+  else if (t === T.ACID) {
+    if (this.hasTool('limestone')) {
+      this.level.tileMap[colUnder][rowUnder] = T.WATER;
+      this.consumeTool('limestone');
+    } else {
+      this.player.health = 0;
+    }
+  }
+}
+
+
+
     if (this.player.health <= 0) {
       this.state = "gameover";
+      this.victoryAt = 0;
+      return;
     }
-    // 胜利条件：收集到 2 分
-      if (this.player.score >= 2) this.state = "victory";
+    if (this.player.score >= WIN_SCORE) {
+      if (!this.victoryAt) this.victoryAt = millis() + VICTORY_DELAY_MS;
+      if (millis() >= this.victoryAt) this.state = "victory";
+    } else {
+      this.victoryAt = 0;
+    }
   }
 
   /** 获取玩家脚下所在的地形行（列 col 的表面起算） */
@@ -161,7 +217,8 @@ class Game {
   }
 
   updateMining() {
-    if (!mouseIsPressed) {
+    const miningPressed = mouseIsPressed;
+    if (!miningPressed) {
       this.mouseDownTime = 0;
       return;
     }
@@ -171,12 +228,15 @@ class Game {
 
     const worldX = mouseX + this.cameraX;
     const worldY = mouseY;
-    const candidates = this.getMineableTiles();
-
-    for (const t of candidates) {
-      if (!this.isPointInTerrainTile(worldX, worldY, t.col, t.row)) continue;
-      const tileType = this.level.tileMap[t.col][t.row];
-      this.level.removeTerrainBlock(t.col, t.row);
+    const pointedTile = this.getPointedMineableTile(worldX, worldY);
+    if (pointedTile) {
+      if (pointedTile.row === pointedTile.bottomRow) {
+        this.state = "gameover";
+        this.mouseDownTime = 0;
+        return;
+      }
+      const tileType = this.level.tileMap[pointedTile.col][pointedTile.row];
+      this.level.removeTerrainBlock(pointedTile.col, pointedTile.row);
       this.tryWeaponUpgrade(tileType);
       this.mouseDownTime = 0;
       return;
@@ -203,15 +263,16 @@ class Game {
   }
 
   updateHintCat() {
-    this.playerHistory.push({ x: this.player.x, y: this.player.y, h: this.player.h, facingRight: this.player.facingRight, t: millis() });
+    this.playerHistory.push({ x: this.player.x, y: this.player.y, w: this.player.w, h: this.player.h, facingRight: this.player.facingRight, t: millis() });
     const cutoff = millis() - HINT_CAT_DELAY_MS - 50;
     while (this.playerHistory.length && this.playerHistory[0].t < cutoff) this.playerHistory.shift();
     this.level.hintCat.follow(this.getDelayedState());
+    this.level.hintCat.setMessage(this.getHintMessage());
   }
 
   getDelayedState() {
     const targetT = millis() - HINT_CAT_DELAY_MS;
-    if (!this.playerHistory.length) return { x: this.player.x, y: this.player.y, h: this.player.h, facingRight: this.player.facingRight };
+    if (!this.playerHistory.length) return { x: this.player.x, y: this.player.y, w: this.player.w, h: this.player.h, facingRight: this.player.facingRight };
     let best = this.playerHistory[0];
     for (let s of this.playerHistory) {
       if (s.t <= targetT) best = s; else break;
@@ -234,6 +295,21 @@ class Game {
     if (newTier > currentTier) this.player.equippedWeaponType = weapon;
   }
 
+  hasTool(toolType) {
+  return this.player.inventory.some(
+    it => it instanceof Tool && it.toolType === toolType
+  );
+}
+
+consumeTool(toolType) {
+  const idx = this.player.inventory.findIndex(
+    it => it instanceof Tool && it.toolType === toolType
+  );
+  if (idx !== -1) {
+    this.player.inventory.splice(idx, 1);
+  }
+}
+
   /** 玩家与敌人的中心距离 */
   distanceToEnemy(enemy) {
     const px = this.player.x + this.player.w / 2;
@@ -241,6 +317,169 @@ class Game {
     const ex = enemy.x + enemy.w / 2;
     const ey = enemy.y + enemy.h / 2;
     return Math.sqrt((px - ex) ** 2 + (py - ey) ** 2);
+  }
+
+  distanceToItem(item) {
+    const px = this.player.x + this.player.w / 2;
+    const py = this.player.y + this.player.h / 2;
+    const ix = item.x + item.w / 2;
+    const iy = item.y + item.h / 2;
+    return Math.sqrt((px - ix) ** 2 + (py - iy) ** 2);
+  }
+
+  getClosestDistance(list, predicate, distanceFn) {
+    let best = Infinity;
+    for (const obj of list) {
+      if (!predicate(obj)) continue;
+      const d = distanceFn.call(this, obj);
+      if (d < best) best = d;
+    }
+    return best;
+  }
+
+  getPointedMineableTile(worldX, worldY) {
+    const candidates = this.getMineableTiles();
+    for (const t of candidates) {
+      if (!this.isPointInTerrainTile(worldX, worldY, t.col, t.row)) continue;
+      const bottomRow = (this.level.terrainBlocks[t.col]?.length || 0) - 1;
+      return { col: t.col, row: t.row, bottomRow };
+    }
+    return null;
+  }
+
+  playerHasScissor() {
+    return this.player.inventory.some(item => item instanceof Tool && item.toolType === 'scissor');
+  }
+
+  canCollectItem() {
+    return this.player.inventory.length < INVENTORY_SLOTS;
+  }
+
+  isOreTile(tileType) {
+    return [
+      T.COPPER, T.DEEP_COPPER, T.DEEP_DIAMOND, T.DEEP_GOLD, T.DEEP_IRON,
+      T.DIAMOND, T.GOLD, T.IRON
+    ].includes(tileType);
+  }
+
+  isNearOre() {
+    const px = this.player.x + this.player.w / 2;
+    const py = this.player.y + this.player.h / 2;
+    const range = HINT_POLLUTANT_RANGE;
+    const colMin = Math.max(0, Math.floor((px - range) / TILE_SIZE));
+    const colMax = Math.min(TERRAIN_COLS - 1, Math.floor((px + range) / TILE_SIZE));
+    for (let col = colMin; col <= colMax; col++) {
+      const surfaceY = this.level.terrainHeights[col];
+      if (surfaceY === undefined) continue;
+      const rows = this.level.tileMap[col] || [];
+      for (let row = 0; row < rows.length; row++) {
+        const tileType = rows[row];
+        if (!this.isOreTile(tileType)) continue;
+        const tx = col * TILE_SIZE + TILE_SIZE / 2;
+        const ty = surfaceY + row * TILE_SIZE + TILE_SIZE / 2;
+        if (Math.hypot(px - tx, py - ty) <= range) {
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+
+  isNearFloating() {
+    for (const p of this.level.platforms) {
+      if (!p._floating) continue;
+      if (this.isInReachZone(p.x, p.y, p.w, p.h)) return true;
+    }
+    return false;
+  }
+
+  isNearLava() {
+  // 玩家中心所在列
+  const playerCol = Math.floor((this.player.x + this.player.w / 2) / TILE_SIZE);
+
+  // 左右 2 格内检查是否出现 LAVA
+  for (let dx = -2; dx <= 2; dx++) {
+    const col = playerCol + dx;
+    if (col < 0 || col >= TERRAIN_COLS) continue;
+
+    const column = this.level.tileMap[col];
+    if (!column) continue;
+
+    if (column.includes(T.LAVA)) return true;
+  }
+  return false;
+}
+
+isNearAcid() {
+  const playerCol = Math.floor((this.player.x + this.player.w / 2) / TILE_SIZE);
+
+  for (let dx = -2; dx <= 2; dx++) {
+    const col = playerCol + dx;
+    if (col < 0 || col >= TERRAIN_COLS) continue;
+
+    const column = this.level.tileMap[col];
+    if (!column) continue;
+
+    if (column.includes(T.ACID)) return true;
+  }
+  return false;
+}
+
+  getHintMessage() {
+    const worldX = mouseX + this.cameraX;
+    const worldY = mouseY;
+    const pointedTile = this.getPointedMineableTile(worldX, worldY);
+    if (pointedTile && pointedTile.row === pointedTile.bottomRow) return "最后一层不能挖 否则会掉下去";
+
+    const closestEnemyDist = this.getClosestDistance(
+      this.level.enemies,
+      (enemy) => !enemy.isDead,
+      this.distanceToEnemy
+    );
+    if (closestEnemyDist <= PLAYER_ATTACK_RANGE + 16) return "遇到僵尸！按F攻击";
+
+    if (this.isNearFloating()) return "两次跳跃：双击空格";
+
+    if (this.isNearOre()) return "挖矿石提升武器";
+
+    const closestTntDist = this.getClosestDistance(
+     this.level.items,
+     (item) => item instanceof TNT,
+     this.distanceToItem
+);
+
+    if (closestTntDist <= HINT_POLLUTANT_RANGE)return "小心TNT！靠近会爆炸";
+
+    if (this.isNearLava()) return "靠近岩浆！收集水桶到背包并用鼠标点击倒水";
+
+    if (this.isNearAcid()) return "靠近酸池！收集石灰石到背包并用鼠标点击中和";
+
+    const closestScissorDist = this.getClosestDistance(
+      this.level.items,
+      (item) => item instanceof Tool && item.toolType === 'scissor',
+      this.distanceToItem
+    );
+    if (closestScissorDist <= HINT_POLLUTANT_RANGE && !this.playerHasScissor()) {
+      return "获取剪刀解救动物";
+    }
+
+    const closestBirdDist = this.getClosestDistance(
+      this.level.items,
+      (item) => item instanceof TrappedBird,
+      this.distanceToItem
+    );
+    if (closestBirdDist <= HINT_POLLUTANT_RANGE) {
+      return this.playerHasScissor() ? "用剪刀解救小鸟" : "获取剪刀解救小鸟";
+    }
+
+    const closestPollutantDist = this.getClosestDistance(
+      this.level.items,
+      (item) => item instanceof Pollutant,
+      this.distanceToItem
+    );
+    if (closestPollutantDist <= HINT_POLLUTANT_RANGE) return "发现污染物，靠近即可收集";
+
+    return null;
   }
 
   /** 按 F 键攻击：对距离 ≤ PLAYER_ATTACK_RANGE 的最近敌人造成一次伤害 */
@@ -265,46 +504,54 @@ class Game {
     }
   }
 
-  checkCollisions() {
-    const now = millis();
+ checkCollisions() {
+  const now = millis();
+  for (const enemy of this.level.enemies) {
+    if (enemy.isDead) continue;
+    if (this.distanceToEnemy(enemy) > ENEMY_DAMAGE_RANGE) continue;
+    if (now - this.lastEnemyContactDamageTime < ENEMY_CONTACT_DAMAGE_INTERVAL_MS) break;
+    this.player.takeDamage(1);
+    this.lastEnemyContactDamageTime = now;
+    break;
+  }
 
-    //敌人伤害
-    for (const enemy of this.level.enemies) {
-      if (enemy.isDead) continue;
-      if (this.distanceToEnemy(enemy) > ENEMY_DAMAGE_RANGE) continue;
-      if (now - this.lastEnemyContactDamageTime < ENEMY_CONTACT_DAMAGE_INTERVAL_MS) break;
-      this.player.takeDamage(1);
-      this.lastEnemyContactDamageTime = now;
-      break;
+  for (let i = this.level.items.length - 1; i >= 0; i--) {
+    const item = this.level.items[i];
+
+    // TNT 爆炸后延迟移除（不需要玩家碰到）
+    if (item instanceof TNT && item.exploded && millis() >= item.removeAfter) {
+      this.level.items.splice(i, 1);
+      continue;
     }
 
-    //物品拾取/碰撞
-    for (let i = this.level.items.length - 1; i >= 0; i--) {
-      // 先把当前物品存入一个变量，比如叫 item
-      const item = this.level.items[i]; 
+    // 只有碰撞到才处理拾取/触发
+    if (!this.player.collidesWith(item)) continue;
 
-      if (this.player.collidesWith(item)) {
-        // 1. 食物：回血并移除
-        if (item instanceof Food) {
-          this.player.health = min(
-            this.player.maxHealth,
-            this.player.health + item.healAmount
-          );
-
-          this.level.items.splice(i, 1);
-        }else {
-
-        // 2. 使用刚才定义的变量 item 进行判断
-        if (item instanceof Pollutant) {
-          this.player.score += 1;
-          console.log("得分！当前总分:", this.player.score);
-        }
-        
-        // 3. 收集并移除
-        this.player.collect(item);
-        this.level.items.splice(i, 1);
-      }
+    // 0) TNT：碰到就触发，不进背包、不加分、不移除
+    if (item instanceof TNT) {
+      item.arm(millis());
+      continue;
     }
+
+    // 1) TrappedBird：必须有剪刀才能救
+    if (item instanceof TrappedBird) {
+      if (!this.playerHasScissor()) continue;
+      if (!this.canCollectItem()) continue;
+      this.player.collect(new LittleBird(0, 0, 24, 24));
+      this.player.score += 1;
+      this.level.items.splice(i, 1);
+      continue;
+    }
+
+    // 2) 污染物加分
+    if (item instanceof Pollutant) {
+      this.player.score += 1;
+      console.log("得分！当前总分:", this.player.score);
+    }
+
+    // 3) 普通收集并移除（Tool/Weapon/Pollutant 都走这里）
+    this.player.collect(item);
+    this.level.items.splice(i, 1);
   }
 }
 
@@ -356,11 +603,13 @@ class ForestLevel extends Level {
 
     // 地形定义：addTerrainColumn(列号, 高度, [贴图])
     const terrain = [
-      [0,5,[G,S,S,X,X]], [1,5,[G,Ir,S,X,X]], [2,5,[G,D,S,X,X]], [3,4,[G,S,S,X]], [4,4,[G,D,S,X]],
-      [5,4,[G,D,S,X]], [6,3,[S,S,X]], [7,3,[S,S,X]], [8,2,[S,X]], [9,2,[S,X]], [10,2,[S,X]],
+
+      [0,5,[G,S,S,X,X]], [1,5,[G,S,S,X,X]], [2,5,[G,D,S,X,X]], [3,4,[G,S,S,X]], [4,4,[G,D,S,X]],
+      [5,4,[G,D,S,X]], [6,3,[S,Ir,X]], [7,3,[S,S,X]], [8,2,[S,X]], [9,2,[T.LAVA]], [10,2,[T.LAVA]],
+
       [11,3,[S,S,X]], [12,3,[S,Ir,X]], [13,3,[G,S,X]], [14,3,[G,S,X]], [15,3,[G,S,X]],
       [16,4,[G,D,S,X]], [17,4,[G,S,S,X]], [18,4,[G,S,S,X]], [19,4,[G,D,S,X]],
-      [20,3,[D,D,S]], [21,2,[D,S]], [22,2,[D,S]], [23,2,[D,S]], [24,3,[D,Ir,X]],
+      [20,3,[D,D,S]], [21,2,[T.ACID,S]], [22,2,[T.ACID,S]], [23,2,[T.ACID,S]], [24,3,[D,Ir,X]],
       [25,4,[G,D,S,X]], [26,5,[G,D,S,X,X]], [27,6,[G,D,S,S,X,X]], [28,6,[G,D,S,X,X,X]],
       [29,6,[G,D,S,S,X,X]], [30,5,[G,D,S,Ir,X]], [31,4,[G,D,S,X]], [32,3,[G,D,S]], [33,3,[G,D,S]],
       [34,3,[G,D,S]], [35,2,[G,D]], [36,2,[G,D]], [37,2,[G,D]], [38,3,[G,D,S]], [39,4,[G,D,S,X]],
@@ -398,8 +647,19 @@ class ForestLevel extends Level {
     this.items.push(new Pollutant(p1.x + 4, p1.y - 18, 24, 18, "cigarette"));           // 平台
     this.items.push(new Pollutant(36 * TILE_SIZE + 4, groundY(36) - 18, 24, 18, "cigarette")); // 地面 col 36
     this.items.push(new Pollutant(48 * TILE_SIZE + 4, groundY(48) - 18, 24, 18, "plastic_bottle")); // 地面 col 48
-    this.items.push(new Pollutant(200, groundY(10) - TILE_SIZE, "cigarette", 1));
-    this.items.push(new Pollutant(400, groundY(20) - TILE_SIZE, "plastic_bottle", 1));
+
+        // TNT（不可收集，触发后爆炸）
+    this.items.push(new TNT(33 * TILE_SIZE - 30, groundY(33) - 18, 24, 18));
+
+    // 污染物（额外两处，保留）
+    this.items.push(new Pollutant(200, groundY(10) - TILE_SIZE, 24, 18, "cigarette"));
+    this.items.push(new Pollutant(400, groundY(20) - TILE_SIZE, 22, 31, "plastic_bottle"));
+
+    // 被困小鸟（main 新增）
+    const birdOffset = (TILE_SIZE - 24) / 2;
+    this.items.push(new TrappedBird(24 * TILE_SIZE + birdOffset, groundY(24) - 21, 24, 24));
+    this.items.push(new TrappedBird(p7.x + birdOffset, p7.y - 21, 24, 24));
+
 
     // 工具（平台上 + 地面上，居中放置）Tool(x, y, w, h, toolType)
     // toolType 为 pic/tool 下文件名不含 .png，如 'scissor' 'bucket'
@@ -412,6 +672,28 @@ class ForestLevel extends Level {
     //食物
     this.items.push(new Food(80, 100, 24, 24, "apple", 2));
     this.items.push(new Food(140, 100, 24, 24, "enlarged_golden_apple", 5));
+
+    // 平台上的剪刀（用 main 的高度 -21）
+    this.items.push(new Tool(p3.x + toolOffset, p3.y - 21, 24, 24, 'scissor'));
+
+    // 水桶：用你们要求的 enlarged_water_bucket 替换 bucket
+    this.items.push(new Tool(8 * TILE_SIZE + toolOffset, groundY(8) - 24, 24, 24, 'enlarged_water_bucket'));
+    this.items.push(new Tool(55 * TILE_SIZE + toolOffset, groundY(55) - 24, 24, 24, 'enlarged_water_bucket'));
+
+    // main 新增：埋在地下的剪刀（保留）
+    const buriedScissorCol = 16;
+    const buriedScissorRow = 2;
+    this.items.push(new Tool(
+      buriedScissorCol * TILE_SIZE + toolOffset,
+      groundY(buriedScissorCol) + buriedScissorRow * TILE_SIZE + (TILE_SIZE - 24) / 2,
+      24,
+      24,
+      'scissor'
+    ));
+
+    // 你新增：石灰石
+    this.items.push(new Tool(14 * TILE_SIZE + toolOffset, groundY(14) - 24, 24, 24, 'limestone'));
+
   }
 
   addTerrainColumn(col, heightTiles, tiles) {
@@ -490,7 +772,13 @@ class Player {
   constructor(x, y) {
     Object.assign(this, { x, y, w: 32, h: 64, vx: 0, vy: 0, speed: 2, jumpForce: -6.32, gravity: 0.5, onGround: false, maxHealth: 10, health: 10, inventory: [], facingRight: true });
     this.equippedWeaponType = 'wooden_sword';  // 手持武器，通过挖掘对应矿石升级
+    
+
     this.score = 0;
+    this.selectedSlot = -1;   // 当前鼠标选中的背包格子
+    this.maxJumps = 2;
+    this.jumpsRemaining = this.maxJumps;
+
   }
 
   update(platforms) {
@@ -516,7 +804,7 @@ class Player {
           this.x = this.vx > 0 ? p.x - this.w : p.x + p.w;
           this.vx = 0;
         } else {
-          if (this.vy > 0) { this.y = p.y - this.h; this.onGround = true; }
+          if (this.vy > 0) { this.y = p.y - this.h; this.onGround = true; this.jumpsRemaining = this.maxJumps; }
           else if (this.vy < 0) this.y = p.y + p.h;
           this.vy = 0;
         }
@@ -524,7 +812,14 @@ class Player {
     }
   }
 
-  jump() { if (this.onGround) { this.vy = this.jumpForce; this.onGround = false; } }
+  jump() {
+    if (this.jumpsRemaining <= 0) return;
+    const isSecondJump = this.jumpsRemaining === 1;
+    const boost = isSecondJump ? 1.35 : 1;
+    this.vy = this.jumpForce * boost;
+    this.onGround = false;
+    this.jumpsRemaining -= 1;
+  }
   collidesWith(obj) { return rectCollision(this.x, this.y, this.w, this.h, obj.x, obj.y, obj.w, obj.h); }
   collect(item) { if (this.inventory.length < INVENTORY_SLOTS) this.inventory.push(item); }
   takeDamage(amount) { this.health = max(0, this.health - amount); }
@@ -588,7 +883,8 @@ class Item {
 }
 
 class Pollutant extends Item {
-  constructor(x, y, w, h, type) {
+
+   constructor(x, y, w, h, type) {
     super(x, y, w, h, null);
     this.type = type;
     this.value = 1;
@@ -609,6 +905,103 @@ class Pollutant extends Item {
   }
 
 }
+
+
+class TNT extends Pollutant {
+  constructor(x, y, w = 24, h = 18) {
+    super(x, y, w, h, "tnt");
+
+    // 状态
+    this.armed = false;       // 是否已被触发（开始倒计时）
+    this.exploded = false;    // 是否已爆炸
+    this.armTime = 0;         // 触发时刻（millis）
+    this.removeAfter = 0;     // 爆炸后移除时间（ms）
+
+    // 参数（写在类里，避免和组员全局常量冲突）
+    this.fuseMs = 2000;        // 2 秒后爆炸
+    this.blastRadius = 80;     // 爆炸范围（像素）
+    this.damage = 3;           // 伤害
+    this.postExplodeMs = 300;  // 爆炸后显示/保留时间
+  }
+
+  // 玩家第一次碰到时调用：开始倒计时（不要反复重置）
+  arm(now) {
+    if (this.armed || this.exploded) return;
+    this.armed = true;
+    this.armTime = now;
+  }
+
+  // 每帧更新：到点爆炸
+  update(now, player) {
+    if (!this.armed || this.exploded) return;
+    if (now - this.armTime >= this.fuseMs) {
+      this.explode(now, player);
+    }
+  }
+
+  explode(now, player) {
+    if (this.exploded) return;
+    this.exploded = true;
+    this.removeAfter = now + this.postExplodeMs;
+
+    // 计算玩家是否在爆炸范围内（中心点距离）
+    const tx = this.x + this.w / 2;
+    const ty = this.y + this.h / 2;
+    const px = player.x + player.w / 2;
+    const py = player.y + player.h / 2;
+    const d = Math.hypot(px - tx, py - ty);
+
+    if (d <= this.blastRadius) {
+      player.takeDamage(this.damage);
+    }
+  }
+
+  draw() {
+    if (this.exploded) return; // 爆炸后不画
+
+    const img = window[this.type];
+
+    // 点燃后：闪烁（每 100ms 变暗一次）
+    if (this.armed) {
+      const blink = Math.floor(millis() / 100) % 2 === 0;
+      if (blink) { push(); tint(255, 90); }
+
+      if (img && img.width > 0) image(img, this.x, this.y, this.w, this.h);
+      else { fill(255, 0, 0); rect(this.x, this.y, this.w, this.h); }
+
+      if (blink) pop();
+      return;
+    }
+
+    // 未触发：正常显示
+    if (img && img.width > 0) image(img, this.x, this.y, this.w, this.h);
+    else { fill(255, 0, 0); rect(this.x, this.y, this.w, this.h); }
+  }
+}
+
+class TrappedBird extends Item {
+  constructor(x, y, w = 24, h = 24) {
+    super(x, y, w, h, null);
+  }
+  draw() {
+    const img = window.trappedbird;
+    if (img && img.width > 0) image(img, this.x, this.y, this.w, this.h);
+    else { fill(200, 180, 80); rect(this.x, this.y, this.w, this.h); }
+  }
+}
+
+class LittleBird extends Item {
+  constructor(x, y, w = 24, h = 24) {
+    super(x, y, w, h, null);
+  }
+  draw() {
+    const img = window.littlebird;
+    if (img && img.width > 0) image(img, this.x, this.y, this.w, this.h);
+    else { fill(180, 200, 220); rect(this.x, this.y, this.w, this.h); }
+  }
+}
+
+
 
 
 class Tool extends Item {
@@ -657,10 +1050,18 @@ class Weapon extends Item {
 
 // ====== HintCat 类 ======
 class HintCat {
-  constructor(x, y) { Object.assign(this, { x, y, w: 32, h: 16, facingRight: true, messages: ["按 ←/→ 移动", "按空格跳跃", "收集污染物！"] }); }
+  constructor(x, y) { Object.assign(this, { x, y, w: 32, h: 16, facingRight: true, messages: ["移动: ←↑→ 跳跃: 空格键 挖矿: 长按鼠标"], message: null }); }
+
+  setMessage(message) {
+    this.message = message;
+  }
 
   follow(state) {
-    this.x = max(0, state.x - this.w - HINT_CAT_GAP);
+    const playerW = state.w || 32;
+    const behindX = (state.facingRight !== false)
+      ? (state.x - this.w - HINT_CAT_GAP)
+      : (state.x + playerW + HINT_CAT_GAP);
+    this.x = constrain(behindX, 0, WORLD_WIDTH - this.w);
     this.y = state.y + state.h - this.h;
     this.facingRight = state.facingRight !== false;
   }
@@ -669,8 +1070,57 @@ class HintCat {
     const img = this.facingRight ? window.catSpriteRight : window.catSpriteLeft;
     if (img && img.width > 0) image(img, this.x, this.y, this.w, this.h);
     else { fill(255, 200, 0); rect(this.x, this.y, this.w, this.h); }
-    fill(255); textSize(14);
-    text(this.messages[0], this.x + this.w + 4, this.y + 8);
+    const msg = this.message || this.messages[0];
+    if (msg) {
+      push();
+      textSize(12);
+      const paddingX = 6;
+      const paddingY = 5;
+      const maxCharsPerLine = 5;
+      let lines = [];
+      const defaultMsg = this.messages[0];
+      if (msg === defaultMsg) {
+        lines = ["移动: ←↑→", "跳跃: 空格键", "挖矿: 长按鼠标"];
+      } else {
+        const words = msg.split(" ");
+        let current = "";
+        for (const word of words) {
+          const needsSpace = current.length > 0;
+          const next = (needsSpace ? current + " " : current) + word;
+          if (next.length <= maxCharsPerLine) {
+            current = next;
+            continue;
+          }
+          if (current.length > 0) {
+            lines.push(current);
+            current = "";
+          }
+          if (word.length <= maxCharsPerLine) {
+            current = word;
+          } else {
+            for (let i = 0; i < word.length; i += maxCharsPerLine) {
+              lines.push(word.slice(i, i + maxCharsPerLine));
+            }
+          }
+        }
+        if (current) lines.push(current);
+      }
+      const lineH = 16;
+      const bubbleW = max(...lines.map(l => textWidth(l))) + paddingX * 2;
+      const bubbleH = lines.length * lineH + paddingY * 2;
+      const bubbleX = this.x + this.w / 2 - bubbleW / 2;
+      const bubbleY = max(6, this.y - bubbleH - 6);
+      noStroke();
+      fill(255, 210);
+      rect(bubbleX, bubbleY, bubbleW, bubbleH, 4);
+      fill(130);
+      textAlign(CENTER, CENTER);
+      for (let i = 0; i < lines.length; i++) {
+        const y = bubbleY + paddingY + lineH / 2 + i * lineH;
+        text(lines[i], bubbleX + bubbleW / 2, y);
+      }
+      pop();
+    }
   }
 }
 
@@ -702,14 +1152,17 @@ class UIManager {
       const item = player.inventory[i];
       if (item) {
         let img = item.sprite;
+        if (item instanceof Pollutant) img = window[item.type];
         if (item instanceof Tool) img = window['tool_' + item.toolType];
         if (item instanceof Weapon) img = window['weapon_' + item.weaponType];
+        if (item instanceof LittleBird) img = window.littlebird;
         if (img && img.width > 0) {
           image(img, x, y, SLOT_SIZE, SLOT_SIZE);
         } else {
           if (item instanceof Pollutant) fill(100, 200, 100);
           else if (item instanceof Tool) fill(100, 150, 255);
           else if (item instanceof Weapon) fill(180, 120, 80);
+          else if (item instanceof LittleBird) fill(180, 200, 220);
           else fill(255, 255, 0);
           rect(x + 2, y + 2, SLOT_SIZE - 4, SLOT_SIZE - 4, 2);
         }
@@ -738,9 +1191,12 @@ function setup() {
   // 加载贴图
   const load = (path, key) => loadImage(path, img => window[key] = img, () => console.warn(`${path} 加载失败`));
 
-  // 新增：污染物图片
+  // 新增：污染物及被困小动物
   load('assets/pic/pollutant/cigarette.png', 'cigarette');
   load('assets/pic/pollutant/plastic_bottle.png', 'plastic_bottle');
+  load('assets/pic/pollutant/tnt_side.png', 'tnt');
+  load('assets/pic/animals/trappedbird.png', 'trappedbird');
+  load('assets/pic/animals/littlebird.png', 'littlebird');
   // 玩家与猫（assets/pic/player_cat）
   load('assets/pic/player_cat/Alex_left.png', 'alexSpriteLeft');
   load('assets/pic/player_cat/Alex_right.png', 'alexSpriteRight');
@@ -751,8 +1207,7 @@ function setup() {
   load('assets/pic/enemy/zombie.png', 'zombieSprite');
 
   // 工具（assets/pic/tool 中全部，新增图片时在此数组加入文件名不含 .png）
-  ['scissor', 'bucket'].forEach(name => load(`assets/pic/tool/${name}.png`, `tool_${name}`));
-
+  ['scissor', 'limestone', 'enlarged_water_bucket'].forEach(name =>load(`assets/pic/tool/${name}.png`, `tool_${name}`));
   // 武器（assets/pic/weapon，威力从低到高：wooden / stone / iron / diamond）
   ['wooden_sword', 'stone_sword', 'iron_sword', 'diamond_sword'].forEach(name => load(`assets/pic/weapon/${name}.png`, `weapon_${name}`));
 
@@ -771,7 +1226,7 @@ function setup() {
   const groundTiles = [
     'grass_block_side', 'dirt', 'stone', 'deepslate',
     'copper_ore', 'deepslate_copper_ore', 'deepslate_diamond_ore', 'deepslate_gold_ore', 'deepslate_iron_ore',
-    'diamond_ore', 'gold_ore', 'iron_ore'
+    'diamond_ore', 'gold_ore', 'iron_ore','lava', 'acid', 'water'
   ];
   groundTiles.forEach(name => loadImage(`assets/pic/ground/${name}.png`, img => window[`tile_${name.replace(/-/g, '_')}`] = img, () => console.warn(`pic/ground/${name}.png 加载失败`)));
   //加载游戏开始界面
@@ -790,12 +1245,6 @@ function draw() {
   else if (game.state === "playing") {
     game.update();
     game.draw();
-      if (game.player.score >= 2) { // 假设收集2个污染物胜利
-        game.state = "victory";
-      }
-      if (game.player.health <= 0) {
-        game.state = "gameover";
-      }
   }
 
   if (game.state === "gameover") {
@@ -811,6 +1260,7 @@ function keyPressed() {
   //按ENTER开始游戏
   if (game.state === "start" && (keyCode === ENTER ||keyCode === 13) ){
     game.state = "playing";
+    game.resetHintState();
     return;
   }
 
@@ -819,6 +1269,7 @@ function keyPressed() {
     game.state = "playing";
     game = new Game();   // 重置
     game.setup();
+    game.resetHintState();
     return;
   }
   if (game.state === "playing"){
@@ -835,8 +1286,13 @@ function keyPressed() {
   }
 }
 
-function mouseReleased() {
-  if (game) game.mouseDownTime = 0;
+function mousePressed() {
+  
+
+  if (!game || game.state !== "playing") return;
+  if (typeof game.handleMousePressed === "function") {
+    game.handleMousePressed(mouseX, mouseY);
+  }
 }
 
 
