@@ -699,6 +699,20 @@ tryUseLimestone() {
       console.log("得分！当前总分:", this.player.score);
     }
 
+  if (!this.player.collidesWith(item)) continue;
+
+    // Food 单独处理（吃掉回血并消失，不进背包）
+    if (item instanceof Food) {
+        if (item.foodType === 'apple') {
+        this.player.health = Math.min(this.player.maxHealth, this.player.health + 3);
+        } 
+        else if (item.foodType === 'enlarged_golden_apple') {
+        this.player.health = this.player.maxHealth;
+        }
+    this.level.items.splice(i, 1); // 吃掉消失
+    continue; // 跳过后面的 collect(item)
+    }
+
     // 3) 普通收集并移除（Tool/Weapon/Pollutant 都走这里）
     this.player.collect(item);
     this.level.items.splice(i, 1);
@@ -800,6 +814,10 @@ class ForestLevel extends Level {
 
         // TNT（不可收集，触发后爆炸）
     this.items.push(new TNT(33 * TILE_SIZE - 30, groundY(33) - 18, 24, 18));
+
+    // 食物（地面上，吃了回血，不进背包）
+    this.items.push(new Food(10 * TILE_SIZE + 4, groundY(10) - 24, 24, 24, 'apple'));
+    this.items.push(new Food(26 * TILE_SIZE + 4, groundY(26) - 24, 24, 24, 'enlarged_golden_apple'));
 
     // 污染物（额外两处，保留）
     this.items.push(new Pollutant(200, groundY(10) - TILE_SIZE, 24, 18, "cigarette"));
@@ -1143,8 +1161,19 @@ class LittleBird extends Item {
   }
 }
 
+class Food extends Item {
+  // foodType: 'apple' | 'enlarged_golden_apple'
+  constructor(x, y, w = 24, h = 24, foodType = 'apple') {
+    super(x, y, w, h, null);
+    this.foodType = foodType;
+  }
 
-
+  draw() {
+    const img = window['food_' + this.foodType];
+    if (img && img.width > 0) image(img, this.x, this.y, this.w, this.h);
+    else { fill(255, 200, 0); rect(this.x, this.y, this.w, this.h); }
+  }
+}
 
 class Tool extends Item {
   constructor(x, y, w = 24, h = 24, toolType = 'scissor') {
@@ -1352,6 +1381,10 @@ function setup() {
   ['scissor', 'limestone', 'enlarged_water_bucket'].forEach(name =>load(`assets/pic/tool/${name}.png`, `tool_${name}`));
   // 武器（assets/pic/weapon，威力从低到高：wooden / stone / iron / diamond）
   ['wooden_sword', 'stone_sword', 'iron_sword', 'diamond_sword'].forEach(name => load(`assets/pic/weapon/${name}.png`, `weapon_${name}`));
+
+  // 食物（assets/pic/food）
+  load('assets/pic/food/apple.png', 'food_apple');
+  load('assets/pic/food/enlarged_golden_apple.png', 'food_enlarged_golden_apple');
 
   // UI 等（心形在 assets 根目录，背包在 assets/pic）
   load('assets/heart_container.png', 'heartContainer');
