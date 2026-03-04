@@ -1,15 +1,15 @@
 // ====== 常量定义 ======
-const WORLD_WIDTH = 1920;
+const WORLD_WIDTH = 3200;
 const CANVAS_W = 640;
 const CANVAS_H = 360;
 const TILE_SIZE = 32;
 const TERRAIN_COLS = Math.ceil(WORLD_WIDTH / TILE_SIZE);
-const INVENTORY_SLOTS = 6;
+const INVENTORY_SLOTS = 16;
 const HINT_CAT_DELAY_MS = 500;
 const HINT_CAT_GAP = 8;
 const HINT_POLLUTANT_RANGE = 96;
 const MINE_PRESS_MS = 500;  // 长按多久后破坏方块
-const WIN_SCORE = 4;
+const WIN_SCORE = 12;
 const VICTORY_DELAY_MS = 1500;
 const ATTACK_COOLDOWN_MS = 400;  // 攻击冷却
 const PLAYER_ATTACK_RANGE = 48;   // 玩家可攻击敌人的距离（鼠标点击时）
@@ -25,7 +25,7 @@ const T = {
 };
 
 // UI 常量
-const SLOT_SIZE = 24, SLOT_GAP = 8, INV_BAR_W = 200, INV_BAR_H = 40, INV_PADDING = 8;
+const SLOT_SIZE = 24, SLOT_GAP = 8, INV_BAR_W = 528, INV_BAR_H = 40, INV_PADDING = 8;
 const MAX_HEARTS = 10, HEART_SIZE = 20;
 
 // 手持武器绘制：大小固定 24×24，偏移量相对玩家贴图（朝右时 +X 向右、+Y 向下；朝左时镜像）
@@ -770,7 +770,6 @@ class ForestLevel extends Level {
 
       [0,5,[G,S,S,X,X]], [1,5,[G,S,S,X,X]], [2,5,[G,D,S,X,X]], [3,4,[G,S,S,X]], [4,4,[G,D,S,X]],
       [5,4,[G,D,S,X]], [6,3,[S,Ir,X]], [7,3,[S,S,X]], [8,2,[S,X]], [9,2,[T.LAVA]], [10,2,[T.LAVA]],
-
       [11,3,[S,S,X]], [12,3,[S,Ir,X]], [13,3,[G,S,X]], [14,3,[G,S,X]], [15,3,[G,S,X]],
       [16,4,[G,D,S,X]], [17,4,[G,S,S,X]], [18,4,[G,S,S,X]], [19,4,[G,D,S,X]],
       [20,3,[D,D,S]], [21,2,[T.ACID,S]], [22,2,[T.ACID,S]], [23,2,[T.ACID,S]], [24,3,[D,Ir,X]],
@@ -780,8 +779,16 @@ class ForestLevel extends Level {
       [40,4,[G,D,S,S]], [41,4,[G,D,S,X]], [42,4,[G,D,Dx,S]], [43,3,[G,D,S]], [44,2,[G,D]],
       [45,2,[G,D]], [46,2,[G,D]], [47,2,[G,D]], [48,1,[G]], [49,1,[G]], [50,2,[G,D]], [51,2,[G,D]],
       [52,3,[G,D,S]], [53,4,[G,D,S,X]], [54,4,[G,D,Di,S]], [55,3,[G,D,S]], [56,3,[G,D,S]],
-      [57,3,[G,D,S]], [58,3,[G,D,S]], [59,3,[G,D,S]]
-    ];
+      [57,3,[G,D,S]], [58,3,[G,D,S]], [59,3,[G,D,S]], [60,4,[G,D,D,S]], [61,5,[G,D,D,D,S]],
+      [62,5,[G,D,D,D,S]], [63,5,[G,D,D,D,S]], [64,5,[G,D,D,D,X]], [65,3,[G,D,S]], [66,3,[G,D,S]],
+      [67,3,[G,D,S]], [68,3,[G,D,S]], [69,3,[G,D,S]],[70,4,[G,D,S,X]], [71,4,[G,D,S,X]],
+      [72,5,[G,D,S,X,X]], [73,5,[G,D,S,Ir,X]], [74,6,[G,D,S,S,X,X]],[75,5,[G,D,S,Di,X]],
+      [76,4,[G,D,S,X]], [77,3,[G,D,S]], [78,2,[G,D]], [79,1,[G]],[80,4,[G,D,S,X]], [81,4,[G,D,S,X]],
+      [82,5,[G,D,S,X,X]], [83,5,[G,D,S,Ir,X]], [84,6,[G,D,S,S,X,X]],[85,5,[G,D,S,Di,X]], [86,4,[G,D,S,X]],
+      [87,2,[T.LAVA,T.LAVA]], [88,2,[T.LAVA,T.LAVA]], [89,1,[G]],[90,2,[G,D]], [91,3,[G,D,S]],
+      [92,4,[G,D,S,X]], [93,2,[T.ACID,T.ACID]], [94,2,[T.ACID,T.ACID]],[95,5,[G,D,S,Ir,X]],
+      [96,4,[G,D,S,X]], [97,3,[G,D,S]], [98,3,[G,D,Dx]], [99,3,[G,D,Dx]]
+    ]
     terrain.forEach(([col, h, tiles]) => this.addTerrainColumn(col, h, tiles));
 
     // 浮空平台：addFloatingPlatform(列号, 距底部格数, [贴图])
@@ -796,7 +803,21 @@ class ForestLevel extends Level {
     const p9 = this.addFloatingPlatform(21, 7, [G]);
     const p10 = this.addFloatingPlatform(22, 7, [G]);
     const p11 = this.addFloatingPlatform(23, 7, [G]);
-
+    const p20 = this.addFloatingPlatform(24, 8, [G]);           // 24列
+    const p22 = this.addFloatingPlatform(33, 7, [G]);           // 33列
+    const p23 = this.addFloatingPlatform(37, 5, [G, D]);        // 37列
+    const p24 = this.addFloatingPlatform(42, 9, [G]);           // 42列 (钻石矿附近)
+    const p25 = this.addFloatingPlatform(46, 4, [G]);           // 46列
+    const p26 = this.addFloatingPlatform(50, 6, [G, D, S]);     // 50列
+    const p27 = this.addFloatingPlatform(54, 8, [G]);           // 54列 (钻石矿附近)
+    const p28 = this.addFloatingPlatform(58, 5, [G]);           // 58列
+    const p12 = this.addFloatingPlatform(62, 8, [G]);           // 62列
+    const p13 = this.addFloatingPlatform(66, 7, [G, D]);        // 66列
+    const p14 = this.addFloatingPlatform(72, 10, [G]);          // 72列
+    const p15 = this.addFloatingPlatform(78, 5, [G]);           // 78列
+    const p18 = this.addFloatingPlatform(94, 6, [G]);           // 94列 (acid附近)
+    const p19 = this.addFloatingPlatform(98, 5, [G]);           // 98列 (钻石矿上方)
+    
     // 辅助函数：获取地面 y 坐标
     const groundY = (col) => this.terrainHeights[col];
 
@@ -804,6 +825,30 @@ class ForestLevel extends Level {
     this.enemies.push(new Enemy(p7.x - 16, p7.y - 64, 64, 64));
     this.enemies.push(new Enemy(p11.x - 16, p11.y - 64, 64, 64));
     this.enemies.push(new Enemy(17 * TILE_SIZE, groundY(17) - 64, 64, 64));  // 第17列地面
+    // 平台下方
+    this.enemies.push(new Enemy(p6.x - 16, p6.y - 64, 64, 64));   // 18列平台
+    this.enemies.push(new Enemy(p8.x - 16, p8.y - 64, 64, 64));   // 20列平台
+    this.enemies.push(new Enemy(p10.x - 16, p10.y - 64, 64, 64)); // 22列平台
+
+    // 地面上的僵尸（放在特定列的地面高度）
+    this.enemies.push(new Enemy(25 * TILE_SIZE, groundY(25) - 64, 64, 64));  // 25列地面
+    this.enemies.push(new Enemy(32 * TILE_SIZE, groundY(32) - 64, 64, 64));  // 32列地面
+    this.enemies.push(new Enemy(40 * TILE_SIZE, groundY(40) - 64, 64, 64));  // 40列地面
+    this.enemies.push(new Enemy(48 * TILE_SIZE, groundY(48) - 64, 64, 64));  // 48列地面
+    this.enemies.push(new Enemy(55 * TILE_SIZE, groundY(55) - 64, 64, 64));  // 55列地面
+    this.enemies.push(new Enemy(p12.x - 16, p12.y - 64, 64, 64));  // 62列平台下方
+    this.enemies.push(new Enemy(p18.x - 16, p18.y - 64, 64, 64));  // 94列平台下方
+
+    // 地面上的僵尸（放在特定列的地面高度）
+    this.enemies.push(new Enemy(65 * TILE_SIZE, groundY(65) - 64, 64, 64));  // 65列地面
+    this.enemies.push(new Enemy(91 * TILE_SIZE, groundY(91) - 64, 64, 64));  // 91列地面
+    this.enemies.push(new Enemy(97 * TILE_SIZE, groundY(97) - 64, 64, 64));  // 97列地面（酸池附近）
+
+    // 特殊位置：lava区域附近放一个僵尸
+    this.enemies.push(new Enemy(87 * TILE_SIZE - 16, groundY(87) - 64, 64, 64));  // 87列 lava左边
+
+    // 特殊位置：acid区域附近放一个僵尸
+    this.enemies.push(new Enemy(93 * TILE_SIZE + 16, groundY(93) - 64, 64, 64));  // 93列 acid右边
 
     // 污染物（平台上 + 地面上）
     //this.items.push(new Pollutant(450, groundY(15) - 30, 24, 18,"cigarette"));
@@ -811,14 +856,44 @@ class ForestLevel extends Level {
     this.items.push(new Pollutant(p1.x + 4, p1.y - 18, 24, 18, "cigarette"));           // 平台
     this.items.push(new Pollutant(36 * TILE_SIZE + 4, groundY(36) - 18, 24, 18, "cigarette")); // 地面 col 36
     this.items.push(new Pollutant(48 * TILE_SIZE + 4, groundY(48) - 18, 24, 18, "plastic_bottle")); // 地面 col 48
-
-        // TNT（不可收集，触发后爆炸）
+    // 60-99列地面污染物（按0-59列格式）
+    this.items.push(new Pollutant(61 * TILE_SIZE + 4, groundY(61) - 18, 24, 18, "cigarette"));
+    this.items.push(new Pollutant(63 * TILE_SIZE + 4, groundY(63) - 18, 24, 18, "plastic_bottle"));
+    this.items.push(new Pollutant(67 * TILE_SIZE + 4, groundY(67) - 18, 24, 18, "plastic_bottle"));
+    this.items.push(new Pollutant(69 * TILE_SIZE + 4, groundY(69) - 18, 24, 18, "cigarette"));
+    this.items.push(new Pollutant(75 * TILE_SIZE + 4, groundY(75) - 18, 24, 18, "plastic_bottle"));
+    this.items.push(new Pollutant(77 * TILE_SIZE + 4, groundY(77) - 18, 24, 18, "cigarette"));
+    this.items.push(new Pollutant(85 * TILE_SIZE + 4, groundY(85) - 18, 24, 18, "cigarette"));
+    this.items.push(new Pollutant(87 * TILE_SIZE + 4, groundY(87) - 18, 24, 18, "plastic_bottle")); // lava左边
+    this.items.push(new Pollutant(91 * TILE_SIZE + 4, groundY(91) - 18, 24, 18, "plastic_bottle"));
+    this.items.push(new Pollutant(93 * TILE_SIZE + 4, groundY(93) - 18, 24, 18, "cigarette"));       // acid左边
+    this.items.push(new Pollutant(95 * TILE_SIZE + 4, groundY(95) - 18, 24, 18, "plastic_bottle")); // acid右边
+    this.items.push(new Pollutant(97 * TILE_SIZE + 4, groundY(97) - 18, 24, 18, "cigarette"));
+    this.items.push(new Pollutant(99 * TILE_SIZE + 4, groundY(99) - 18, 24, 18, "plastic_bottle"));
+    //平台污染物
+    this.items.push(new Pollutant(p22.x + 4, p22.y - 18, 24, 18, "plastic_bottle")); // 33列平台
+    this.items.push(new Pollutant(p23.x + 4, p23.y - 18, 24, 18, "cigarette"));      // 37列平台
+    this.items.push(new Pollutant(p25.x + 4, p25.y - 18, 24, 18, "plastic_bottle")); // 46列平台
+    this.items.push(new Pollutant(p26.x + 4, p26.y - 18, 24, 18, "cigarette"));      // 50列平台
+    this.items.push(new Pollutant(p28.x + 4, p28.y - 18, 24, 18, "plastic_bottle")); // 58列平台
+    this.items.push(new Pollutant(p13.x + 4, p13.y - 18, 24, 18, "cigarette"));      // 66列平台
+    this.items.push(new Pollutant(p15.x + 4, p15.y - 18, 24, 18, "plastic_bottle")); // 78列平台
+    this.items.push(new Pollutant(p19.x + 4, p19.y - 18, 24, 18, "cigarette"));      // 98列平台
+    // TNT（不可收集，触发后爆炸）
     this.items.push(new TNT(33 * TILE_SIZE - 30, groundY(33) - 18, 24, 18));
+    // 60-99列 TNT（不可收集，触发后爆炸）
+    this.items.push(new TNT(62 * TILE_SIZE - 30, groundY(62) - 18, 24, 18));  // 62列 浮空平台附近
+    this.items.push(new TNT(88 * TILE_SIZE - 30, groundY(88) - 18, 24, 18));  // 88列 lava上方平台附近
 
     // 食物（地面上，吃了回血，不进背包）
     this.items.push(new Food(10 * TILE_SIZE + 4, groundY(10) - 24, 24, 24, 'apple'));
     this.items.push(new Food(26 * TILE_SIZE + 4, groundY(26) - 24, 24, 24, 'enlarged_golden_apple'));
-
+    // 30-99列食物（地面上，吃了回血，不进背包）
+    this.items.push(new Food(35 * TILE_SIZE + 4, groundY(35) - 24, 24, 24, 'apple'));           // 35列 普通区域
+    this.items.push(new Food(44 * TILE_SIZE + 4, groundY(44) - 24, 24, 24, 'enlarged_golden_apple')); // 44列 金苹果
+    this.items.push(new Food(53 * TILE_SIZE + 4, groundY(53) - 24, 24, 24, 'apple'));           // 53列 普通区域
+    this.items.push(new Food(96 * TILE_SIZE + 4, groundY(96) - 24, 24, 24, 'enlarged_golden_apple')); // 96列 金苹果（acid附近）
+    
     // 污染物（额外两处，保留）
     this.items.push(new Pollutant(200, groundY(10) - TILE_SIZE, 24, 18, "cigarette"));
     this.items.push(new Pollutant(400, groundY(20) - TILE_SIZE, 22, 31, "plastic_bottle"));
@@ -827,6 +902,9 @@ class ForestLevel extends Level {
     const birdOffset = (TILE_SIZE - 24) / 2;
     this.items.push(new TrappedBird(24 * TILE_SIZE + birdOffset, groundY(24) - 21, 24, 24));
     this.items.push(new TrappedBird(p7.x + birdOffset, p7.y - 21, 24, 24));
+    this.items.push(new TrappedBird(28 * TILE_SIZE + birdOffset, groundY(28) - 21, 24, 24));  // 28列地面
+    this.items.push(new TrappedBird(38 * TILE_SIZE + birdOffset, groundY(38) - 21, 24, 24));  // 38列地面
+    this.items.push(new TrappedBird(47 * TILE_SIZE + birdOffset, groundY(47) - 21, 24, 24));  // 47列地面
 
 
     // 工具（平台上 + 地面上，居中放置）Tool(x, y, w, h, toolType)
@@ -835,11 +913,20 @@ class ForestLevel extends Level {
 
     // 平台上的剪刀（用 main 的高度 -21）
     this.items.push(new Tool(p3.x + toolOffset, p3.y - 21, 24, 24, 'scissor'));
+    this.items.push(new Tool(p14.x + toolOffset, p14.y - 21, 24, 24, 'scissor'));
+    // 剪刀 - 对应被困小鸟的位置（以平台剪刀为主）
+    this.items.push(new Tool(p20.x + toolOffset, p20.y - 21, 24, 24, 'scissor')); // 24列平台（救47列小鸟）
+    this.items.push(new Tool(p24.x + toolOffset, p24.y - 21, 24, 24, 'scissor')); // 42列平台（救54列平台小鸟）
+
+    // 保留少量地面剪刀作为补充
+    this.items.push(new Tool(30 * TILE_SIZE + toolOffset, groundY(30) - 24, 24, 24, 'scissor')); // 30列地面
 
     // 水桶：用你们要求的 enlarged_water_bucket 替换 bucket
     this.items.push(new Tool(8 * TILE_SIZE + toolOffset, groundY(8) - 24, 24, 24, 'enlarged_water_bucket'));
     this.items.push(new Tool(55 * TILE_SIZE + toolOffset, groundY(55) - 24, 24, 24, 'enlarged_water_bucket'));
-
+    // 火山（87-88列）前的水桶（放在86列地面）
+    this.items.push(new Tool(86 * TILE_SIZE + toolOffset, groundY(86) - 24, 24, 24, 'enlarged_water_bucket'));
+    
     // main 新增：埋在地下的剪刀（保留）
     const buriedScissorCol = 16;
     const buriedScissorRow = 2;
@@ -851,9 +938,10 @@ class ForestLevel extends Level {
       'scissor'
     ));
 
-    // 你新增：石灰石
+    // 新增：石灰石
     this.items.push(new Tool(14 * TILE_SIZE + toolOffset, groundY(14) - 24, 24, 24, 'limestone'));
-
+    // 酸液池（93-94列）前的石灰石（放在92列地面）
+    this.items.push(new Tool(92 * TILE_SIZE + toolOffset, groundY(92) - 24, 24, 24, 'limestone'));
   }
 
   addTerrainColumn(col, heightTiles, tiles) {
@@ -1311,34 +1399,48 @@ class UIManager {
       }
     }
 
-    // 背包
-    const invX = (width - INV_BAR_W) / 2, invY = height - INV_BAR_H - 12;
-    const invBg = window.invContainer;
-    if (invBg && invBg.width > 0) image(invBg, invX, invY, INV_BAR_W, INV_BAR_H);
-    else { fill(40, 40, 50); noStroke(); rect(invX, invY, INV_BAR_W, INV_BAR_H, 4); }
+      // 背包 - 纯色背景（16格）
+      const invX = (width - INV_BAR_W) / 2, invY = height - INV_BAR_H - 12;
 
-    for (let i = 0; i < INVENTORY_SLOTS; i++) {
-      const x = invX + INV_PADDING + i * (SLOT_SIZE + SLOT_GAP);
-      const y = invY + INV_PADDING;
-      const item = player.inventory[i];
-      if (item) {
-        let img = item.sprite;
-        if (item instanceof Pollutant) img = window[item.type];
-        if (item instanceof Tool) img = window['tool_' + item.toolType];
-        if (item instanceof Weapon) img = window['weapon_' + item.weaponType];
-        if (item instanceof LittleBird) img = window.littlebird;
-        if (img && img.width > 0) {
-          image(img, x, y, SLOT_SIZE, SLOT_SIZE);
-        } else {
-          if (item instanceof Pollutant) fill(100, 200, 100);
-          else if (item instanceof Tool) fill(100, 150, 255);
-          else if (item instanceof Weapon) fill(180, 120, 80);
-          else if (item instanceof LittleBird) fill(180, 200, 220);
-          else fill(255, 255, 0);
-          rect(x + 2, y + 2, SLOT_SIZE - 4, SLOT_SIZE - 4, 2);
+      // 画半透明背景矩形
+      fill(40, 40, 50, 200);
+      noStroke();
+      rect(invX, invY, INV_BAR_W, INV_BAR_H, 8);
+
+      // 画格子边框和物品
+      for (let i = 0; i < INVENTORY_SLOTS; i++) {
+        const x = invX + INV_PADDING + i * (SLOT_SIZE + SLOT_GAP);
+        const y = invY + INV_PADDING;
+        
+        // 画格子边框
+        noFill();
+        stroke(100, 100, 120);
+        strokeWeight(1);
+        rect(x, y, SLOT_SIZE, SLOT_SIZE);
+        
+        const item = player.inventory[i];
+        if (item) {
+          let img = item.sprite;
+          if (item instanceof Pollutant) img = window[item.type];
+          if (item instanceof Tool) img = window['tool_' + item.toolType];
+          if (item instanceof Weapon) img = window['weapon_' + item.weaponType];
+          if (item instanceof LittleBird) img = window.littlebird;
+          
+          if (img && img.width > 0) {
+            // 有图片就显示图片
+            image(img, x, y, SLOT_SIZE, SLOT_SIZE);
+          } else {
+            // 没图片显示色块
+            if (item instanceof Pollutant) fill(100, 200, 100);
+            else if (item instanceof Tool) fill(100, 150, 255);
+            else if (item instanceof Weapon) fill(180, 120, 80);
+            else if (item instanceof LittleBird) fill(180, 200, 220);
+            else fill(255, 255, 0);
+            noStroke();
+            rect(x + 2, y + 2, SLOT_SIZE - 4, SLOT_SIZE - 4, 2);
+          }
         }
       }
-    }
     // 分数显示
     fill(255);
     textSize(20);
