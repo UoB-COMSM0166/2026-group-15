@@ -1,10 +1,10 @@
 // ====== 常量定义 ======
-const WORLD_WIDTH = 3200;
+const WORLD_WIDTH = 640 * 6; // 将游戏范围限制为 6 个屏幕宽
 const CANVAS_W = 640;
 const CANVAS_H = 360;
 const TILE_SIZE = 32;
 const TERRAIN_COLS = Math.ceil(WORLD_WIDTH / TILE_SIZE);
-const INVENTORY_SLOTS = 16;
+const INVENTORY_SLOTS = 10;
 const HINT_CAT_DELAY_MS = 500;
 const HINT_CAT_GAP = 8;
 const HINT_POLLUTANT_RANGE = 96;
@@ -25,7 +25,8 @@ const T = {
 };
 
 // UI 常量
-const SLOT_SIZE = 24, SLOT_GAP = 8, INV_BAR_W = 528, INV_BAR_H = 40, INV_PADDING = 8;
+const SLOT_SIZE = 24, SLOT_GAP = 8, INV_PADDING = 8;
+const INV_BAR_W = 10 * (SLOT_SIZE + SLOT_GAP) + INV_PADDING * 2 - SLOT_GAP, INV_BAR_H = 40;
 const MAX_HEARTS = 10, HEART_SIZE = 20;
 
 // 手持武器绘制：大小固定 24×24，偏移量相对玩家贴图（朝右时 +X 向右、+Y 向下；朝左时镜像）
@@ -36,6 +37,12 @@ const WEAPON_OFFSET_Y = -12;  // 相对手部基准的 y 偏移，可调
 // ====== 工具函数 ======
 function rectCollision(ax, ay, aw, ah, bx, by, bw, bh) {
   return ax < bx + bw && ax + aw > bx && ay < by + bh && ay + ah > by;
+}
+
+// 用于“装饰物/背景物”生成的稳定随机（同一 col 每次都一致）
+function hash01(n) {
+  const x = Math.sin(n * 127.1 + 311.7) * 43758.5453123;
+  return x - Math.floor(x);
 }
 
 // 贴图和回退颜色映射（与 T 对应，来自 assets/pic/ground）
@@ -109,6 +116,14 @@ class Game {
     this.player.update(this.level.platforms);
     this.updateCamera();
     this.updateHintCat();
+    
+    // 更新所有敌人（追踪玩家）
+    for (const enemy of this.level.enemies) {
+      if (!enemy.isDead && typeof enemy.update === "function") {
+        enemy.update(this.player, this.level.platforms);
+      }
+    }
+    
     // 更新所有带 update 方法的物体（比如 TNT）
     const now = millis();
     for (const item of this.level.items) {
@@ -119,42 +134,38 @@ class Game {
     this.checkCollisions();
     this.updateMining();
 
-  // ===== Hazard pools: lava / acid with conversion =====
-const colUnder = Math.floor((this.player.x + this.player.w / 2) / TILE_SIZE);
-const rowUnder = this.getPlayerTerrainRow(colUnder);
-
-if (colUnder >= 0 && colUnder < TERRAIN_COLS && rowUnder >= 0) {
-  const t = this.level.tileMap[colUnder]?.[rowUnder];
-
-
-  // LAVA -> STONE（需要 enlarged_water_bucket）
-  if (t === T.LAVA) {
-  // 不再自动变石头
-  this.player.health = 0;
-}
-else if (t === T.ACID) {
-  this.player.health = 0;
-}
-
-  // ACID -> WATER（需要 limestone）
-  else if (t === T.ACID) {
-    if (this.hasTool('limestone')) {
-      this.level.tileMap[colUnder][rowUnder] = T.WATER;
-      this.consumeTool('limestone');
-    } else {
-      this.player.health = 0;
+    // ===== 岩浆 / 酸池伤害判定：脚下方块是岩浆/酸就立即死亡 =====
+    const box = this.player.getCollisionBox();
+    const colUnder = Math.floor((box.x + box.w / 2) / TILE_SIZE);
+    if (colUnder >= 0 && colUnder < TERRAIN_COLS) {
+      const column = this.level.tileMap[colUnder];
+      if (column && column.length) {
+        // 从上往下找到这一列的“表面方块”
+        let surfaceRow = -1;
+        for (let r = column.length - 1; r >= 0; r--) {
+          const tt = column[r];
+          if (tt === T.NONE || tt === undefined) continue;
+          surfaceRow = r;
+          break;
+        }
+        if (surfaceRow >= 0) {
+          const tt = column[surfaceRow];
+          if (tt === T.LAVA || tt === T.ACID) {
+            this.player.health = 0;
+          }
+        }
+      }
     }
-  }
-}
-
-
 
     if (this.player.health <= 0) {
       this.state = "gameover";
       this.victoryAt = 0;
       return;
     }
-    if (this.player.score >= WIN_SCORE) {
+    
+    // 胜利条件：到达最后一列（TERRAIN_COLS - 1）且生命值 > 0
+    const playerCol = Math.floor((this.player.x + this.player.w / 2) / TILE_SIZE);
+    if (playerCol >= TERRAIN_COLS - 1 && this.player.health > 0) {
       if (!this.victoryAt) this.victoryAt = millis() + VICTORY_DELAY_MS;
       if (millis() >= this.victoryAt) this.state = "victory";
     } else {
@@ -173,7 +184,8 @@ else if (t === T.ACID) {
 
   /** 统一触及范围：身前2格、身后2格、头顶1格、脚下1格（世界坐标矩形） */
   getReachZone() {
-    const px = this.player.x, py = this.player.y, pw = this.player.w, ph = this.player.h;
+    const box = this.player.getCollisionBox();
+    const px = box.x, py = box.y, pw = box.w, ph = box.h;
     return {
       left: px - TILE_SIZE,
       right: px + pw + TILE_SIZE,
@@ -209,10 +221,9 @@ else if (t === T.ACID) {
 
   /** 世界坐标 (wx, wy) 是否在格子 (col, row) 内 */
   isPointInTerrainTile(wx, wy, col, row) {
-    const surfaceY = this.level.terrainHeights[col];
-    if (surfaceY === undefined) return false;
     const tx = col * TILE_SIZE;
-    const ty = surfaceY + row * TILE_SIZE;
+    // 与 draw() 中地形绘制保持一致：从屏幕底部往上排布
+    const ty = 360 - (row + 1) * TILE_SIZE;
     return wx >= tx && wx < tx + TILE_SIZE && wy >= ty && wy < ty + TILE_SIZE;
   }
 
@@ -263,7 +274,8 @@ else if (t === T.ACID) {
   }
 
   updateHintCat() {
-    this.playerHistory.push({ x: this.player.x, y: this.player.y, w: this.player.w, h: this.player.h, facingRight: this.player.facingRight, t: millis() });
+    const box = this.player.getCollisionBox();
+    this.playerHistory.push({ x: box.x, y: box.y, w: box.w, h: box.h, facingRight: this.player.facingRight, t: millis() });
     const cutoff = millis() - HINT_CAT_DELAY_MS - 50;
     while (this.playerHistory.length && this.playerHistory[0].t < cutoff) this.playerHistory.shift();
     this.level.hintCat.follow(this.getDelayedState());
@@ -272,7 +284,8 @@ else if (t === T.ACID) {
 
   getDelayedState() {
     const targetT = millis() - HINT_CAT_DELAY_MS;
-    if (!this.playerHistory.length) return { x: this.player.x, y: this.player.y, w: this.player.w, h: this.player.h, facingRight: this.player.facingRight };
+    const box = this.player.getCollisionBox();
+    if (!this.playerHistory.length) return { x: box.x, y: box.y, w: box.w, h: box.h, facingRight: this.player.facingRight };
     let best = this.playerHistory[0];
     for (let s of this.playerHistory) {
       if (s.t <= targetT) best = s; else break;
@@ -312,16 +325,18 @@ consumeTool(toolType) {
 
   /** 玩家与敌人的中心距离 */
   distanceToEnemy(enemy) {
-    const px = this.player.x + this.player.w / 2;
-    const py = this.player.y + this.player.h / 2;
+    const box = this.player.getCollisionBox();
+    const px = box.x + box.w / 2;
+    const py = box.y + box.h / 2;
     const ex = enemy.x + enemy.w / 2;
     const ey = enemy.y + enemy.h / 2;
     return Math.sqrt((px - ex) ** 2 + (py - ey) ** 2);
   }
 
   distanceToItem(item) {
-    const px = this.player.x + this.player.w / 2;
-    const py = this.player.y + this.player.h / 2;
+    const box = this.player.getCollisionBox();
+    const px = box.x + box.w / 2;
+    const py = box.y + box.h / 2;
     const ix = item.x + item.w / 2;
     const iy = item.y + item.h / 2;
     return Math.sqrt((px - ix) ** 2 + (py - iy) ** 2);
@@ -338,13 +353,48 @@ consumeTool(toolType) {
   }
 
   getPointedMineableTile(worldX, worldY) {
-    const candidates = this.getMineableTiles();
-    for (const t of candidates) {
-      if (!this.isPointInTerrainTile(worldX, worldY, t.col, t.row)) continue;
-      const bottomRow = (this.level.terrainBlocks[t.col]?.length || 0) - 1;
-      return { col: t.col, row: t.row, bottomRow };
+    const col = Math.floor(worldX / TILE_SIZE);
+    if (col < 0 || col >= TERRAIN_COLS) return null;
+
+    const column = this.level.tileMap[col];
+    if (!column || column.length === 0) return null;
+
+    // 从上往下找：优先命中视觉上靠上的那一格
+    let targetRow = -1;
+    for (let row = column.length - 1; row >= 0; row--) {
+      const tileType = column[row];
+      if (tileType === T.NONE || tileType === undefined) continue;
+
+      const tx = col * TILE_SIZE;
+      const ty = 360 - (row + 1) * TILE_SIZE;
+
+      // 鼠标必须落在这格范围内
+      if (!(worldX >= tx && worldX < tx + TILE_SIZE && worldY >= ty && worldY < ty + TILE_SIZE)) {
+        continue;
+      }
+
+      // 同时该格必须在玩家触及范围内
+      if (!this.isInReachZone(tx, ty, TILE_SIZE, TILE_SIZE)) continue;
+
+      targetRow = row;
+      break;
     }
-    return null;
+
+    if (targetRow === -1) return null;
+
+    // 计算这一列中“最底下的实心方块行号”（用于最后一层判定）
+    // 注意：row=0 是最底部，从下往上找第一个非空格子
+    let bottomRow = -1;
+    for (let row = 0; row < column.length; row++) {
+      const tileType = column[row];
+      if (tileType === T.NONE || tileType === undefined) continue;
+      bottomRow = row;
+      break;
+    }
+
+    if (bottomRow === -1) return null;
+
+    return { col, row: targetRow, bottomRow };
   }
 
   playerHasScissor() {
@@ -363,8 +413,9 @@ consumeTool(toolType) {
   }
 
   isNearOre() {
-    const px = this.player.x + this.player.w / 2;
-    const py = this.player.y + this.player.h / 2;
+    const box = this.player.getCollisionBox();
+    const px = box.x + box.w / 2;
+    const py = box.y + box.h / 2;
     const range = HINT_POLLUTANT_RANGE;
     const colMin = Math.max(0, Math.floor((px - range) / TILE_SIZE));
     const colMax = Math.min(TERRAIN_COLS - 1, Math.floor((px + range) / TILE_SIZE));
@@ -436,7 +487,7 @@ isNearAcid() {
       (enemy) => !enemy.isDead,
       this.distanceToEnemy
     );
-    if (closestEnemyDist <= PLAYER_ATTACK_RANGE + 16) return "遇到僵尸！按F攻击";
+    if (closestEnemyDist <= ENEMY_ATTACK_RANGE + 16) return "遇到僵尸！按F攻击";
 
     if (this.isNearFloating()) return "两次跳跃：双击空格";
 
@@ -482,18 +533,18 @@ isNearAcid() {
     return null;
   }
 
-  /** 按 F 键攻击：对距离 ≤ PLAYER_ATTACK_RANGE 的最近敌人造成一次伤害 */
+  /** 按 F 键攻击：对距离 ≤ 2格 的最近敌人造成一次伤害 */
   tryAttack() {
     const now = millis();
     if (now - this.lastAttackTime < ATTACK_COOLDOWN_MS) return;
     const dmg = this.getAttackDamage();
     if (dmg <= 0) return;
     let closest = null;
-    let closestDist = PLAYER_ATTACK_RANGE + 1;
+    let closestDist = ENEMY_ATTACK_RANGE + 1;
     for (const enemy of this.level.enemies) {
       if (enemy.isDead) continue;
       const d = this.distanceToEnemy(enemy);
-      if (d <= PLAYER_ATTACK_RANGE && d < closestDist) {
+      if (d <= ENEMY_ATTACK_RANGE && d < closestDist) {
         closestDist = d;
         closest = enemy;
       }
@@ -548,66 +599,73 @@ getInventorySlotAt(mx, my) {
 }
 
 tryUseWaterBucket() {
-  // 玩家脚底中心点（世界坐标）
-  const wx = this.player.x + this.player.w / 2;
-  const wy = this.player.y + this.player.h - 1;
+  // 玩家碰撞箱中心点列索引（用于确定最近的岩浆列）
+  const box = this.player.getCollisionBox();
+  const wx = box.x + box.w / 2;
+  const playerCol = Math.floor(wx / TILE_SIZE);
 
-  // 我们检查：脚下这一列，以及右边一列（两格池）
-  const cols = [
-    Math.floor(wx / TILE_SIZE),
-    Math.floor((wx + TILE_SIZE) / TILE_SIZE)
-  ];
+  // 在玩家左右各 3 列范围内，寻找“最近的”一格岩浆
+  let targetCol = -1;
+  let targetRow = -1;
+  let bestDist = Infinity;
 
-  for (const col of cols) {
+  for (let col = playerCol - 3; col <= playerCol + 3; col++) {
     if (col < 0 || col >= TERRAIN_COLS) continue;
+    const column = this.level.tileMap[col];
+    if (!column) continue;
 
-    const surfaceY = this.level.terrainHeights[col];
-    if (surfaceY === undefined) continue;
-
-    // 关键：根据世界坐标 wy 反推 row（地表起算）
-    const row = Math.floor((wy - surfaceY) / TILE_SIZE);
-
-    // 同时检查 row 和 row+1（有的池子在坑里会低一格）
-    const rows = [row, row + 1];
-
-    for (const r of rows) {
-      const t = this.level.tileMap[col]?.[r];
-      if (t === T.LAVA) {
-  // 1) 当前命中的 lava → stone
-  this.level.tileMap[col][r] = T.STONE;
-
-  // 2) 右边一格（同一行）如果也是 lava，也一起变 stone
-  const rightCol = col + 1;
-  if (rightCol >= 0 && rightCol < TERRAIN_COLS) {
-    // 优先同一 row，再兜底 row+1（坑深一格时）
-    if (this.level.tileMap[rightCol]?.[r] === T.LAVA) {
-      this.level.tileMap[rightCol][r] = T.STONE;
-    } else if (this.level.tileMap[rightCol]?.[r + 1] === T.LAVA) {
-      this.level.tileMap[rightCol][r + 1] = T.STONE;
+    for (let r = 0; r < column.length; r++) {
+      if (column[r] !== T.LAVA) continue;
+      const d = Math.abs(col - playerCol);
+      if (d < bestDist) {
+        bestDist = d;
+        targetCol = col;
+        targetRow = r;
+      }
     }
   }
 
-  // 3) 消耗选中的水桶（从背包移除）
-  const s = this.player.selectedSlot;
-  if (s >= 0 && s < this.player.inventory.length) {
-    const item = this.player.inventory[s];
-    if (item instanceof Tool && item.toolType === 'enlarged_water_bucket') {
-      this.player.inventory.splice(s, 1);
-      this.player.selectedSlot = -1;
+  // 附近没有岩浆就不消耗水桶
+  if (targetCol === -1) return false;
+
+  let changed = 0;
+
+  // 从命中的那一格出发，向左右扩展，把同一行连续的一整片岩浆全部变为石头
+  const convertLine = (startCol, row, dir) => {
+    let col = startCol;
+    while (col >= 0 && col < TERRAIN_COLS) {
+      const column = this.level.tileMap[col];
+      if (!column || column[row] !== T.LAVA) break;
+      column[row] = T.STONE;
+      changed++;
+      col += dir;
     }
-  }
-  return true;
+  };
+
+  convertLine(targetCol, targetRow, -1); // 向左
+  convertLine(targetCol + 1, targetRow, 1); // 向右（从右边一格开始，避免重复）
+
+  // 只要转换过至少一格，就消耗水桶
+  if (changed > 0) {
+    const s = this.player.selectedSlot;
+    if (s >= 0 && s < this.player.inventory.length) {
+      const item = this.player.inventory[s];
+      if (item instanceof Tool && item.toolType === 'enlarged_water_bucket') {
+        this.player.inventory.splice(s, 1);
+        this.player.selectedSlot = -1;
+      }
     }
-    }
+    return true;
   }
 
   return false;
 }
 
 tryUseLimestone() {
-  // 以玩家脚下附近为中心，扫描一个小范围内的 ACID 并全部转化成 WATER
-  const wx = this.player.x + this.player.w / 2;
-  const wy = this.player.y + this.player.h - 1;
+  // 以玩家碰撞箱中心为基准，扫描一个小范围内的 ACID 并全部转化成 WATER
+  const box = this.player.getCollisionBox();
+  const wx = box.x + box.w / 2;
+  const wy = box.y + box.h - 1;
 
   const baseCol = Math.floor(wx / TILE_SIZE);
 
@@ -656,9 +714,10 @@ tryUseLimestone() {
 
  checkCollisions() {
   const now = millis();
+  // 敌人伤害判定：距离小于2格时可以攻击玩家
   for (const enemy of this.level.enemies) {
     if (enemy.isDead) continue;
-    if (this.distanceToEnemy(enemy) > ENEMY_DAMAGE_RANGE) continue;
+    if (this.distanceToEnemy(enemy) > ENEMY_ATTACK_RANGE) continue;
     if (now - this.lastEnemyContactDamageTime < ENEMY_CONTACT_DAMAGE_INTERVAL_MS) break;
     this.player.takeDamage(1);
     this.lastEnemyContactDamageTime = now;
@@ -764,224 +823,321 @@ class ForestLevel extends Level {
     const G = T.GRASS, D = T.DIRT, S = T.STONE, X = T.DEEP;
     const Cu = T.COPPER, CuX = T.DEEP_COPPER, Dx = T.DEEP_DIAMOND, Gx = T.DEEP_GOLD, Ix = T.DEEP_IRON;
     const Di = T.DIAMOND, Go = T.GOLD, Ir = T.IRON;
+    const N = T.NONE; // 空格子简写
 
-    // 地形定义：addTerrainColumn(列号, 高度, [贴图])
+    // 统一地形定义：addTerrainColumn(列号, 总高度, [贴图数组])
+    // - 数组从底部往上：[0] 是最底下那格，越往后越高
+    // - 地形贴图（G/D/S/X/矿石/LAVA/ACID）：创建碰撞平台
+    // - 树木（'log'/'leaves'）：只绘制背景，不碰撞
+    // - N (T.NONE)：空格子
     const terrain = [
-
-      [0,5,[G,S,S,X,X]], [1,5,[G,S,S,X,X]], [2,5,[G,D,S,X,X]], [3,4,[G,S,S,X]], [4,4,[G,D,S,X]],
-      [5,4,[G,D,S,X]], [6,3,[S,Ir,X]], [7,3,[S,S,X]], [8,2,[S,X]], [9,2,[T.LAVA]], [10,2,[T.LAVA]],
-      [11,3,[S,S,X]], [12,3,[S,Ir,X]], [13,3,[G,S,X]], [14,3,[G,S,X]], [15,3,[G,S,X]],
-      [16,4,[G,D,S,X]], [17,4,[G,S,S,X]], [18,4,[G,S,S,X]], [19,4,[G,D,S,X]],
-      [20,3,[D,D,S]], [21,2,[T.ACID,S]], [22,2,[T.ACID,S]], [23,2,[T.ACID,S]], [24,3,[D,Ir,X]],
-      [25,4,[G,D,S,X]], [26,5,[G,D,S,X,X]], [27,6,[G,D,S,S,X,X]], [28,6,[G,D,S,X,X,X]],
-      [29,6,[G,D,S,S,X,X]], [30,5,[G,D,S,Ir,X]], [31,4,[G,D,S,X]], [32,3,[G,D,S]], [33,3,[G,D,S]],
-      [34,3,[G,D,S]], [35,2,[G,D]], [36,2,[G,D]], [37,2,[G,D]], [38,3,[G,D,S]], [39,4,[G,D,S,X]],
-      [40,4,[G,D,S,S]], [41,4,[G,D,S,X]], [42,4,[G,D,Dx,S]], [43,3,[G,D,S]], [44,2,[G,D]],
-      [45,2,[G,D]], [46,2,[G,D]], [47,2,[G,D]], [48,1,[G]], [49,1,[G]], [50,2,[G,D]], [51,2,[G,D]],
-      [52,3,[G,D,S]], [53,4,[G,D,S,X]], [54,4,[G,D,Di,S]], [55,3,[G,D,S]], [56,3,[G,D,S]],
-      [57,3,[G,D,S]], [58,3,[G,D,S]], [59,3,[G,D,S]], [60,4,[G,D,D,S]], [61,5,[G,D,D,D,S]],
-      [62,5,[G,D,D,D,S]], [63,5,[G,D,D,D,S]], [64,5,[G,D,D,D,X]], [65,3,[G,D,S]], [66,3,[G,D,S]],
-      [67,3,[G,D,S]], [68,3,[G,D,S]], [69,3,[G,D,S]],[70,4,[G,D,S,X]], [71,4,[G,D,S,X]],
-      [72,5,[G,D,S,X,X]], [73,5,[G,D,S,Ir,X]], [74,6,[G,D,S,S,X,X]],[75,5,[G,D,S,Di,X]],
-      [76,4,[G,D,S,X]], [77,3,[G,D,S]], [78,2,[G,D]], [79,1,[G]],[80,4,[G,D,S,X]], [81,4,[G,D,S,X]],
-      [82,5,[G,D,S,X,X]], [83,5,[G,D,S,Ir,X]], [84,6,[G,D,S,S,X,X]],[85,5,[G,D,S,Di,X]], [86,4,[G,D,S,X]],
-      [87,2,[T.LAVA,T.LAVA]], [88,2,[T.LAVA,T.LAVA]], [89,1,[G]],[90,2,[G,D]], [91,3,[G,D,S]],
-      [92,4,[G,D,S,X]], [93,2,[T.ACID,T.ACID]], [94,2,[T.ACID,T.ACID]],[95,5,[G,D,S,Ir,X]],
-      [96,4,[G,D,S,X]], [97,3,[G,D,S]], [98,3,[G,D,Dx]], [99,3,[G,D,Dx]]
-    ]
+      // 第1屏 - 包含树木
+      [0,8,[X,X,S,S,G,N,'leaves','leaves']], 
+      [1,10,[X,X,S,S,G,N,'leaves','leaves','leaves','leaves']], 
+      [2,10,[X,X,S,D,G,'log','log','log','leaves','leaves']], 
+      [3,10,[X,S,S,G,N,N,'leaves','leaves','leaves','leaves']], 
+      [4,8,[X,S,D,G,N,N,'leaves','leaves']],
+      [5,4,[X,S,D,G]], 
+      [6,3,[X,S,S]], 
+      [7,6,[X,S,S,N,N,G]], 
+      [8,7,[X,S,N,N,N,D,G]], 
+      [9,7,[X,T.LAVA,N,N,N,S,G]], 
+      [10,8,[X,T.LAVA,N,N,N,S,D,G]],
+      [11,8,[X,T.LAVA,N,N,N,N,D,G]],
+      [12,2,[X,T.LAVA]],
+      [13,3,[X,S,S]],
+      [14,6,[X,S,S,N,'leaves','leaves']],
+      [15,8,[X,S,G,N,'leaves','leaves','leaves','leaves']], 
+      [16,8,[X,S,G,'log','log','log','leaves','leaves']], 
+      [17,8,[X,S,G,N,'leaves','leaves','leaves','leaves']],
+      [18,6,[X,S,G,N,'leaves','leaves']],
+      [19,7,[X,S,D,G,N,'leaves','leaves']],
+      // 第2屏
+      [20,9,[S,S,D,G,N,'leaves','leaves','leaves','leaves']], 
+      [21,9,[S,S,D,G,'log','log','log','leaves','leaves']], 
+      [22,9,[S,S,D,G,N,'leaves','leaves','leaves','leaves']], 
+      [23,7,[S,S,G,N,N,'leaves','leaves']], 
+      [24,3,[S,S,G]],
+      [25,3,[S,S,G]], 
+      [26,3,[X,S,S]], 
+      [27,3,[X,S,S]], 
+      [28,5,[X,X,S,S,S]],
+      [29,3,[X,S,S]], 
+      [30,2,[S,S]],
+      [31,2,[X,T.LAVA]], 
+      [32,2,[X,T.LAVA]], 
+      [33,2,[X,T.LAVA]],
+      [34,2,[X,T.LAVA]], 
+      [35,2,[X,T.LAVA]], 
+      [36,7,[X,S,S,N,N,'leaves','leaves']], 
+      [37,9,[X,S,G,N,N,'leaves','leaves','leaves','leaves']], 
+      [38,9,[S,S,D,G,'log','log','log','leaves','leaves']], 
+      [39,9,[S,S,D,G,N,'leaves','leaves','leaves','leaves']],
+      // 第3屏
+      [40,7,[S,S,G,N,N,'leaves','leaves']], 
+      [41,3,[X,S,G]], 
+      [42,2,[S,S]], 
+      [43,2,[S,S]], 
+      [44,8,[S,S,Ir,N,N,N,'leaves','leaves']],
+      [45,10,[X,X,S,G,N,N,'leaves','leaves','leaves','leaves']], 
+      [46,10,[X,X,S,D,G,'log','log','log','leaves','leaves']], 
+      [47,10,[X,S,S,D,G,'leaves','leaves','leaves','leaves','leaves']], 
+      [48,9,[X,X,S,G,N,'leaves','leaves','leaves','leaves']], 
+      [49,9,[X,S,D,G,'log','log','log','leaves','leaves']], 
+      [50,9,[X,S,D,G,N,'leaves','leaves','leaves','leaves']], 
+      [51,7,[X,S,D,G,N,'leaves','leaves']],
+      [52,3,[S,S,G]], 
+      [53,3,[X,S,G]], 
+      [54,3,[X,S,G]], 
+      [55,3,[X,S,G]], 
+      [56,3,[X,S,G]],
+      [57,5,[X,D,G,'leaves','leaves']], 
+      [58,7,[S,G,N,'leaves','leaves','leaves','leaves']], 
+      [59,7,[S,G,'log','log','log','leaves','leaves']], 
+      // 第4屏
+      [60,7,[S,G,N,'leaves','leaves','leaves','leaves']], 
+      [61,5,[S,G,N,'leaves','leaves']],
+      [62,3,[S,S,G]], 
+      [63,2,[S,T.LAVA]], 
+      [64,2,[S,T.LAVA]], 
+      [65,2,[S,T.LAVA]], 
+      [66,2,[S,T.LAVA]],
+      [67,2,[S,T.LAVA]],
+      [68,2,[S,S]], 
+      [69,3,[S,D,G]], 
+      [70,3,[S,D,G]], 
+      [71,6,[S,D,G,N,N,G]],
+      [72,7,[S,G,N,N,N,S,G]], 
+      [73,7,[S,G,N,N,N,S,G]], 
+      [74,7,[S,G,N,N,N,N,G]], 
+      [75,3,[X,S,G]],
+      [76,7,[X,S,G,N,N,'leaves','leaves']], 
+      [77,9,[X,S,D,G,N,'leaves','leaves','leaves','leaves']], 
+      [78,9,[X,S,D,G,'log','log','log','leaves','leaves']], 
+      [79,9,[X,S,D,G,N,'leaves','leaves','leaves','leaves']], 
+      // 第5屏
+      [80,7,[X,S,D,G,N,'leaves','leaves']], 
+      [81,4,[X,S,D,G]],
+      [82,6,[X,S,G,N,'leaves','leaves']], 
+      [83,8,[X,S,G,N,'leaves','leaves','leaves','leaves']], 
+      [84,8,[X,S,G,'log','log','log','leaves','leaves']], 
+      [85,8,[X,S,G,N,'leaves','leaves','leaves','leaves']], 
+      [86,6,[X,S,G,N,'leaves','leaves']],
+      [87,2,[S,G]], 
+      [88,2,[S,G]], 
+      [89,2,[S,G]], 
+      [90,7,[S,D,G,N,N,N,G]], 
+      [91,8,[S,D,G,N,N,N,D,G]],
+      [92,8,[S,D,G,N,N,N,D,G]], 
+      [93,8,[S,D,G,N,N,N,D,G]], 
+      [94,7,[S,D,G,N,N,N,G]], 
+      [95,4,[X,S,S,S]],
+      [96,6,[X,X,X,S,S,S]], 
+      [97,3,[X,Di,G]], 
+      [98,3,[X,S,G]], 
+      [99,4,[X,S,D,G]],
+      // 第6屏
+      [100,4,[X,S,D,G]], 
+      [101,4,[X,S,D,G]], 
+      [102,4,[X,S,D,G]], 
+      [103,7,[X,S,G,N,N,N,S]], 
+      [104,7,[X,S,G,N,N,N,S]],
+      [105,8,[X,S,G,N,N,N,S,G]], 
+      [106,8,[X,S,G,N,N,N,N,G]], 
+      [107,8,[X,S,G,N,N,N,N,G]], 
+      [108,4,[X,X,S,S]], 
+      [109,3,[X,S,S]], 
+      [110,5,[S,G,N,'leaves','leaves']], 
+      [111,7,[S,G,N,'leaves','leaves','leaves','leaves']],
+      [112,7,[S,G,'log','log','log','leaves','leaves']], 
+      [113,7,[S,G,N,'leaves','leaves','leaves','leaves']], 
+      [114,5,[S,T.LAVA,N,'leaves','leaves']], 
+      [115,2,[S,T.LAVA]], 
+      [116,2,[S,T.LAVA]],
+      [117,2,[S,T.LAVA]], 
+      [118,2,[S,S]], 
+      [119,3,[S,D,G]], 
+    ];
     terrain.forEach(([col, h, tiles]) => this.addTerrainColumn(col, h, tiles));
 
-    // 浮空平台：addFloatingPlatform(列号, 距底部格数, [贴图])
-    const p1 = this.addFloatingPlatform(11, 6, [G]);
-    const p2 = this.addFloatingPlatform(12, 5, [G, D]);
-    const p3 = this.addFloatingPlatform(13, 5, [G, D]);
-    const p4 = this.addFloatingPlatform(14, 5, [G, S]);
-    const p5 = this.addFloatingPlatform(15, 6, [G]);
-    const p6 = this.addFloatingPlatform(18, 7, [G]);
-    const p7 = this.addFloatingPlatform(19, 7, [G]);
-    const p8 = this.addFloatingPlatform(20, 7, [G]);
-    const p9 = this.addFloatingPlatform(21, 7, [G]);
-    const p10 = this.addFloatingPlatform(22, 7, [G]);
-    const p11 = this.addFloatingPlatform(23, 7, [G]);
-    const p20 = this.addFloatingPlatform(24, 8, [G]);           // 24列
-    const p22 = this.addFloatingPlatform(33, 7, [G]);           // 33列
-    const p23 = this.addFloatingPlatform(37, 5, [G, D]);        // 37列
-    const p24 = this.addFloatingPlatform(42, 9, [G]);           // 42列 (钻石矿附近)
-    const p25 = this.addFloatingPlatform(46, 4, [G]);           // 46列
-    const p26 = this.addFloatingPlatform(50, 6, [G, D, S]);     // 50列
-    const p27 = this.addFloatingPlatform(54, 8, [G]);           // 54列 (钻石矿附近)
-    const p28 = this.addFloatingPlatform(58, 5, [G]);           // 58列
-    const p12 = this.addFloatingPlatform(62, 8, [G]);           // 62列
-    const p13 = this.addFloatingPlatform(66, 7, [G, D]);        // 66列
-    const p14 = this.addFloatingPlatform(72, 10, [G]);          // 72列
-    const p15 = this.addFloatingPlatform(78, 5, [G]);           // 78列
-    const p18 = this.addFloatingPlatform(94, 6, [G]);           // 94列 (acid附近)
-    const p19 = this.addFloatingPlatform(98, 5, [G]);           // 98列 (钻石矿上方)
-    
-    // 辅助函数：获取地面 y 坐标
+    // 辅助函数：获取“最高地表” y 坐标（通常用于放置物体/敌人）
     const groundY = (col) => this.terrainHeights[col];
 
-    // 敌人（僵尸 64x64）
-    this.enemies.push(new Enemy(p7.x - 16, p7.y - 64, 64, 64));
-    this.enemies.push(new Enemy(p11.x - 16, p11.y - 64, 64, 64));
-    this.enemies.push(new Enemy(17 * TILE_SIZE, groundY(17) - 64, 64, 64));  // 第17列地面
-    // 平台下方
-    this.enemies.push(new Enemy(p6.x - 16, p6.y - 64, 64, 64));   // 18列平台
-    this.enemies.push(new Enemy(p8.x - 16, p8.y - 64, 64, 64));   // 20列平台
-    this.enemies.push(new Enemy(p10.x - 16, p10.y - 64, 64, 64)); // 22列平台
+    // 辅助函数：获取“底层地面” y 坐标（忽略中间悬空台阶）
+    const baseGroundY = (col) => {
+      const column = this.tileMap[col];
+      if (!column || column.length === 0) return this.terrainHeights[col];
 
-    // 地面上的僵尸（放在特定列的地面高度）
-    this.enemies.push(new Enemy(25 * TILE_SIZE, groundY(25) - 64, 64, 64));  // 25列地面
-    this.enemies.push(new Enemy(32 * TILE_SIZE, groundY(32) - 64, 64, 64));  // 32列地面
-    this.enemies.push(new Enemy(40 * TILE_SIZE, groundY(40) - 64, 64, 64));  // 40列地面
-    this.enemies.push(new Enemy(48 * TILE_SIZE, groundY(48) - 64, 64, 64));  // 48列地面
-    this.enemies.push(new Enemy(55 * TILE_SIZE, groundY(55) - 64, 64, 64));  // 55列地面
-    this.enemies.push(new Enemy(p12.x - 16, p12.y - 64, 64, 64));  // 62列平台下方
-    this.enemies.push(new Enemy(p18.x - 16, p18.y - 64, 64, 64));  // 94列平台下方
+      const baseY = 360;
+      let lastSolidRow = -1;
 
-    // 地面上的僵尸（放在特定列的地面高度）
-    this.enemies.push(new Enemy(65 * TILE_SIZE, groundY(65) - 64, 64, 64));  // 65列地面
-    this.enemies.push(new Enemy(91 * TILE_SIZE, groundY(91) - 64, 64, 64));  // 91列地面
-    this.enemies.push(new Enemy(97 * TILE_SIZE, groundY(97) - 64, 64, 64));  // 97列地面（酸池附近）
+      for (let row = 0; row < column.length; row++) {
+        const t = column[row];
+        if (t === T.NONE || t === undefined) {
+          // 已经过了一段连续地面，再遇到空格说明“底层地面”结束
+          if (lastSolidRow !== -1) break;
+          continue;
+        }
+        // 仍在底部连续地面区域内，记录最后一行
+        lastSolidRow = row;
+      }
 
-    // 特殊位置：lava区域附近放一个僵尸
-    this.enemies.push(new Enemy(87 * TILE_SIZE - 16, groundY(87) - 64, 64, 64));  // 87列 lava左边
+      if (lastSolidRow === -1) return this.terrainHeights[col];
+      return baseY - (lastSolidRow + 1) * TILE_SIZE;
+    };
+    
+    // 辅助函数：获取浮空平台位置
+    const getPlatform = (col) => {
+      for (let i = 0; i < this.platforms.length; i++) {
+        const p = this.platforms[i];
+        if (p._col === col && !p.isTerrain) {
+          return p;
+        }
+      }
+      return { x: col * TILE_SIZE, y: 360 };
+    };
 
-    // 特殊位置：acid区域附近放一个僵尸
-    this.enemies.push(new Enemy(93 * TILE_SIZE + 16, groundY(93) - 64, 64, 64));  // 93列 acid右边
+    // ===== 敌人和物品生成（基于当前地形）=====
+    // 敌人
+    this.enemies.push(new Enemy(54 * TILE_SIZE, groundY(54) - 64, 64, 64));
+    this.enemies.push(new Enemy(104 * TILE_SIZE, baseGroundY(104) - 64, 64, 64));
 
-    // 污染物（平台上 + 地面上）
-    //this.items.push(new Pollutant(450, groundY(15) - 30, 24, 18,"cigarette"));
-    //this.items.push(new Pollutant(600, groundY(17) - 30, 24, 18,"plastic_bottle"));
-    this.items.push(new Pollutant(p1.x + 4, p1.y - 18, 24, 18, "cigarette"));           // 平台
-    this.items.push(new Pollutant(36 * TILE_SIZE + 4, groundY(36) - 18, 24, 18, "cigarette")); // 地面 col 36
-    this.items.push(new Pollutant(48 * TILE_SIZE + 4, groundY(48) - 18, 24, 18, "plastic_bottle")); // 地面 col 48
-    // 60-99列地面污染物（按0-59列格式）
-    this.items.push(new Pollutant(61 * TILE_SIZE + 4, groundY(61) - 18, 24, 18, "cigarette"));
-    this.items.push(new Pollutant(63 * TILE_SIZE + 4, groundY(63) - 18, 24, 18, "plastic_bottle"));
-    this.items.push(new Pollutant(67 * TILE_SIZE + 4, groundY(67) - 18, 24, 18, "plastic_bottle"));
-    this.items.push(new Pollutant(69 * TILE_SIZE + 4, groundY(69) - 18, 24, 18, "cigarette"));
-    this.items.push(new Pollutant(75 * TILE_SIZE + 4, groundY(75) - 18, 24, 18, "plastic_bottle"));
-    this.items.push(new Pollutant(77 * TILE_SIZE + 4, groundY(77) - 18, 24, 18, "cigarette"));
-    this.items.push(new Pollutant(85 * TILE_SIZE + 4, groundY(85) - 18, 24, 18, "cigarette"));
-    this.items.push(new Pollutant(87 * TILE_SIZE + 4, groundY(87) - 18, 24, 18, "plastic_bottle")); // lava左边
-    this.items.push(new Pollutant(91 * TILE_SIZE + 4, groundY(91) - 18, 24, 18, "plastic_bottle"));
-    this.items.push(new Pollutant(93 * TILE_SIZE + 4, groundY(93) - 18, 24, 18, "cigarette"));       // acid左边
-    this.items.push(new Pollutant(95 * TILE_SIZE + 4, groundY(95) - 18, 24, 18, "plastic_bottle")); // acid右边
-    this.items.push(new Pollutant(97 * TILE_SIZE + 4, groundY(97) - 18, 24, 18, "cigarette"));
-    this.items.push(new Pollutant(99 * TILE_SIZE + 4, groundY(99) - 18, 24, 18, "plastic_bottle"));
-    //平台污染物
-    this.items.push(new Pollutant(p22.x + 4, p22.y - 18, 24, 18, "plastic_bottle")); // 33列平台
-    this.items.push(new Pollutant(p23.x + 4, p23.y - 18, 24, 18, "cigarette"));      // 37列平台
-    this.items.push(new Pollutant(p25.x + 4, p25.y - 18, 24, 18, "plastic_bottle")); // 46列平台
-    this.items.push(new Pollutant(p26.x + 4, p26.y - 18, 24, 18, "cigarette"));      // 50列平台
-    this.items.push(new Pollutant(p28.x + 4, p28.y - 18, 24, 18, "plastic_bottle")); // 58列平台
-    this.items.push(new Pollutant(p13.x + 4, p13.y - 18, 24, 18, "cigarette"));      // 66列平台
-    this.items.push(new Pollutant(p15.x + 4, p15.y - 18, 24, 18, "plastic_bottle")); // 78列平台
-    this.items.push(new Pollutant(p19.x + 4, p19.y - 18, 24, 18, "cigarette"));      // 98列平台
+    // 污染物
+    // this.items.push(new Pollutant(36 * TILE_SIZE + 4, groundY(36) - 18, 24, 18, "cigarette")); // 地面 col 36
+    // this.items.push(new Pollutant(48 * TILE_SIZE + 4, groundY(48) - 18, 24, 18, "plastic_bottle")); // 地面 col 48
+
     // TNT（不可收集，触发后爆炸）
-    this.items.push(new TNT(33 * TILE_SIZE - 30, groundY(33) - 18, 24, 18));
-    // 60-99列 TNT（不可收集，触发后爆炸）
-    this.items.push(new TNT(62 * TILE_SIZE - 30, groundY(62) - 18, 24, 18));  // 62列 浮空平台附近
-    this.items.push(new TNT(88 * TILE_SIZE - 30, groundY(88) - 18, 24, 18));  // 88列 lava上方平台附近
+    this.items.push(new TNT(97 * TILE_SIZE, groundY(97) - TILE_SIZE, TILE_SIZE, TILE_SIZE));
 
     // 食物（地面上，吃了回血，不进背包）
-    this.items.push(new Food(10 * TILE_SIZE + 4, groundY(10) - 24, 24, 24, 'apple'));
-    this.items.push(new Food(26 * TILE_SIZE + 4, groundY(26) - 24, 24, 24, 'enlarged_golden_apple'));
-    // 30-99列食物（地面上，吃了回血，不进背包）
-    this.items.push(new Food(35 * TILE_SIZE + 4, groundY(35) - 24, 24, 24, 'apple'));           // 35列 普通区域
-    this.items.push(new Food(44 * TILE_SIZE + 4, groundY(44) - 24, 24, 24, 'enlarged_golden_apple')); // 44列 金苹果
-    this.items.push(new Food(53 * TILE_SIZE + 4, groundY(53) - 24, 24, 24, 'apple'));           // 53列 普通区域
-    this.items.push(new Food(96 * TILE_SIZE + 4, groundY(96) - 24, 24, 24, 'enlarged_golden_apple')); // 96列 金苹果（acid附近）
-    
-    // 污染物（额外两处，保留）
-    this.items.push(new Pollutant(200, groundY(10) - TILE_SIZE, 24, 18, "cigarette"));
-    this.items.push(new Pollutant(400, groundY(20) - TILE_SIZE, 22, 31, "plastic_bottle"));
+    this.items.push(new Food(70 * TILE_SIZE + 4, groundY(70) - 24, 24, 24, 'apple'));
+    this.items.push(new Food(107 * TILE_SIZE + 4, groundY(107) - 24, 24, 24, 'enlarged_golden_apple'));
 
-    // 被困小鸟（main 新增）
+    // 被困小鸟
     const birdOffset = (TILE_SIZE - 24) / 2;
-    this.items.push(new TrappedBird(24 * TILE_SIZE + birdOffset, groundY(24) - 21, 24, 24));
-    this.items.push(new TrappedBird(p7.x + birdOffset, p7.y - 21, 24, 24));
-    this.items.push(new TrappedBird(28 * TILE_SIZE + birdOffset, groundY(28) - 21, 24, 24));  // 28列地面
-    this.items.push(new TrappedBird(38 * TILE_SIZE + birdOffset, groundY(38) - 21, 24, 24));  // 38列地面
-    this.items.push(new TrappedBird(47 * TILE_SIZE + birdOffset, groundY(47) - 21, 24, 24));  // 47列地面
-
+    this.items.push(new TrappedBird(73 * TILE_SIZE + birdOffset, groundY(73) - 21, 24, 24));
+    this.items.push(new TrappedBird(92 * TILE_SIZE + birdOffset, groundY(92) - 21, 24, 24));
 
     // 工具（平台上 + 地面上，居中放置）Tool(x, y, w, h, toolType)
     // toolType 为 pic/tool 下文件名不含 .png，如 'scissor' 'bucket'
     const toolOffset = (TILE_SIZE - 24) / 2;
-
-    // 平台上的剪刀（用 main 的高度 -21）
-    this.items.push(new Tool(p3.x + toolOffset, p3.y - 21, 24, 24, 'scissor'));
-    this.items.push(new Tool(p14.x + toolOffset, p14.y - 21, 24, 24, 'scissor'));
-    // 剪刀 - 对应被困小鸟的位置（以平台剪刀为主）
-    this.items.push(new Tool(p20.x + toolOffset, p20.y - 21, 24, 24, 'scissor')); // 24列平台（救47列小鸟）
-    this.items.push(new Tool(p24.x + toolOffset, p24.y - 21, 24, 24, 'scissor')); // 42列平台（救54列平台小鸟）
-
-    // 保留少量地面剪刀作为补充
-    this.items.push(new Tool(30 * TILE_SIZE + toolOffset, groundY(30) - 24, 24, 24, 'scissor')); // 30列地面
-
-    // 水桶：用你们要求的 enlarged_water_bucket 替换 bucket
+    // 剪刀
+    this.items.push(new Tool(28 * TILE_SIZE + toolOffset, groundY(28) - 24, 24, 24, 'scissor'));
+    this.items.push(new Tool(92 * TILE_SIZE + toolOffset, baseGroundY(92) - 24, 24, 24, 'scissor'));
+    // 水桶
     this.items.push(new Tool(8 * TILE_SIZE + toolOffset, groundY(8) - 24, 24, 24, 'enlarged_water_bucket'));
-    this.items.push(new Tool(55 * TILE_SIZE + toolOffset, groundY(55) - 24, 24, 24, 'enlarged_water_bucket'));
-    // 火山（87-88列）前的水桶（放在86列地面）
-    this.items.push(new Tool(86 * TILE_SIZE + toolOffset, groundY(86) - 24, 24, 24, 'enlarged_water_bucket'));
-    
-    // main 新增：埋在地下的剪刀（保留）
-    const buriedScissorCol = 16;
-    const buriedScissorRow = 2;
-    this.items.push(new Tool(
-      buriedScissorCol * TILE_SIZE + toolOffset,
-      groundY(buriedScissorCol) + buriedScissorRow * TILE_SIZE + (TILE_SIZE - 24) / 2,
-      24,
-      24,
-      'scissor'
-    ));
+    this.items.push(new Tool(23 * TILE_SIZE + toolOffset, groundY(23) - 24, 24, 24, 'enlarged_water_bucket'));
+    this.items.push(new Tool(29 * TILE_SIZE + toolOffset, groundY(29) - 24, 24, 24, 'enlarged_water_bucket'));
+    this.items.push(new Tool(103 * TILE_SIZE + toolOffset, groundY(103) - 24, 24, 24, 'enlarged_water_bucket'));
+    // 石灰石
+    // this.items.push(new Tool(14 * TILE_SIZE + toolOffset, groundY(14) - 24, 24, 24, 'limestone'));
 
-    // 新增：石灰石
-    this.items.push(new Tool(14 * TILE_SIZE + toolOffset, groundY(14) - 24, 24, 24, 'limestone'));
-    // 酸液池（93-94列）前的石灰石（放在92列地面）
-    this.items.push(new Tool(92 * TILE_SIZE + toolOffset, groundY(92) - 24, 24, 24, 'limestone'));
+    // ===== 结束：敌人和物品生成 =====
+  }
+
+  addTreeColumn(col, heightTiles, tiles) {
+    // 已废弃：现在统一使用 addTerrainColumn
+    console.warn('addTreeColumn is deprecated, use addTerrainColumn instead');
+  }
+
+  drawTrees() {
+    const leavesImg = window.tile_oak_leaves;
+    const logImg = window.tile_oak_log;
+
+    if (!this.treeColumns) return;
+
+    push();
+    imageMode(CORNER);
+
+    for (let col = 0; col < this.treeColumns.length; col++) {
+      const column = this.treeColumns[col] || [];
+      for (let i = 0; i < column.length; i++) {
+        const kind = column[i];
+        if (kind === T.NONE || kind === undefined || kind === null) continue;
+
+        const x = col * TILE_SIZE;
+        const y = 360 - (i + 1) * TILE_SIZE; // 从底部往上
+
+        if (kind === 'log') {
+          if (logImg && logImg.width > 0) image(logImg, x, y, TILE_SIZE, TILE_SIZE);
+          else { noStroke(); fill(120, 86, 54); rect(x, y, TILE_SIZE, TILE_SIZE); }
+        } else if (kind === 'leaves') {
+          if (leavesImg && leavesImg.width > 0) image(leavesImg, x, y, TILE_SIZE, TILE_SIZE);
+          else { noStroke(); fill(60, 140, 70, 230); rect(x, y, TILE_SIZE, TILE_SIZE); }
+        }
+      }
+    }
+
+    pop();
   }
 
   addTerrainColumn(col, heightTiles, tiles) {
-    const surfaceY = 360 - heightTiles * TILE_SIZE;
-    this.terrainHeights[col] = surfaceY;
-    for (let row = 0; row < heightTiles; row++) {
-      this.tileMap[col][row] = tiles[row] || T.DEEP;
-      const platform = new Platform(col * TILE_SIZE, surfaceY + row * TILE_SIZE, TILE_SIZE, TILE_SIZE, true);
+    // 统一处理：地形、树木、浮空平台
+    // - 数组从底部往上：tiles[0] 是最底下那格
+    // - 地形贴图（G/D/S/X/矿石/LAVA/ACID）：创建碰撞平台
+    // - 树木（'log'/'leaves'）：只绘制，不碰撞
+    // - T.NONE：空格子
+    
+    const baseY = 360; // 地面基准线
+    if (!this.treeColumns) this.treeColumns = Array.from({ length: TERRAIN_COLS }, () => []);
+    
+    // 找到第一个非 T.NONE/log/leaves 的地形块，作为地表高度
+    let terrainHeight = 0;
+    for (let i = 0; i < tiles.length; i++) {
+      const tile = tiles[i];
+      if (tile !== T.NONE && tile !== 'log' && tile !== 'leaves') {
+        terrainHeight = i + 1;
+      }
+    }
+    
+    if (terrainHeight > 0) {
+      const surfaceY = baseY - terrainHeight * TILE_SIZE;
+      this.terrainHeights[col] = surfaceY;
+    }
+    
+    // 逐格处理
+    for (let i = 0; i < tiles.length; i++) {
+      const tile = tiles[i];
+      const y = baseY - (i + 1) * TILE_SIZE;
+      
+      if (tile === T.NONE || tile === undefined || tile === null) {
+        continue;
+      }
+      
+      // 树木：只记录到 treeColumns，不创建平台
+      if (tile === 'log' || tile === 'leaves') {
+        if (!this.treeColumns[col]) this.treeColumns[col] = [];
+        this.treeColumns[col][i] = tile;
+        continue;
+      }
+      
+      // 地形：创建碰撞平台
+      const row = i; // 从底部开始的行号
+      this.tileMap[col][row] = tile;
+      const platform = new Platform(col * TILE_SIZE, y, TILE_SIZE, TILE_SIZE, terrainHeight > 0);
       platform._col = col;
       platform._row = row;
+      platform._tileType = tile;
       this.platforms.push(platform);
+      if (!this.terrainBlocks[col]) this.terrainBlocks[col] = [];
       this.terrainBlocks[col][row] = platform;
     }
   }
 
-  addFloatingPlatform(col, bottomTiles, tiles) {
-    const h = tiles.length * TILE_SIZE;
-    const baseY = 360 - bottomTiles * TILE_SIZE - h;
-    let firstPlatform = null;
-    for (let i = 0; i < tiles.length; i++) {
-      const platform = new Platform(col * TILE_SIZE, baseY + i * TILE_SIZE, TILE_SIZE, TILE_SIZE, false);
-      platform._floating = true;
-      platform._tileType = tiles[i];
-      this.platforms.push(platform);
-      if (i === 0) firstPlatform = platform;
-    }
-    return firstPlatform;
-  }
-
   draw() {
-    // 绘制地形（T.NONE 不绘制）
+    // 绘制地形（从 tileMap 读取，T.NONE 不绘制）
     for (let col = 0; col < TERRAIN_COLS; col++) {
-      const surfaceY = this.terrainHeights[col];
-      if (surfaceY === undefined) continue;
       for (let row = 0; row < (this.tileMap[col]?.length || 0); row++) {
         const type = this.tileMap[col][row];
         if (type === T.NONE || type === undefined) continue;
-        drawTile(type, col * TILE_SIZE, surfaceY + row * TILE_SIZE);
+        const y = 360 - (row + 1) * TILE_SIZE; // 从底部往上
+        drawTile(type, col * TILE_SIZE, y);
       }
     }
+
+    // 背景树：画在地形之后、实体之前（纯背景，无碰撞/交互）
+    this.drawTrees();
+
     // 绘制浮空平台、敌人、物品（生命值≤0 的敌人不绘制，已在 checkCollisions 中从列表移除）
     this.platforms.filter(p => !p.isTerrain).forEach(p => p.draw());
     this.enemies.filter(e => !e.isDead).forEach(e => e.draw());
@@ -1018,15 +1174,30 @@ class Platform {
 // ====== Player 类 ======
 class Player {
   constructor(x, y) {
-    Object.assign(this, { x, y, w: 32, h: 64, vx: 0, vy: 0, speed: 2, jumpForce: -6.32, gravity: 0.5, onGround: false, maxHealth: 10, health: 10, inventory: [], facingRight: true });
+    Object.assign(this, { x, y, w: 32, h: 64, vx: 0, vy: 0, speed: 2, jumpForce: -6, gravity: 0.5, onGround: false, maxHealth: 10, health: 10, inventory: [], facingRight: true });
     this.equippedWeaponType = 'wooden_sword';  // 手持武器，通过挖掘对应矿石升级
     
+    // 碰撞箱尺寸（独立于贴图尺寸）
+    this.collisionW = 24;
+    this.collisionH = 56;
+    this.collisionOffsetX = (this.w - this.collisionW) / 2;  // 水平居中：(32-24)/2 = 4
+    this.collisionOffsetY = this.h - this.collisionH;  // 底部对齐：(64-56) = 8
 
     this.score = 0;
     this.selectedSlot = -1;   // 当前鼠标选中的背包格子
     this.maxJumps = 2;
     this.jumpsRemaining = this.maxJumps;
 
+  }
+  
+  // 获取碰撞箱的实际坐标
+  getCollisionBox() {
+    return {
+      x: this.x + this.collisionOffsetX,
+      y: this.y + this.collisionOffsetY,
+      w: this.collisionW,
+      h: this.collisionH
+    };
   }
 
   update(platforms) {
@@ -1036,20 +1207,134 @@ class Player {
     if (this.vx !== 0) this.facingRight = this.vx > 0;
     this.vy += this.gravity;
 
-    this.x += this.vx;
-    this.resolveCollision(platforms, true);
+    // 水平移动：分步移动防止穿墙
+    this.moveWithCollision(platforms, this.vx, 0, true);
     this.x = constrain(this.x, 0, WORLD_WIDTH - this.w);
 
-    this.y += this.vy;
+    // 垂直移动：分步移动防止穿墙
     this.onGround = false;
-    this.resolveCollision(platforms, false);
+    this.moveWithCollision(platforms, 0, this.vy, false);
+    
+    // 即使没有垂直移动，也要检测脚下是否有地面
+    if (!this.onGround && Math.abs(this.vy) < 0.1) {
+      this.checkGroundStatus(platforms);
+    }
+  }
+
+  // 分步移动：将大的移动量拆分成多个小步，每步都检测碰撞
+  moveWithCollision(platforms, dx, dy, horizontal) {
+    const maxStepSize = 0.5; // 每步最多移动0.5像素，确保不会穿过任何方块
+    const totalDistance = Math.abs(horizontal ? dx : dy);
+    const steps = Math.ceil(totalDistance / maxStepSize);
+    
+    if (steps === 0) return;
+    
+    const stepX = dx / steps;
+    const stepY = dy / steps;
+    
+    for (let i = 0; i < steps; i++) {
+      // 先尝试移动
+      const oldX = this.x;
+      const oldY = this.y;
+      
+      if (horizontal) {
+        this.x += stepX;
+      } else {
+        this.y += stepY;
+      }
+      
+      // 移动后检测碰撞
+      const collided = this.checkCollision(platforms, horizontal);
+      
+      // 如果发生碰撞，回退并停止
+      if (collided) {
+        this.x = oldX;
+        this.y = oldY;
+        if (horizontal) this.vx = 0;
+        else this.vy = 0;
+        
+        // 精确定位到碰撞边界
+        this.resolveCollisionPrecise(platforms, horizontal);
+        break;
+      }
+    }
+  }
+
+  // 检测当前位置是否与任何平台碰撞
+  checkCollision(platforms, horizontal) {
+    const box = this.getCollisionBox();
+    for (let p of platforms) {
+      if (rectCollision(box.x, box.y, box.w, box.h, p.x, p.y, p.w, p.h)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  // 检测脚下是否有地面（用于静止时更新 onGround 状态）
+  checkGroundStatus(platforms) {
+    const box = this.getCollisionBox();
+    // 检测脚下 1 像素处是否有平台
+    const testY = box.y + box.h + 1;
+    
+    for (let p of platforms) {
+      // 检测玩家脚底是否刚好在平台顶部
+      if (box.x < p.x + p.w && box.x + box.w > p.x) {
+        if (Math.abs(testY - p.y) <= 2) {
+          this.onGround = true;
+          this.jumpsRemaining = this.maxJumps;
+          this.vy = 0;
+          return;
+        }
+      }
+    }
+  }
+
+  // 精确定位到碰撞边界
+  resolveCollisionPrecise(platforms, horizontal) {
+    const box = this.getCollisionBox();
+    
+    for (let p of platforms) {
+      if (rectCollision(box.x, box.y, box.w, box.h, p.x, p.y, p.w, p.h)) {
+        // 调试：检测到 94-95 列附近的碰撞
+        if (p._col >= 94 && p._col <= 96) {
+          console.log(`碰撞修正: col=${p._col}, row=${p._row}, horizontal=${horizontal}, playerX=${this.x.toFixed(1)}, playerY=${this.y.toFixed(1)}, vy=${this.vy.toFixed(2)}`);
+        }
+        
+        if (horizontal) {
+          // 水平碰撞：调整玩家的 x（考虑偏移量）
+          if (this.vx > 0) {
+            this.x = p.x - this.collisionW - this.collisionOffsetX;
+          } else {
+            this.x = p.x + p.w - this.collisionOffsetX;
+          }
+          this.vx = 0;
+        } else {
+          if (this.vy > 0) { 
+            this.y = p.y - this.h; 
+            this.onGround = true; 
+            this.jumpsRemaining = this.maxJumps; 
+          } else if (this.vy < 0) {
+            this.y = p.y + p.h;
+          }
+          this.vy = 0;
+        }
+        return;
+      }
+    }
   }
 
   resolveCollision(platforms, horizontal) {
+    const box = this.getCollisionBox();
+    let collided = false;
+    
     for (let p of platforms) {
-      if (rectCollision(this.x, this.y, this.w, this.h, p.x, p.y, p.w, p.h)) {
+      if (rectCollision(box.x, box.y, box.w, box.h, p.x, p.y, p.w, p.h)) {
+        collided = true;
         if (horizontal) {
-          this.x = this.vx > 0 ? p.x - this.w : p.x + p.w;
+          // 水平碰撞：调整玩家的 x（考虑偏移量）
+          if (this.vx > 0) this.x = p.x - this.collisionW - this.collisionOffsetX;
+          else this.x = p.x + p.w - this.collisionOffsetX;
           this.vx = 0;
         } else {
           if (this.vy > 0) { this.y = p.y - this.h; this.onGround = true; this.jumpsRemaining = this.maxJumps; }
@@ -1058,6 +1343,8 @@ class Player {
         }
       }
     }
+    
+    return collided;
   }
 
   jump() {
@@ -1068,7 +1355,10 @@ class Player {
     this.onGround = false;
     this.jumpsRemaining -= 1;
   }
-  collidesWith(obj) { return rectCollision(this.x, this.y, this.w, this.h, obj.x, obj.y, obj.w, obj.h); }
+  collidesWith(obj) { 
+    const box = this.getCollisionBox();
+    return rectCollision(box.x, box.y, box.w, box.h, obj.x, obj.y, obj.w, obj.h); 
+  }
   collect(item) { if (this.inventory.length < INVENTORY_SLOTS) this.inventory.push(item); }
   takeDamage(amount) { this.health = max(0, this.health - amount); }
 
@@ -1106,17 +1396,92 @@ class Player {
 
 // ====== Enemy / Item / Pollutant 类 ======
 const ENEMY_DEFAULT_HEALTH = 5;
+const ENEMY_DETECT_RANGE = 4 * TILE_SIZE; // 4格检测范围
+const ENEMY_ATTACK_RANGE = 2 * TILE_SIZE; // 2格攻击范围
+const ENEMY_SPEED = 1; // 敌人移动速度
 
 class Enemy {
   constructor(x, y, w, h, health = ENEMY_DEFAULT_HEALTH) {
     Object.assign(this, { x, y, w, h, health, maxHealth: health });
+    this.activated = false; // 是否已被激活（玩家进入检测范围）
+    this.vx = 0; // 水平速度
+    this.vy = 0; // 垂直速度
+    this.gravity = 0.5; // 重力
+    this.onGround = false; // 是否在地面上
+    this.facingRight = true; // 朝向：true=右，false=左
   }
+  
   takeDamage(amount) {
     this.health = max(0, this.health - amount);
   }
+  
   get isDead() { return this.health <= 0; }
+  
+  // 更新敌人状态（追踪玩家）
+  update(player, platforms) {
+    if (this.isDead) return;
+    
+    const px = player.x + player.w / 2;
+    const py = player.y + player.h / 2;
+    const ex = this.x + this.w / 2;
+    const ey = this.y + this.h / 2;
+    const distance = Math.hypot(px - ex, py - ey);
+    
+    // 首次进入4格范围内，激活敌人
+    if (!this.activated && distance <= ENEMY_DETECT_RANGE) {
+      this.activated = true;
+    }
+    
+    // 激活后持续追踪玩家
+    if (this.activated) {
+      // 水平移动：朝向玩家
+      if (px < ex - 5) {
+        this.vx = -ENEMY_SPEED;
+        this.facingRight = false; // 向左移动
+      } else if (px > ex + 5) {
+        this.vx = ENEMY_SPEED;
+        this.facingRight = true; // 向右移动
+      } else {
+        this.vx = 0;
+      }
+      
+      // 应用重力
+      this.vy += this.gravity;
+      
+      // 水平移动
+      this.x += this.vx;
+      this.resolveCollision(platforms, true);
+      
+      // 垂直移动
+      this.y += this.vy;
+      this.onGround = false;
+      this.resolveCollision(platforms, false);
+    }
+  }
+  
+  // 碰撞检测（与平台）
+  resolveCollision(platforms, horizontal) {
+    for (let p of platforms) {
+      if (rectCollision(this.x, this.y, this.w, this.h, p.x, p.y, p.w, p.h)) {
+        if (horizontal) {
+          if (this.vx > 0) this.x = p.x - this.w;
+          else this.x = p.x + p.w;
+          this.vx = 0;
+        } else {
+          if (this.vy > 0) {
+            this.y = p.y - this.h;
+            this.onGround = true;
+          } else if (this.vy < 0) {
+            this.y = p.y + p.h;
+          }
+          this.vy = 0;
+        }
+      }
+    }
+  }
+  
   draw() {
-    const img = window.zombieSprite;
+    const img = this.facingRight ? window.zombieSpriteRight : window.zombieSpriteLeft;
     if (img && img.width > 0) image(img, this.x, this.y, this.w, this.h);
     else { fill(200, 50, 50); rect(this.x, this.y, this.w, this.h); }
   }
@@ -1156,7 +1521,7 @@ class Pollutant extends Item {
 
 
 class TNT extends Pollutant {
-  constructor(x, y, w = 24, h = 18) {
+  constructor(x, y, w = 32, h = 32) {
     super(x, y, w, h, "tnt");
 
     // 状态
@@ -1399,24 +1764,24 @@ class UIManager {
       }
     }
 
-      // 背包 - 纯色背景（16格）
+      // 背包 - 使用背包贴图（10格）
       const invX = (width - INV_BAR_W) / 2, invY = height - INV_BAR_H - 12;
 
-      // 画半透明背景矩形
-      fill(40, 40, 50, 200);
-      noStroke();
-      rect(invX, invY, INV_BAR_W, INV_BAR_H, 8);
+      // 画背包贴图作为背景
+      const invContainerImg = window.invContainer;
+      if (invContainerImg && invContainerImg.width > 0) {
+        image(invContainerImg, invX, invY, INV_BAR_W, INV_BAR_H);
+      } else {
+        // 备选：半透明背景矩形
+        fill(40, 40, 50, 200);
+        noStroke();
+        rect(invX, invY, INV_BAR_W, INV_BAR_H, 8);
+      }
 
       // 画格子边框和物品
       for (let i = 0; i < INVENTORY_SLOTS; i++) {
         const x = invX + INV_PADDING + i * (SLOT_SIZE + SLOT_GAP);
         const y = invY + INV_PADDING;
-        
-        // 画格子边框
-        noFill();
-        stroke(100, 100, 120);
-        strokeWeight(1);
-        rect(x, y, SLOT_SIZE, SLOT_SIZE);
         
         const item = player.inventory[i];
         if (item) {
@@ -1477,7 +1842,8 @@ function setup() {
   load('assets/pic/player_cat/cat_right.png', 'catSpriteRight');
 
   // 敌人（assets/pic/enemy）
-  load('assets/pic/enemy/zombie.png', 'zombieSprite');
+  load('assets/pic/enemy/zombie_left.png', 'zombieSpriteLeft');
+  load('assets/pic/enemy/zombie_right.png', 'zombieSpriteRight');
 
   // 工具（assets/pic/tool 中全部，新增图片时在此数组加入文件名不含 .png）
   ['scissor', 'limestone', 'enlarged_water_bucket'].forEach(name =>load(`assets/pic/tool/${name}.png`, `tool_${name}`));
@@ -1491,7 +1857,7 @@ function setup() {
   // UI 等（心形在 assets 根目录，背包在 assets/pic）
   load('assets/heart_container.png', 'heartContainer');
   load('assets/heart_fill.png', 'heartFill');
-  load('assets/pic/inventory_container.png', 'invContainer');
+  load('assets/pic/ui/inventory_container.png', 'invContainer');
 
 
 
@@ -1500,7 +1866,9 @@ function setup() {
   const groundTiles = [
     'grass_block_side', 'dirt', 'stone', 'deepslate',
     'copper_ore', 'deepslate_copper_ore', 'deepslate_diamond_ore', 'deepslate_gold_ore', 'deepslate_iron_ore',
-    'diamond_ore', 'gold_ore', 'iron_ore','lava', 'acid', 'water'
+    'diamond_ore', 'gold_ore', 'iron_ore','lava', 'acid', 'water',
+    // 树（仅作为背景装饰使用）
+    'oak_leaves', 'oak_log'
   ];
   groundTiles.forEach(name => loadImage(`assets/pic/ground/${name}.png`, img => window[`tile_${name.replace(/-/g, '_')}`] = img, () => console.warn(`pic/ground/${name}.png 加载失败`)));
   //加载游戏开始界面
@@ -1600,8 +1968,15 @@ function drawVictoryScreen() {
   background(0, 100, 50); // 深绿色背景
   fill(200, 255, 150); // 浅绿色文字
   textAlign(CENTER, CENTER);
-  textSize(36);
-  text("Victory!", width / 2, height / 2 - 20);
+  textSize(48);
+  text("Victory!", width / 2, height / 2 - 60);
+  
+  // 显示分数
+  textSize(32);
+  fill(255, 255, 100); // 金黄色
+  text("Score: " + game.player.score, width / 2, height / 2);
+  
   textSize(24);
-  text("Press ENTER to Play Again", width / 2, height / 2 + 40);
+  fill(200, 255, 150);
+  text("Press ENTER to Play Again", width / 2, height / 2 + 60);
 }
