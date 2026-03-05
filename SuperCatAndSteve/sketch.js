@@ -12,8 +12,7 @@ const MINE_PRESS_MS = 500;  // 长按多久后破坏方块
 const WIN_SCORE = 12;
 const VICTORY_DELAY_MS = 1500;
 const ATTACK_COOLDOWN_MS = 400;  // 攻击冷却
-const PLAYER_ATTACK_RANGE = 48;   // 玩家可攻击敌人的距离（鼠标点击时）
-const ENEMY_DAMAGE_RANGE = 32;    // 敌人可伤害玩家的距离（≤此距离时每 1 秒扣 1 生命）
+const MUTUAL_ATTACK_RANGE = 1.3 * TILE_SIZE;  // 敌人和玩家相互攻击的距离（中心距离 < 1.3格）
 const ENEMY_CONTACT_DAMAGE_INTERVAL_MS = 1000;
 
 // 贴图类型（地面/平台可选 assets/pic/ground 中任意图片）
@@ -134,22 +133,19 @@ class Game {
     this.checkCollisions();
     this.updateMining();
 
-    // ===== 岩浆 / 酸池伤害判定：脚下方块是岩浆/酸就立即死亡 =====
+    // ===== 岩浆 / 酸池伤害判定：玩家碰撞箱底部接触岩浆/酸就立即死亡 =====
     const box = this.player.getCollisionBox();
     const colUnder = Math.floor((box.x + box.w / 2) / TILE_SIZE);
+    const feetY = box.y + box.h;  // 玩家碰撞箱底部的屏幕Y坐标
+
     if (colUnder >= 0 && colUnder < TERRAIN_COLS) {
-      const column = this.level.tileMap[colUnder];
-      if (column && column.length) {
-        // 从上往下找到这一列的“表面方块”
-        let surfaceRow = -1;
-        for (let r = column.length - 1; r >= 0; r--) {
-          const tt = column[r];
-          if (tt === T.NONE || tt === undefined) continue;
-          surfaceRow = r;
-          break;
-        }
-        if (surfaceRow >= 0) {
-          const tt = column[surfaceRow];
+      const surfaceY = this.level.terrainHeights[colUnder];
+      if (surfaceY !== undefined) {
+        // 计算相对于地形表面的行号（正确的坐标转换）
+        const rowUnder = Math.floor((feetY - surfaceY) / TILE_SIZE);
+        if (rowUnder >= 0) {
+          const column = this.level.tileMap[colUnder];
+          const tt = column?.[rowUnder];
           if (tt === T.LAVA || tt === T.ACID) {
             this.player.health = 0;
           }
@@ -328,8 +324,9 @@ consumeTool(toolType) {
     const box = this.player.getCollisionBox();
     const px = box.x + box.w / 2;
     const py = box.y + box.h / 2;
-    const ex = enemy.x + enemy.w / 2;
-    const ey = enemy.y + enemy.h / 2;
+    const eBox = enemy.getCollisionBox();
+    const ex = eBox.x + eBox.w / 2;
+    const ey = eBox.y + eBox.h / 2;
     return Math.sqrt((px - ex) ** 2 + (py - ey) ** 2);
   }
 
@@ -487,7 +484,7 @@ isNearAcid() {
       (enemy) => !enemy.isDead,
       this.distanceToEnemy
     );
-    if (closestEnemyDist <= ENEMY_ATTACK_RANGE + 16) return "遇到僵尸！按F攻击";
+    if (closestEnemyDist <= MUTUAL_ATTACK_RANGE) return "遇到僵尸！按F攻击";
 
     if (this.isNearFloating()) return "两次跳跃：双击空格";
 
@@ -540,11 +537,11 @@ isNearAcid() {
     const dmg = this.getAttackDamage();
     if (dmg <= 0) return;
     let closest = null;
-    let closestDist = ENEMY_ATTACK_RANGE + 1;
+    let closestDist = MUTUAL_ATTACK_RANGE + 1;
     for (const enemy of this.level.enemies) {
       if (enemy.isDead) continue;
       const d = this.distanceToEnemy(enemy);
-      if (d <= ENEMY_ATTACK_RANGE && d < closestDist) {
+      if (d <= MUTUAL_ATTACK_RANGE && d < closestDist) {
         closestDist = d;
         closest = enemy;
       }
@@ -714,10 +711,10 @@ tryUseLimestone() {
 
  checkCollisions() {
   const now = millis();
-  // 敌人伤害判定：距离小于2格时可以攻击玩家
+  // 敌人伤害判定：距离小于1.3格时可以攻击玩家
   for (const enemy of this.level.enemies) {
     if (enemy.isDead) continue;
-    if (this.distanceToEnemy(enemy) > ENEMY_ATTACK_RANGE) continue;
+    if (this.distanceToEnemy(enemy) >= MUTUAL_ATTACK_RANGE) continue;
     if (now - this.lastEnemyContactDamageTime < ENEMY_CONTACT_DAMAGE_INTERVAL_MS) break;
     this.player.takeDamage(1);
     this.lastEnemyContactDamageTime = now;
@@ -1174,7 +1171,7 @@ class Platform {
 // ====== Player 类 ======
 class Player {
   constructor(x, y) {
-    Object.assign(this, { x, y, w: 32, h: 64, vx: 0, vy: 0, speed: 2, jumpForce: -6, gravity: 0.5, onGround: false, maxHealth: 10, health: 10, inventory: [], facingRight: true });
+    Object.assign(this, { x, y, w: 32, h: 64, vx: 0, vy: 0, speed: 2, jumpForce: -6.32, gravity: 0.5, onGround: false, maxHealth: 10, health: 10, inventory: [], facingRight: true });
     this.equippedWeaponType = 'wooden_sword';  // 手持武器，通过挖掘对应矿石升级
     
     // 碰撞箱尺寸（独立于贴图尺寸）
@@ -1397,7 +1394,6 @@ class Player {
 // ====== Enemy / Item / Pollutant 类 ======
 const ENEMY_DEFAULT_HEALTH = 5;
 const ENEMY_DETECT_RANGE = 4 * TILE_SIZE; // 4格检测范围
-const ENEMY_ATTACK_RANGE = 2 * TILE_SIZE; // 2格攻击范围
 const ENEMY_SPEED = 1; // 敌人移动速度
 
 class Enemy {
@@ -1409,6 +1405,21 @@ class Enemy {
     this.gravity = 0.5; // 重力
     this.onGround = false; // 是否在地面上
     this.facingRight = true; // 朝向：true=右，false=左
+    
+    // 碰撞箱：24*64，居中底部对齐
+    this.collisionW = 24;
+    this.collisionH = 64;
+    this.collisionOffsetX = (this.w - this.collisionW) / 2;  // 水平居中
+    this.collisionOffsetY = this.h - this.collisionH;  // 底部对齐
+  }
+  
+  getCollisionBox() {
+    return {
+      x: this.x + this.collisionOffsetX,
+      y: this.y + this.collisionOffsetY,
+      w: this.collisionW,
+      h: this.collisionH
+    };
   }
   
   takeDamage(amount) {
@@ -1459,13 +1470,14 @@ class Enemy {
     }
   }
   
-  // 碰撞检测（与平台）
+  // 碰撞检测（与平台，使用碰撞箱）
   resolveCollision(platforms, horizontal) {
+    const box = this.getCollisionBox();
     for (let p of platforms) {
-      if (rectCollision(this.x, this.y, this.w, this.h, p.x, p.y, p.w, p.h)) {
+      if (rectCollision(box.x, box.y, box.w, box.h, p.x, p.y, p.w, p.h)) {
         if (horizontal) {
-          if (this.vx > 0) this.x = p.x - this.w;
-          else this.x = p.x + p.w;
+          if (this.vx > 0) this.x = p.x - box.w - this.collisionOffsetX;
+          else this.x = p.x + p.w - this.collisionOffsetX;
           this.vx = 0;
         } else {
           if (this.vy > 0) {
