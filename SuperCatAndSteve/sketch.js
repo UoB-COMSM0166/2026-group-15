@@ -135,21 +135,19 @@ class Game {
     this.updateMining();
 
     // ===== 岩浆 / 酸池伤害判定：玩家碰撞箱底部接触岩浆/酸就立即死亡 =====
-    const box = this.player.getCollisionBox();
-    const colUnder = Math.floor((box.x + box.w / 2) / TILE_SIZE);
-    const feetY = box.y + box.h;  // 玩家碰撞箱底部的屏幕Y坐标
+    // 使用玩家贴图位置而不是碰撞箱检测岩浆
+    const pxCenter = this.player.x + this.player.w / 2;
+    const colUnder = Math.floor(pxCenter / TILE_SIZE);
+    const feetY = this.player.y + this.player.h;  // 玩家贴图底部的屏幕 Y
 
     if (colUnder >= 0 && colUnder < TERRAIN_COLS) {
-      const surfaceY = this.level.terrainHeights[colUnder];
-      if (surfaceY !== undefined) {
-        // 计算相对于地形表面的行号（正确的坐标转换）
-        const rowUnder = Math.floor((feetY - surfaceY) / TILE_SIZE);
-        if (rowUnder >= 0) {
-          const column = this.level.tileMap[colUnder];
-          const tt = column?.[rowUnder];
-          if (tt === T.LAVA || tt === T.ACID) {
-            this.player.health = 0;
-          }
+      // 减去1像素以正确处理踩在格子上边界的情况
+      const rowUnder = Math.floor((360 - feetY - 1) / TILE_SIZE);
+      if (rowUnder >= 0) {
+        const column = this.level.tileMap[colUnder];
+        const tt = column?.[rowUnder];
+        if (tt === T.LAVA || tt === T.ACID) {
+          this.player.health = 0;
         }
       }
     }
