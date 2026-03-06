@@ -14,6 +14,7 @@ const VICTORY_DELAY_MS = 1500;
 const ATTACK_COOLDOWN_MS = 400;  // 攻击冷却
 const MUTUAL_ATTACK_RANGE = 1.3 * TILE_SIZE;  // 敌人和玩家相互攻击的距离（中心距离 < 1.3格）
 const ENEMY_CONTACT_DAMAGE_INTERVAL_MS = 1000;
+const ENEMY_ATTACK_START_DELAY_MS = 1000;  // 敌人进入攻击范围后延迟才开始造成伤害（毫秒）
 
 // 贴图类型（地面/平台可选 assets/pic/ground 中任意图片）
 const T = {
@@ -714,8 +715,27 @@ tryUseLimestone() {
   // 敌人伤害判定：距离小于1.3格时可以攻击玩家
   for (const enemy of this.level.enemies) {
     if (enemy.isDead) continue;
-    if (this.distanceToEnemy(enemy) >= MUTUAL_ATTACK_RANGE) continue;
-    if (now - this.lastEnemyContactDamageTime < ENEMY_CONTACT_DAMAGE_INTERVAL_MS) break;
+    
+    const distToEnemy = this.distanceToEnemy(enemy);
+    const inAttackRange = distToEnemy < MUTUAL_ATTACK_RANGE;
+    
+    // 更新敌人是否在攻击范围内
+    if (inAttackRange) {
+      // 首次进入攻击范围
+      if (enemy.enteredAttackRangeAt === -1) {
+        enemy.enteredAttackRangeAt = now;
+      }
+    } else {
+      // 离开攻击范围，重置
+      enemy.enteredAttackRangeAt = -1;
+    }
+    
+    // 检查是否可以造成伤害：已在范围内超过延迟时间 且 上次伤害冷却已过
+    if (!inAttackRange) continue;  // 不在范围内不伤害
+    if (enemy.enteredAttackRangeAt === -1) continue;  // 不应该发生，但保险起见检查
+    if (now - enemy.enteredAttackRangeAt < ENEMY_ATTACK_START_DELAY_MS) continue;  // 延迟未过
+    if (now - this.lastEnemyContactDamageTime < ENEMY_CONTACT_DAMAGE_INTERVAL_MS) continue;  // 伤害冷却未过
+    
     this.player.takeDamage(1);
     this.lastEnemyContactDamageTime = now;
     break;
@@ -1405,6 +1425,7 @@ class Enemy {
     this.gravity = 0.5; // 重力
     this.onGround = false; // 是否在地面上
     this.facingRight = true; // 朝向：true=右，false=左
+    this.enteredAttackRangeAt = -1; // 进入攻击范围的时间（毫秒），-1表示未在范围内
     
     // 碰撞箱：24*64，居中底部对齐
     this.collisionW = 24;
