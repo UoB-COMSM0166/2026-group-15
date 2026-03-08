@@ -631,7 +631,7 @@ class Game {
     const birdNoticeRange = HINT_POLLUTANT_RANGE * 1.45;
     const birdRescueRange = HINT_POLLUTANT_RANGE * 0.9;
     if (closestBirdDist <= birdNoticeRange) {
-      if (closestBirdDist <= birdRescueRange) return "Click cissors to rescue.";
+      if (closestBirdDist <= birdRescueRange) return "Click scissors to rescue.";
       return "Bird needs rescue.";
     }
 
@@ -1923,7 +1923,7 @@ class Weapon extends Item {
 
 // ====== HintCat 类 ======
 class HintCat {
-  constructor(x, y) { Object.assign(this, { x, y, w: 32, h: 16, facingRight: true, messages: ["Move: Arrows", "Double Jump: Spacex2"], message: null }); }
+  constructor(x, y) { Object.assign(this, { x, y, w: 32, h: 16, facingRight: true, messages: ["Move: Arrows", "Double Jump: Space x2"], message: null }); }
 
   setMessage(message) {
     this.message = message;
