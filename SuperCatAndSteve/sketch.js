@@ -127,10 +127,12 @@ class Game {
     // 更新所有带 update 方法的物体（比如 TNT）
     const now = millis();
     for (const item of this.level.items) {
-     if (typeof item.update === "function") {
-      item.update(now, this.player);
-     }
-   }
+  if (item instanceof TNT) {
+    item.update(now, this.player);
+  } else if (item instanceof Item) {
+    item.update(this.level.platforms);
+  }
+}
     this.checkCollisions();
     this.updateMining();
 
@@ -777,15 +779,18 @@ tryUseLimestone() {
 
     // Food 单独处理（吃掉回血并消失，不进背包）
     if (item instanceof Food) {
-        if (item.foodType === 'apple') {
+    // 普通苹果：+1
+    if (item.foodType === 'apple') {
+        this.player.health = Math.min(this.player.maxHealth, this.player.health + 1);
+    } 
+    // 金苹果：+3
+    else if (item.foodType === 'enlarged_golden_apple') {
         this.player.health = Math.min(this.player.maxHealth, this.player.health + 3);
-        } 
-        else if (item.foodType === 'enlarged_golden_apple') {
-        this.player.health = this.player.maxHealth;
-        }
-    this.level.items.splice(i, 1); // 吃掉消失
-    continue; // 跳过后面的 collect(item)
     }
+
+    this.level.items.splice(i, 1); // 吃掉消失
+    continue;
+}
 
     // 3) 普通收集并移除（Tool/Weapon/Pollutant 都走这里）
     this.player.collect(item);
@@ -1519,7 +1524,25 @@ class Enemy {
 }
 
 class Item {
-  constructor(x, y, w, h, sprite) { Object.assign(this, { x, y, w, h, sprite }); }
+  constructor(x, y, w, h, sprite) {
+    Object.assign(this, { x, y, w, h, sprite });
+    this.vy = 0;
+    this.gravity = 0.5;
+  }
+
+  update(platforms) {
+    this.vy += this.gravity;
+    this.y += this.vy;
+
+    for (let p of platforms) {
+      if (rectCollision(this.x, this.y, this.w, this.h, p.x, p.y, p.w, p.h)) {
+        this.y = p.y - this.h;
+        this.vy = 0;
+        break;
+      }
+    }
+  }
+
   draw() {
     if (this.sprite) image(this.sprite, this.x, this.y, this.w, this.h);
     else { fill(255, 255, 0); rect(this.x, this.y, this.w, this.h); }
