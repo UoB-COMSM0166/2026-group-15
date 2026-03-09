@@ -301,15 +301,32 @@ class Game {
     else if (this.player.x > WORLD_WIDTH - halfW) this.cameraX = WORLD_WIDTH - CANVAS_W;
     else this.cameraX = this.player.x - halfW;
   }
+  
+updateHintCat() {
+    if (!this.player || !this.level || !this.level.hintCat) return;
 
-  updateHintCat() {
-    const box = this.player.getCollisionBox();
-    this.playerHistory.push({ x: box.x, y: box.y, w: box.w, h: box.h, facingRight: this.player.facingRight, t: millis() });
-    const cutoff = millis() - HINT_CAT_DELAY_MS - 50;
-    while (this.playerHistory.length && this.playerHistory[0].t < cutoff) this.playerHistory.shift();
-    this.level.hintCat.follow(this.getDelayedState());
+    // 记录历史
+    this.playerHistory.push({
+      x: this.player.x, y: this.player.y,
+      w: this.player.w, h: this.player.h,
+      facingRight: this.player.facingRight, t: millis()
+    });
+
+    const cutoff = millis() - HINT_CAT_DELAY_MS;
+    while (this.playerHistory.length && this.playerHistory[0].t < cutoff) {
+      this.playerHistory.shift();
+    }
+
+    let pastState = this.getDelayedState();
+    
+    // 如果开局还没有 500ms 的历史，就让猫先跟着玩家当前的位置
+    let targetState = pastState ? pastState : this.player;
+
+    // 执行跟随
+    this.level.hintCat.follow(targetState, this.level);
     this.level.hintCat.setMessage(this.getHintMessage());
   }
+
 
   getDelayedState() {
     const targetT = millis() - HINT_CAT_DELAY_MS;
@@ -1923,22 +1940,81 @@ class Weapon extends Item {
 
 // ====== HintCat 类 ======
 class HintCat {
-  constructor(x, y) { Object.assign(this, { x, y, w: 32, h: 16, facingRight: true, messages: ["Move: Arrows", "Double Jump: Space x2"], message: null }); }
+  constructor(x, y) { Object.assign(this, { x, y, w: 32, h: 16, vy: 0, facingRight: true, messages: ["Move: Arrows", "Double Jump: Space x2"], message: null }); }
 
   setMessage(message) {
     this.message = message;
   }
 
-  follow(state) {
-    const playerW = state.w || 32;
-    const behindX = (state.facingRight !== false)
-      ? (state.x - this.w - HINT_CAT_GAP)
-      : (state.x + playerW + HINT_CAT_GAP);
-    this.x = constrain(behindX, 0, WORLD_WIDTH - this.w);
-    this.y = state.y + state.h - this.h;
-    this.facingRight = state.facingRight !== false;
-  }
 
+  follow(state, level) {
+    if (!state || !level || !level.terrainHeights) return;
+
+    // 1. 瞬移保护：离得太远就让猫回来
+    if (dist(this.x, this.y, state.x, state.y) > 600) {
+      this.x = state.x;
+      this.y = state.y;
+      return;
+    }
+
+    // 2. 水平移动
+    let gap = 40;
+    let targetX = state.x + (state.facingRight ? -gap : gap);
+    this.x = lerp(this.x, targetX, 0.1);
+
+    // 3. 物理重力
+    this.vy = (this.vy || 0) + 0.5;
+    this.y += this.vy;
+
+    // 4. 碰撞检测
+    let groundY = CANVAS_H;
+    let col = Math.floor((this.x + this.w / 2) / TILE_SIZE);
+    if (col >= 0 && col < level.terrainHeights.length) groundY = level.terrainHeights[col];
+    
+    if (level.platforms) {
+      for (let p of level.platforms) {
+        if (this.x + this.w > p.x && this.x < p.x + p.w) {
+          if (this.vy >= 0 && this.y + this.h > p.y && this.y + this.h < p.y + 20) {
+            groundY = Math.min(groundY, p.y);
+          }
+        }
+      }
+    }
+
+    // 5. 落地判定
+    let oldOnGround = this.onGround;
+    if (this.y + this.h > groundY) {
+      this.y = groundY - this.h;
+      this.vy = 0;
+      this.onGround = true;
+    } else {
+      this.onGround = false;
+    }
+
+    let now = millis();
+    if (this.onGround) {
+      // 探测前方障碍
+      let lookAheadDist = state.x > this.x ? 20 : -20; 
+      let nextCol = Math.floor((this.x + this.w/2 + lookAheadDist) / TILE_SIZE);
+      let isBlocked = false;
+      if (nextCol >= 0 && nextCol < level.terrainHeights.length) {
+        isBlocked = level.terrainHeights[nextCol] < (this.y + this.h - 10);
+      }
+
+      // 判定玩家是否在高处
+      let playerIsMuchHigher = state.y < this.y - 60;
+
+      // 只有遇到障碍或者玩家跳跃，且距离上次跳跃超过 1 秒，猫才跳跃
+      if (isBlocked || playerIsMuchHigher) {
+        if (!this.lastJumpTime || now - this.lastJumpTime > 1000) {
+          this.vy = -9; 
+          this.lastJumpTime = now;
+          this.onGround = false;
+        }
+      }
+    }
+    this.facingRight = state.facingRight;
+  }
   draw() {
     const img = this.facingRight ? window.catSpriteRight : window.catSpriteLeft;
     if (img && img.width > 0) image(img, this.x, this.y, this.w, this.h);
