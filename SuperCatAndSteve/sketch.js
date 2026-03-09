@@ -1946,75 +1946,58 @@ class HintCat {
     this.message = message;
   }
 
+follow(state, level) {
+    // 1. 基础安全检查：数据不完整直接退出，不执行任何逻辑
+    if (!state || typeof state.x === 'undefined' || !level) return;
 
-  follow(state, level) {
-    if (!state || !level || !level.terrainHeights) return;
-
-    // 1. 瞬移保护：离得太远就让猫回来
-    if (dist(this.x, this.y, state.x, state.y) > 600) {
-      this.x = state.x;
-      this.y = state.y;
-      return;
-    }
-
-    // 2. 水平移动
-    let gap = 40;
+    // 2. 水平跟随：紧跟 state (玩家历史位置)
+    let gap = 48;
     let targetX = state.x + (state.facingRight ? -gap : gap);
-    this.x = lerp(this.x, targetX, 0.1);
+    this.x = lerp(this.x, targetX, 0.15);
+    this.facingRight = state.facingRight;
 
-    // 3. 物理重力
-    this.vy = (this.vy || 0) + 0.5;
-    this.y += this.vy;
+    // 3. 垂直锁定：寻找脚下“最高”的方块表面
+    let groundY = level.baseGroundY || CANVAS_H;
 
-    // 4. 碰撞检测
-    let groundY = CANVAS_H;
-    let col = Math.floor((this.x + this.w / 2) / TILE_SIZE);
-    if (col >= 0 && col < level.terrainHeights.length) groundY = level.terrainHeights[col];
-    
-    if (level.platforms) {
-      for (let p of level.platforms) {
-        if (this.x + this.w > p.x && this.x < p.x + p.w) {
-          if (this.vy >= 0 && this.y + this.h > p.y && this.y + this.h < p.y + 20) {
-            groundY = Math.min(groundY, p.y);
+
+    // 扫描当前 X 轴对应的 terrain 数组
+    if (level.terrain) {
+      let col = Math.floor((this.x + this.w / 2) / TILE_SIZE);
+      if (col >= 0 && col < level.terrain.length) {
+        let columnData = level.terrain[col];
+        for (let row = 0; row < columnData.length; row++) {
+          if (columnData[row] !== 0) {
+            groundY = row * TILE_SIZE; 
+            break;
           }
         }
       }
     }
 
-    // 5. 落地判定
-    let oldOnGround = this.onGround;
-    if (this.y + this.h > groundY) {
-      this.y = groundY - this.h;
-      this.vy = 0;
-      this.onGround = true;
-    } else {
-      this.onGround = false;
-    }
-
-    let now = millis();
-    if (this.onGround) {
-      // 探测前方障碍
-      let lookAheadDist = state.x > this.x ? 20 : -20; 
-      let nextCol = Math.floor((this.x + this.w/2 + lookAheadDist) / TILE_SIZE);
-      let isBlocked = false;
-      if (nextCol >= 0 && nextCol < level.terrainHeights.length) {
-        isBlocked = level.terrainHeights[nextCol] < (this.y + this.h - 10);
-      }
-
-      // 判定玩家是否在高处
-      let playerIsMuchHigher = state.y < this.y - 60;
-
-      // 只有遇到障碍或者玩家跳跃，且距离上次跳跃超过 1 秒，猫才跳跃
-      if (isBlocked || playerIsMuchHigher) {
-        if (!this.lastJumpTime || now - this.lastJumpTime > 1000) {
-          this.vy = -9; 
-          this.lastJumpTime = now;
-          this.onGround = false;
+    // 扫描浮空平台 (如果猫正对着平台，且玩家在平台上)
+    if (level.platforms) {
+      for (let p of level.platforms) {
+        if (this.x + this.w > p.x && this.x < p.x + p.w) {
+          // 如果玩家历史高度是在平台上方，猫就吸附到这个平台
+          if (state.y + 24 <= p.y + 5) {
+            groundY = Math.min(groundY, p.y); 
+          }
         }
       }
     }
-    this.facingRight = state.facingRight;
+    // 4. 猫的 Y 坐标 = 地表高度 - 猫自身高度
+    let targetY = groundY - this.h;
+    this.y = targetY;
+    // 5. 如果计算结果让猫低于了 level.baseGroundY，强行拉回
+    if (this.y < level.baseGroundY) {
+      this.y = level.baseGroundY;
+    }
+    
+
+
   }
+
+  
   draw() {
     const img = this.facingRight ? window.catSpriteRight : window.catSpriteLeft;
     if (img && img.width > 0) image(img, this.x, this.y, this.w, this.h);
