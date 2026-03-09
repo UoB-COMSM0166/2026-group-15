@@ -301,15 +301,32 @@ class Game {
     else if (this.player.x > WORLD_WIDTH - halfW) this.cameraX = WORLD_WIDTH - CANVAS_W;
     else this.cameraX = this.player.x - halfW;
   }
+  
+updateHintCat() {
+    if (!this.player || !this.level || !this.level.hintCat) return;
 
-  updateHintCat() {
-    const box = this.player.getCollisionBox();
-    this.playerHistory.push({ x: box.x, y: box.y, w: box.w, h: box.h, facingRight: this.player.facingRight, t: millis() });
-    const cutoff = millis() - HINT_CAT_DELAY_MS - 50;
-    while (this.playerHistory.length && this.playerHistory[0].t < cutoff) this.playerHistory.shift();
-    this.level.hintCat.follow(this.getDelayedState());
+    // 记录历史
+    this.playerHistory.push({
+      x: this.player.x, y: this.player.y,
+      w: this.player.w, h: this.player.h,
+      facingRight: this.player.facingRight, t: millis()
+    });
+
+    const cutoff = millis() - HINT_CAT_DELAY_MS;
+    while (this.playerHistory.length && this.playerHistory[0].t < cutoff) {
+      this.playerHistory.shift();
+    }
+
+    let pastState = this.getDelayedState();
+    
+    // 如果开局还没有 500ms 的历史，就让猫先跟着玩家当前的位置
+    let targetState = pastState ? pastState : this.player;
+
+    // 执行跟随
+    this.level.hintCat.follow(targetState, this.level);
     this.level.hintCat.setMessage(this.getHintMessage());
   }
+
 
   getDelayedState() {
     const targetT = millis() - HINT_CAT_DELAY_MS;
@@ -1923,22 +1940,64 @@ class Weapon extends Item {
 
 // ====== HintCat 类 ======
 class HintCat {
-  constructor(x, y) { Object.assign(this, { x, y, w: 32, h: 16, facingRight: true, messages: ["Move: Arrows", "Double Jump: Space x2"], message: null }); }
+  constructor(x, y) { Object.assign(this, { x, y, w: 32, h: 16, vy: 0, facingRight: true, messages: ["Move: Arrows", "Double Jump: Space x2"], message: null }); }
 
   setMessage(message) {
     this.message = message;
   }
 
-  follow(state) {
-    const playerW = state.w || 32;
-    const behindX = (state.facingRight !== false)
-      ? (state.x - this.w - HINT_CAT_GAP)
-      : (state.x + playerW + HINT_CAT_GAP);
-    this.x = constrain(behindX, 0, WORLD_WIDTH - this.w);
-    this.y = state.y + state.h - this.h;
-    this.facingRight = state.facingRight !== false;
+follow(state, level) {
+    // 1. 基础安全检查：数据不完整直接退出，不执行任何逻辑
+    if (!state || typeof state.x === 'undefined' || !level) return;
+
+    // 2. 水平跟随：紧跟 state (玩家历史位置)
+    let gap = 48;
+    let targetX = state.x + (state.facingRight ? -gap : gap);
+    this.x = lerp(this.x, targetX, 0.15);
+    this.facingRight = state.facingRight;
+
+    // 3. 垂直锁定：寻找脚下“最高”的方块表面
+    let groundY = level.baseGroundY || CANVAS_H;
+
+
+    // 扫描当前 X 轴对应的 terrain 数组
+    if (level.terrain) {
+      let col = Math.floor((this.x + this.w / 2) / TILE_SIZE);
+      if (col >= 0 && col < level.terrain.length) {
+        let columnData = level.terrain[col];
+        for (let row = 0; row < columnData.length; row++) {
+          if (columnData[row] !== 0) {
+            groundY = row * TILE_SIZE; 
+            break;
+          }
+        }
+      }
+    }
+
+    // 扫描浮空平台 (如果猫正对着平台，且玩家在平台上)
+    if (level.platforms) {
+      for (let p of level.platforms) {
+        if (this.x + this.w > p.x && this.x < p.x + p.w) {
+          // 如果玩家历史高度是在平台上方，猫就吸附到这个平台
+          if (state.y + 24 <= p.y + 5) {
+            groundY = Math.min(groundY, p.y); 
+          }
+        }
+      }
+    }
+    // 4. 猫的 Y 坐标 = 地表高度 - 猫自身高度
+    let targetY = groundY - this.h;
+    this.y = targetY;
+    // 5. 如果计算结果让猫低于了 level.baseGroundY，强行拉回
+    if (this.y < level.baseGroundY) {
+      this.y = level.baseGroundY;
+    }
+    
+
+
   }
 
+  
   draw() {
     const img = this.facingRight ? window.catSpriteRight : window.catSpriteLeft;
     if (img && img.width > 0) image(img, this.x, this.y, this.w, this.h);
