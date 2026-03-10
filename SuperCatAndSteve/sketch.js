@@ -25,7 +25,7 @@ const T = {
   NONE: 0,
   GRASS: 1, DIRT: 2, STONE: 3, DEEP: 4,
   COPPER: 5, DEEP_COPPER: 6, DEEP_DIAMOND: 7, DEEP_GOLD: 8, DEEP_IRON: 9,
-  DIAMOND: 10, GOLD: 11, IRON: 12,  LAVA: 13, ACID: 14, WATER: 15, SAND: 16
+  DIAMOND: 10, GOLD: 11, IRON: 12,  LAVA: 13, ACID: 14, WATER: 15, SAND: 16, GRAVEL: 17
 };
 
 // UI 常量
@@ -67,7 +67,8 @@ function getTextures() {
     [T.LAVA]: window.tile_lava,
     [T.ACID]: window.tile_acid,
     [T.WATER]: window.tile_water,
-    [T.SAND]: window.tile_sand
+    [T.SAND]: window.tile_sand,
+    [T.GRAVEL]: window.tile_gravel
   };
 }
 const FALLBACK_COLORS = {
@@ -76,7 +77,8 @@ const FALLBACK_COLORS = {
   [T.DEEP_GOLD]: [200, 160, 60], [T.DEEP_IRON]: [160, 140, 120], [T.DIAMOND]: [100, 200, 230],
   [T.GOLD]: [220, 180, 50], [T.IRON]: [180, 160, 140], [T.LAVA]: [255, 80, 0],[T.ACID]: [120, 255, 120],
   [T.WATER]: [80, 140, 255],
-  [T.SAND]: [230, 220, 170]
+  [T.SAND]: [230, 220, 170],
+  [T.GRAVEL]: [150, 150, 150]
 };
 
 function drawTile(tileType, x, y) {
@@ -1036,139 +1038,140 @@ class ForestLevel extends Level {
     const Cu = T.COPPER, CuX = T.DEEP_COPPER, Dx = T.DEEP_DIAMOND, Gx = T.DEEP_GOLD, Ix = T.DEEP_IRON;
     const Di = T.DIAMOND, Go = T.GOLD, Ir = T.IRON;
     const N = T.NONE; // 空格子简写
+    const V = T.GRAVEL, SA = T.SAND, W = T.WATER; // 水关地形简写（ForestLevel 地形数据复用）
 
     // 统一地形定义：addTerrainColumn(列号, 总高度, [贴图数组])
     // - 数组从底部往上：[0] 是最底下那格，越往后越高
     // - 地形贴图（G/D/S/X/矿石/LAVA/ACID）：创建碰撞平台
-    // - 树木（'log'/'leaves'）：只绘制背景，不碰撞
+    // - 树木 / 水下植物（'log'/'leaves'/海草珊瑚标记字符串）：只绘制背景，不碰撞
     // - N (T.NONE)：空格子
     const terrain = [
-      // 第1屏 - 包含树木
-      [0,8,[X,X,S,S,G,N,'leaves','leaves']], 
-      [1,10,[X,X,S,S,G,N,'leaves','leaves','leaves','leaves']], 
-      [2,10,[X,X,S,D,G,'log','log','log','leaves','leaves']], 
-      [3,10,[X,S,S,G,N,N,'leaves','leaves','leaves','leaves']], 
-      [4,8,[X,S,D,G,N,N,'leaves','leaves']],
-      [5,4,[X,S,D,G]], 
-      [6,3,[X,S,S]], 
-      [7,6,[X,S,S,N,N,G]], 
-      [8,7,[X,S,N,N,N,D,G]], 
-      [9,7,[X,T.LAVA,N,N,N,S,G]], 
-      [10,8,[X,T.LAVA,N,N,N,S,D,G]],
-      [11,8,[X,T.LAVA,N,N,N,N,D,G]],
-      [12,2,[X,T.LAVA]],
-      [13,3,[X,S,S]],
-      [14,6,[X,S,S,N,'leaves','leaves']],
-      [15,8,[X,S,G,N,'leaves','leaves','leaves','leaves']], 
-      [16,8,[X,S,G,'log','log','log','leaves','leaves']], 
-      [17,8,[X,S,G,N,'leaves','leaves','leaves','leaves']],
-      [18,6,[X,S,G,N,'leaves','leaves']],
-      [19,7,[X,S,D,G,N,'leaves','leaves']],
+      // 第1屏
+      [0,6,[V,SA]],
+      [1,6,[V,SA]],
+      [2,6,[V,SA]],
+      [3,6,[V,SA]],
+      [4,6,[V,'fire_coral']],
+      [5,6,[V,'fire_coral']],
+      [6,6,[V,W,W,SA]],
+      [7,6,[V,W,W,SA]],
+      [8,6,[V,'tall_seagrass_1',W,SA]],
+      [9,6,[V,'tall_seagrass_1',W,SA]],
+      [10,6,[V,SA]],
+      [11,6,[V,SA]],
+      [12,6,[V,SA]],
+      [13,6,[V,SA]],
+      [14,6,[V,SA,'fire_coral',W,SA]],
+      [15,6,[V,SA,'fire_coral',W,SA]],
+      [16,6,[V,SA,W,W,SA]],
+      [17,6,[V,SA,W,W,SA]],
+      [18,6,[V,SA,W,W,SA,'tall_seagrass_1']],
+      [19,6,[V,SA,W,W,SA,'tall_seagrass_1']],
       // 第2屏
-      [20,9,[S,S,D,G,N,'leaves','leaves','leaves','leaves']], 
-      [21,9,[S,S,D,G,'log','log','log','leaves','leaves']], 
-      [22,9,[S,S,D,G,N,'leaves','leaves','leaves','leaves']], 
-      [23,7,[S,S,G,N,N,'leaves','leaves']], 
-      [24,3,[S,S,G]],
-      [25,3,[S,S,G]], 
-      [26,3,[X,S,S]], 
-      [27,3,[X,S,S]], 
-      [28,5,[X,X,S,S,S]],
-      [29,3,[X,S,S]], 
-      [30,2,[S,S]],
-      [31,2,[X,T.LAVA]], 
-      [32,2,[X,T.LAVA]], 
-      [33,2,[X,T.LAVA]],
-      [34,2,[X,T.LAVA]], 
-      [35,2,[X,T.LAVA]], 
-      [36,7,[X,S,S,N,N,'leaves','leaves']], 
-      [37,9,[X,S,G,N,N,'leaves','leaves','leaves','leaves']], 
-      [38,9,[S,S,D,G,'log','log','log','leaves','leaves']], 
-      [39,9,[S,S,D,G,N,'leaves','leaves','leaves','leaves']],
+      [20,6,[V,SA]],
+      [21,6,[V,SA]],
+      [22,6,[V,SA]],
+      [23,6,[V,SA]],
+      [24,6,[V,SA]],
+      [25,6,[V,SA]],
+      [26,6,[V,SA,'horn_coral']],
+      [27,6,[V,SA,'horn_coral']],
+      [28,6,[V,V,SA,W,V,'fire_coral']],
+      [29,6,[V,V,SA,W,V,'fire_coral']],
+      [30,6,[V,SA,SA]],
+      [31,6,[V,SA,SA]],
+      [32,6,[V,SA]],
+      [33,6,[V,SA]],
+      [34,6,[V,SA]],
+      [35,6,[V,SA]],
+      [36,6,[V]],
+      [37,6,[V]],
+      [38,6,[V,SA,SA]],
+      [39,6,[V,SA,SA]],
       // 第3屏
-      [40,7,[S,S,G,N,N,'leaves','leaves']], 
-      [41,3,[X,S,G]], 
-      [42,2,[S,S]], 
-      [43,2,[S,S]], 
-      [44,8,[S,S,Ir,N,N,N,'leaves','leaves']],
-      [45,10,[X,X,S,G,N,N,'leaves','leaves','leaves','leaves']], 
-      [46,10,[X,X,S,D,G,'log','log','log','leaves','leaves']], 
-      [47,10,[X,S,S,D,G,'leaves','leaves','leaves','leaves','leaves']], 
-      [48,9,[X,X,S,G,N,'leaves','leaves','leaves','leaves']], 
-      [49,9,[X,S,D,G,'log','log','log','leaves','leaves']], 
-      [50,9,[X,S,D,G,N,'leaves','leaves','leaves','leaves']], 
-      [51,7,[X,S,D,G,N,'leaves','leaves']],
-      [52,3,[S,S,G]], 
-      [53,3,[X,S,G]], 
-      [54,3,[X,S,G]], 
-      [55,3,[X,S,G]], 
-      [56,3,[X,S,G]],
-      [57,5,[X,D,G,'leaves','leaves']], 
-      [58,7,[S,G,N,'leaves','leaves','leaves','leaves']], 
-      [59,7,[S,G,'log','log','log','leaves','leaves']], 
+      [40,6,[V,SA,SA]],
+      [41,6,[V,SA,SA]],
+      [42,6,[V,SA]],
+      [43,6,[V,SA]],
+      [44,6,[V]],
+      [45,6,[V]],
+      [46,6,[V,'tall_seagrass_1']],
+      [47,6,[V,'tall_seagrass_1']],
+      [48,6,[V,SA,'horn_coral',W,'horn_coral']],
+      [49,6,[V,SA,'horn_coral',W,'horn_coral']],
+      [50,6,[V,SA]],
+      [51,6,[V,SA]],
+      [52,6,[V]],
+      [53,6,[V]],
+      [54,6,[V,SA]],
+      [55,6,[V,SA]],
+      [56,6,[V,SA]],
+      [57,6,[V,SA]],
+      [58,6,[V]],
+      [59,6,[V]],
       // 第4屏
-      [60,7,[S,G,N,'leaves','leaves','leaves','leaves']], 
-      [61,5,[S,G,N,'leaves','leaves']],
-      [62,3,[S,S,G]], 
-      [63,2,[S,T.LAVA]], 
-      [64,2,[S,T.LAVA]], 
-      [65,2,[S,T.LAVA]], 
-      [66,2,[S,T.LAVA]],
-      [67,2,[S,T.LAVA]],
-      [68,2,[S,S]], 
-      [69,3,[S,D,G]], 
-      [70,3,[S,D,G]], 
-      [71,6,[S,D,G,N,N,G]],
-      [72,7,[S,G,N,N,N,S,G]], 
-      [73,7,[S,G,N,N,N,S,G]], 
-      [74,7,[S,G,N,N,N,N,G]], 
-      [75,3,[X,S,G]],
-      [76,7,[X,S,G,N,N,'leaves','leaves']], 
-      [77,9,[X,S,D,G,N,'leaves','leaves','leaves','leaves']], 
-      [78,9,[X,S,D,G,'log','log','log','leaves','leaves']], 
-      [79,9,[X,S,D,G,N,'leaves','leaves','leaves','leaves']], 
+      [60,6,[V,SA]],
+      [61,6,[V,SA]],
+      [62,6,[V,SA,W,W,V,'fire_coral']],
+      [63,6,[V,SA,W,W,V,'fire_coral']],
+      [64,6,[V,SA,W,W,SA]],
+      [65,6,[V,SA,W,W,SA]],
+      [66,6,[V,SA,W,W,SA]],
+      [67,6,[V,SA,W,W,SA]],
+      [68,6,[V]],
+      [69,6,[V]],
+      [70,6,[V,'fire_coral']],
+      [71,6,[V,'fire_coral']],
+      [72,6,[V,SA]],
+      [73,6,[V,SA]],
+      [74,6,[V,SA]],
+      [75,6,[V,SA]],
+      [76,6,[V,SA,SA]],
+      [77,6,[V,SA,SA]],
+      [78,6,[V,'horn_coral',W,W,SA]],
+      [79,6,[V,'horn_coral',W,W,SA]],
       // 第5屏
-      [80,7,[X,S,D,G,N,'leaves','leaves']], 
-      [81,4,[X,S,D,G]],
-      [82,6,[X,S,G,N,'leaves','leaves']], 
-      [83,8,[X,S,G,N,'leaves','leaves','leaves','leaves']], 
-      [84,8,[X,S,G,'log','log','log','leaves','leaves']], 
-      [85,8,[X,S,G,N,'leaves','leaves','leaves','leaves']], 
-      [86,6,[X,S,G,N,'leaves','leaves']],
-      [87,2,[S,G]], 
-      [88,2,[S,G]], 
-      [89,2,[S,G]], 
-      [90,7,[S,D,G,N,N,N,G]], 
-      [91,8,[S,D,G,N,N,N,D,G]],
-      [92,8,[S,D,G,N,N,N,D,G]], 
-      [93,8,[S,D,G,N,N,N,D,G]], 
-      [94,7,[S,D,G,N,N,N,G]], 
-      [95,4,[X,S,S,S]],
-      [96,6,[X,X,X,S,S,S]], 
-      [97,3,[X,Di,G]], 
-      [98,3,[X,S,G]], 
-      [99,4,[X,S,D,G]],
+      [80,6,[V,W,W,W,SA]],
+      [81,6,[V,W,W,W,SA]],
+      [82,6,[V,SA,'tall_seagrass_1',W,SA]],
+      [83,6,[V,SA,'tall_seagrass_1',W,SA]],
+      [84,6,[V,SA]],
+      [85,6,[V,SA]],
+      [86,6,[V,SA,'horn_coral']],
+      [87,6,[V,SA,'horn_coral']],
+      [88,6,[V,SA]],
+      [89,6,[V,SA]],
+      [90,6,[V,'tall_seagrass_1']],
+      [91,6,[V,'tall_seagrass_1']],
+      [92,6,[V]],
+      [93,6,[V]],
+      [94,6,[V,SA,W,W,SA,'tall_seagrass_1']],
+      [95,6,[V,SA,W,W,SA,'tall_seagrass_1']],
+      [96,6,[V,SA,SA,W,V,'horn_coral']],
+      [97,6,[V,SA,SA,W,V,'horn_coral']],
+      [98,6,[V,SA,SA]],
+      [99,6,[V,SA,SA]],
       // 第6屏
-      [100,4,[X,S,D,G]], 
-      [101,4,[X,S,D,G]], 
-      [102,4,[X,S,D,G]], 
-      [103,7,[X,S,G,N,N,N,S]], 
-      [104,7,[X,S,G,N,N,N,S]],
-      [105,8,[X,S,G,N,N,N,S,G]], 
-      [106,8,[X,S,G,N,N,N,N,G]], 
-      [107,8,[X,S,G,N,N,N,N,G]], 
-      [108,4,[X,X,S,S]], 
-      [109,3,[X,S,S]], 
-      [110,5,[S,G,N,'leaves','leaves']], 
-      [111,7,[S,G,N,'leaves','leaves','leaves','leaves']],
-      [112,7,[S,G,'log','log','log','leaves','leaves']], 
-      [113,7,[S,G,N,'leaves','leaves','leaves','leaves']], 
-      [114,5,[S,T.LAVA,N,'leaves','leaves']], 
-      [115,2,[S,T.LAVA]], 
-      [116,2,[S,T.LAVA]],
-      [117,2,[S,T.LAVA]], 
-      [118,2,[S,S]], 
-      [119,3,[S,D,G]], 
+      [100,6,[V,SA,'fire_coral']],
+      [101,6,[V,SA,'fire_coral']],
+      [102,6,[V,SA]],
+      [103,6,[V,SA]],
+      [104,6,[V,SA]],
+      [105,6,[V,SA]],
+      [106,6,[V]],
+      [107,6,[V]],
+      [108,6,[V,W,W,W,'tall_seagrass_1']],
+      [109,6,[V,W,W,W,'tall_seagrass_1']],
+      [110,6,[V,SA,W,W,SA]],
+      [111,6,[V,SA,W,W,SA]],
+      [112,6,[V,SA,W,W,SA]],
+      [113,6,[V,SA,W,W,SA]],
+      [114,6,[V,'fire_coral']],
+      [115,6,[V,'fire_coral']],
+      [116,6,[V,SA]],
+      [117,6,[V,SA]],
+      [118,6,[V,SA]],
+      [119,6,[V,SA]],
     ];
     terrain.forEach(([col, h, tiles]) => this.addTerrainColumn(col, h, tiles));
 
@@ -1253,10 +1256,35 @@ class ForestLevel extends Level {
   }
 
   drawTrees() {
-    const leavesImg = window.tile_oak_leaves;
-    const logImg = window.tile_oak_log;
-
+    // 在水关中，复用 treeColumns 作为“背景装饰层”，包括树木与水下植物/珊瑚
     if (!this.treeColumns) return;
+
+    const spriteMap = {
+      // 森林关中复用的树
+      log: window.tile_oak_log,
+      leaves: window.tile_oak_leaves,
+      // 海草
+      seagrass: window.tile_seagrass,
+      tall_seagrass_1: window.tile_tall_seagrass_1,
+      tall_seagrass_2: window.tile_tall_seagrass_2,
+      // 珊瑚块 & 扇形珊瑚
+      tube_coral: window.tile_tube_coral,
+      tube_coral_fan: window.tile_tube_coral_fan,
+      horn_coral: window.tile_horn_coral,
+      horn_coral_fan: window.tile_horn_coral_fan,
+      fire_coral: window.tile_fire_coral,
+      fire_coral_fan: window.tile_fire_coral_fan,
+      bubble_coral: window.tile_bubble_coral,
+      bubble_coral_fan: window.tile_bubble_coral_fan,
+      brain_coral: window.tile_brain_coral,
+      brain_coral_fan: window.tile_brain_coral_fan,
+      // 海带（多格高，用不同贴图拼接）
+      kelp_1: window.tile_kelp_1,
+      kelp_2: window.tile_kelp_2,
+      kelp_3: window.tile_kelp_3,
+      kelp_4: window.tile_kelp_4,
+      kelp_5: window.tile_kelp_5
+    };
 
     push();
     imageMode(CORNER);
@@ -1265,17 +1293,35 @@ class ForestLevel extends Level {
       const column = this.treeColumns[col] || [];
       for (let i = 0; i < column.length; i++) {
         const kind = column[i];
-        if (kind === T.NONE || kind === undefined || kind === null) continue;
+        if (!kind || kind === T.NONE) continue;
 
         const x = col * TILE_SIZE;
         const y = 360 - (i + 1) * TILE_SIZE; // 从底部往上
 
-        if (kind === 'log') {
-          if (logImg && logImg.width > 0) image(logImg, x, y, TILE_SIZE, TILE_SIZE);
-          else { noStroke(); fill(120, 86, 54); rect(x, y, TILE_SIZE, TILE_SIZE); }
-        } else if (kind === 'leaves') {
-          if (leavesImg && leavesImg.width > 0) image(leavesImg, x, y, TILE_SIZE, TILE_SIZE);
-          else { noStroke(); fill(60, 140, 70, 230); rect(x, y, TILE_SIZE, TILE_SIZE); }
+        const img = spriteMap[kind];
+        if (img && img.width > 0) {
+          image(img, x, y, TILE_SIZE, TILE_SIZE);
+        } else {
+          // 根据种类给一些大致的颜色，作为贴图加载失败时的占位
+          noStroke();
+          if (kind === 'log') {
+            fill(120, 86, 54);
+          } else if (kind === 'leaves' || kind.startsWith('kelp') || kind.includes('seagrass')) {
+            fill(60, 140, 70, 230);
+          } else if (kind.includes('fire')) {
+            fill(220, 80, 60, 230);
+          } else if (kind.includes('bubble')) {
+            fill(200, 80, 210, 230);
+          } else if (kind.includes('brain')) {
+            fill(230, 120, 190, 230);
+          } else if (kind.includes('horn')) {
+            fill(230, 210, 80, 230);
+          } else if (kind.includes('tube')) {
+            fill(80, 120, 220, 230);
+          } else {
+            fill(80, 150, 120, 230);
+          }
+          rect(x, y, TILE_SIZE, TILE_SIZE);
         }
       }
     }
@@ -1293,11 +1339,22 @@ class ForestLevel extends Level {
     const baseY = 360; // 地面基准线
     if (!this.treeColumns) this.treeColumns = Array.from({ length: TERRAIN_COLS }, () => []);
     
-    // 找到第一个非 T.NONE/log/leaves 的地形块，作为地表高度
+    // 找到第一个非 T.NONE/背景装饰 的地形块，作为地表高度
     let terrainHeight = 0;
     for (let i = 0; i < tiles.length; i++) {
       const tile = tiles[i];
-      if (tile !== T.NONE && tile !== 'log' && tile !== 'leaves') {
+      const isBackground =
+        tile === 'log' || tile === 'leaves' ||
+        tile === 'seagrass' || tile === 'tall_seagrass_1' || tile === 'tall_seagrass_2' ||
+        tile === 'tube_coral' || tile === 'tube_coral_fan' ||
+        tile === 'horn_coral' || tile === 'horn_coral_fan' ||
+        tile === 'fire_coral' || tile === 'fire_coral_fan' ||
+        tile === 'bubble_coral' || tile === 'bubble_coral_fan' ||
+        tile === 'brain_coral' || tile === 'brain_coral_fan' ||
+        tile === 'kelp_1' || tile === 'kelp_2' ||
+        tile === 'kelp_3' || tile === 'kelp_4' || tile === 'kelp_5';
+
+      if (tile !== T.NONE && !isBackground) {
         terrainHeight = i + 1;
       }
     }
@@ -1316,8 +1373,18 @@ class ForestLevel extends Level {
         continue;
       }
       
-      // 树木：只记录到 treeColumns，不创建平台
-      if (tile === 'log' || tile === 'leaves') {
+      // 树木 / 水下装饰：只记录到 treeColumns，不创建平台
+      if (
+        tile === 'log' || tile === 'leaves' ||
+        tile === 'seagrass' || tile === 'tall_seagrass_1' || tile === 'tall_seagrass_2' ||
+        tile === 'tube_coral' || tile === 'tube_coral_fan' ||
+        tile === 'horn_coral' || tile === 'horn_coral_fan' ||
+        tile === 'fire_coral' || tile === 'fire_coral_fan' ||
+        tile === 'bubble_coral' || tile === 'bubble_coral_fan' ||
+        tile === 'brain_coral' || tile === 'brain_coral_fan' ||
+        tile === 'kelp_1' || tile === 'kelp_2' ||
+        tile === 'kelp_3' || tile === 'kelp_4' || tile === 'kelp_5'
+      ) {
         if (!this.treeColumns[col]) this.treeColumns[col] = [];
         this.treeColumns[col][i] = tile;
         continue;
@@ -1364,13 +1431,14 @@ class ForestLevel extends Level {
   }
 }
 
-// 关卡2：先完全照搬 ForestLevel（但直接继承 Level，便于后续独立修改）
+// 关卡2
 class WaterLevel extends Level {
   loadAssets() {
     // 贴图简写（pic/ground 中全部可用）: G草 D土 S石 X深板岩 | COPPER铜 DIAMOND钻石 GOLD金 IRON铁 | DEEP_COPPER/GOLD/IRON/DIAMOND 深板岩矿
     const G = T.GRASS, D = T.DIRT, S = T.STONE, X = T.DEEP;
     const Cu = T.COPPER, CuX = T.DEEP_COPPER, Dx = T.DEEP_DIAMOND, Gx = T.DEEP_GOLD, Ix = T.DEEP_IRON;
     const Di = T.DIAMOND, Go = T.GOLD, Ir = T.IRON;
+    const V = T.GRAVEL;
     const W = T.WATER;
     const SA = T.SAND;
     const N = T.NONE; // 空格子简写
@@ -1381,130 +1449,132 @@ class WaterLevel extends Level {
     // - 树木（'log'/'leaves'）：只绘制背景，不碰撞
     // - N (T.NONE)：空格子
     const terrain = [
-      // 第1屏 - 包含树木
-      [0,12,[SA,W,W,W,W,W,W,W,W,W,W,N]], 
-      [1,12,[SA,SA,W,W,W,W,W,W,W,W,W,N]], 
-      [2,12,[SA,W,W,W,W,SA,W,W,W,W,W,N]], 
-      [3,12,[SA,W,W,W,W,SA,SA,W,W,W,W,N]], 
-      [4,12,[SA,SA,W,W,W,SA,SA,W,W,W,W,N]],
-      [5,12,[SA,SA,W,W,W,W,SA,W,W,W,W,N]], 
-      [6,12,[SA,W,W,W,W,W,SA,W,W,W,W,N]], 
-      [7,12,[SA,W,W,W,W,W,W,W,W,W,W,N]], 
-      [8,12,[SA,SA,W,W,W,W,W,W,W,W,W,N]], 
-      [9,12,[SA,SA,W,W,W,W,W,W,W,W,W,N]], 
-      [10,12,[SA,SA,W,W,W,W,W,W,W,W,W,N]],
-      [11,12,[SA,SA,SA,W,W,W,W,W,W,W,W,N]],
-      [12,12,[SA,SA,SA,W,W,W,W,W,W,W,W,N]],
-      [13,12,[SA,SA,SA,W,W,W,W,W,W,W,W,N]],
-      [14,12,[SA,SA,SA,W,W,W,W,W,W,W,W,N]],
-      [15,12,[SA,SA,W,W,W,W,W,W,W,W,W,N]], 
-      [16,12,[SA,SA,SA,SA,W,W,W,W,W,W,W,N]], 
-      [17,12,[SA,SA,SA,W,W,W,W,W,W,W,W,N]],
-      [18,12,[SA,SA,SA,W,W,W,W,W,W,W,W,N]],
-      [19,12,[SA,SA,W,W,W,W,W,W,W,W,W,N]],
+      // 第1屏
+      [0,12,[V,V,SA,W,W,W,W,W,W,W,W,W]],
+      [1,12,[V,SA,SA,'fire_coral_fan',W,W,W,W,W,W,W,W]],
+      [2,12,[V,SA,SA,'horn_coral',W,W,W,W,W,W,W,W]],
+      [3,12,[V,SA,SA,'bubble_coral_fan',W,W,W,W,W,W,W,W]],
+      [4,12,[V,SA,'fire_coral',W,W,W,W,W,W,W,W,W]],
+      [5,12,[V,SA,'fire_coral_fan',W,W,W,W,W,W,W,W,W]],
+      [6,12,[V,SA,'bubble_coral',W,W,SA,W,W,W,W,W,W]],
+      [7,12,[V,SA,W,W,W,SA,SA,W,W,W,W,W]],
+      [8,12,[V,SA,'tall_seagrass_1','tall_seagrass_2',W,W,SA,W,W,W,W,W]],
+      [9,12,[V,SA,'seagrass',W,W,W,SA,W,W,W,W,W]],
+      [10,12,[V,SA,'horn_coral_fan',W,W,W,SA,W,W,W,W,W]],
+      [11,12,[V,SA,SA,W,W,W,W,W,W,W,W,W]],
+      [12,12,[V,SA,SA,W,W,W,W,W,W,W,W,W]],
+      [13,12,[V,SA,SA,W,W,W,W,W,W,W,W,W]],
+      [14,12,[V,V,SA,'horn_coral',W,W,W,W,W,W,W,W]],
+      [15,12,[V,V,SA,SA,'fire_coral_fan',W,W,W,SA,W,W,W]],
+      [16,12,[V,V,SA,SA,W,W,W,W,SA,'horn_coral_fan',W,W]],
+      [17,12,[V,V,SA,SA,W,W,W,W,SA,W,W,W]],
+      [18,12,[V,V,SA,W,W,W,W,SA,SA,W,W,W]],
+      [19,12,[V,V,SA,W,W,W,W,SA,SA,'tall_seagrass_1','tall_seagrass_2',W]],
       // 第2屏
-      [20,12,[SA,SA,W,W,W,W,W,W,W,W,W,N]], 
-      [21,12,[SA,SA,W,W,W,W,W,W,W,W,W,N]], 
-      [22,12,[SA,SA,W,W,W,W,W,W,W,W,W,N]], 
-      [23,12,[SA,SA,W,W,W,W,W,W,W,W,W,N]], 
-      [24,12,[SA,SA,SA,W,W,W,W,W,W,W,W,N]],
-      [25,12,[SA,SA,W,W,W,W,W,W,W,W,W,N]], 
-      [26,12,[SA,SA,W,W,W,W,W,W,W,W,W,N]], 
-      [27,12,[SA,W,W,W,W,W,W,W,W,W,W,N]], 
-      [28,12,[SA,W,W,W,W,W,W,W,W,W,W,N]],
-      [29,12,[SA,W,W,W,W,W,W,W,W,W,W,N]], 
-      [30,12,[SA,W,W,W,W,W,W,W,W,W,W,N]],
-      [31,12,[SA,W,W,W,W,W,W,W,W,W,W,N]], 
-      [32,12,[SA,W,W,W,W,W,W,W,W,W,W,N]], 
-      [33,12,[SA,SA,W,W,W,W,W,W,W,W,W,N]],
-      [34,12,[SA,SA,W,W,W,W,W,W,W,W,W,N]], 
-      [35,12,[SA,SA,W,W,W,W,W,W,W,W,W,N]], 
-      [36,12,[SA,SA,SA,W,W,W,W,W,W,W,W,N]], 
-      [37,12,[SA,SA,SA,W,W,W,W,W,W,W,W,N]], 
-      [38,12,[SA,SA,W,W,W,W,W,W,W,W,W,N]], 
-      [39,12,[SA,SA,W,W,W,W,W,W,W,W,W,N]],
-      // 循环复制：第3屏 & 第4屏 使用第1屏+第2屏的图案，高度 11
-      [40,11,[SA,SA,W,W,W,W,W,W,W,W,W]],  // 复用列 0
-      [41,11,[SA,W,W,W,W,W,W,W,W,W,W]],  // 复用列 1
-      [42,11,[SA,W,W,W,W,SA,W,W,W,W,W]],    // 复用列 2
-      [43,11,[SA,W,W,W,W,SA,SA,W,W,W,W]],   // 复用列 3
-      [44,11,[SA,SA,W,W,W,SA,SA,W,W,W,W]],  // 复用列 4
-      [45,11,[SA,SA,W,W,W,W,SA,W,W,W,W]],   // 复用列 5
-      [46,11,[SA,W,W,W,W,W,SA,W,W,W,W]],    // 复用列 6
-      [47,11,[SA,W,W,W,W,W,W,W,W,W,W]],     // 复用列 7
-      [48,11,[SA,SA,W,W,W,W,W,W,W,W,W]],    // 复用列 8
-      [49,11,[SA,SA,W,W,W,W,W,W,W,W,W]],    // 复用列 9
-      [50,11,[SA,SA,W,W,W,W,W,W,W,W,W]],    // 复用列 10
-      [51,11,[SA,SA,SA,W,W,W,W,W,W,W,W]],   // 复用列 11
-      [52,11,[SA,SA,SA,W,W,W,W,W,W,W,W]],   // 复用列 12
-      [53,11,[SA,SA,SA,W,W,W,W,W,W,W,W]],   // 复用列 13
-      [54,11,[SA,SA,SA,W,W,W,W,W,W,W,W]],   // 复用列 14
-      [55,11,[SA,SA,W,W,W,W,W,W,W,W,W]],    // 复用列 15
-      [56,11,[SA,SA,SA,SA,W,W,W,W,W,W,W]],  // 复用列 16
-      [57,11,[SA,SA,SA,W,W,W,W,W,W,W,W]],   // 复用列 17
-      [58,11,[SA,SA,SA,W,W,W,W,W,W,W,W]],   // 复用列 18
-      [59,11,[SA,SA,W,W,W,W,W,W,W,W,W]],    // 复用列 19
-      [60,11,[SA,SA,W,W,W,W,W,W,W,W,W]],    // 复用列 20
-      [61,11,[SA,SA,W,W,W,W,W,W,W,W,W]],    // 复用列 21
-      [62,11,[SA,SA,W,W,W,W,W,W,W,W,W]],    // 复用列 22
-      [63,11,[SA,SA,W,W,W,W,W,W,W,W,W]],    // 复用列 23
-      [64,11,[SA,SA,SA,W,W,W,W,W,W,W,W]],   // 复用列 24
-      [65,11,[SA,SA,W,W,W,W,W,W,W,W,W]],    // 复用列 25
-      [66,11,[SA,SA,W,W,W,W,W,W,W,W,W]],    // 复用列 26
-      [67,11,[SA,W,W,W,W,W,W,W,W,W,W]],     // 复用列 27
-      [68,11,[SA,W,W,W,W,W,W,W,W,W,W]],     // 复用列 28
-      [69,11,[SA,W,W,W,W,W,W,W,W,W,W]],     // 复用列 29
-      [70,11,[SA,W,W,W,W,W,W,W,W,W,W]],     // 复用列 30
-      [71,11,[SA,W,W,W,W,W,W,W,W,W,W]],     // 复用列 31
-      [72,11,[SA,W,W,W,W,W,W,W,W,W,W]],     // 复用列 32
-      [73,11,[SA,SA,W,W,W,W,W,W,W,W,W]],    // 复用列 33
-      [74,11,[SA,SA,W,W,W,W,W,W,W,W,W]],    // 复用列 34
-      [75,11,[SA,SA,W,W,W,W,W,W,W,W,W]],    // 复用列 35
-      [76,11,[SA,SA,SA,W,W,W,W,W,W,W,W]],   // 复用列 36
-      [77,11,[SA,SA,SA,W,W,W,W,W,W,W,W]],   // 复用列 37
-      [78,11,[SA,SA,W,W,W,W,W,W,W,W,W]],    // 复用列 38
-      [79,11,[SA,SA,W,W,W,W,W,W,W,W,W]],    // 复用列 39
-      // 再循环一次：第5屏 & 第6屏
-      [80,11,[SA,W,W,W,W,W,W,W,W,W,W]],  // 复用列 0
-      [81,11,[SA,SA,W,W,W,W,W,W,W,W,W]],  // 复用列 1
-      [82,11,[SA,W,W,W,W,SA,W,W,W,W,W]],    // 复用列 2
-      [83,11,[SA,W,W,W,W,SA,SA,W,W,W,W]],   // 复用列 3
-      [84,11,[SA,SA,W,W,W,SA,SA,W,W,W,W]],  // 复用列 4
-      [85,11,[SA,SA,W,W,W,W,SA,W,W,W,W]],   // 复用列 5
-      [86,11,[SA,W,W,W,W,W,SA,W,W,W,W]],    // 复用列 6
-      [87,11,[SA,W,W,W,W,W,W,W,W,W,W]],     // 复用列 7
-      [88,11,[SA,SA,W,W,W,W,W,W,W,W,W]],    // 复用列 8
-      [89,11,[SA,SA,W,W,W,W,W,W,W,W,W]],    // 复用列 9
-      [90,11,[SA,SA,W,W,W,W,W,W,W,W,W]],    // 复用列 10
-      [91,11,[SA,SA,SA,W,W,W,W,W,W,W,W]],   // 复用列 11
-      [92,11,[SA,SA,SA,W,W,W,W,W,W,W,W]],   // 复用列 12
-      [93,11,[SA,SA,SA,W,W,W,W,W,W,W,W]],   // 复用列 13
-      [94,11,[SA,SA,SA,W,W,W,W,W,W,W,W]],   // 复用列 14
-      [95,11,[SA,SA,W,W,W,W,W,W,W,W,W]],    // 复用列 15
-      [96,11,[SA,SA,SA,SA,W,W,W,W,W,W,W]],  // 复用列 16
-      [97,11,[SA,SA,SA,W,W,W,W,W,W,W,W]],   // 复用列 17
-      [98,11,[SA,SA,SA,W,W,W,W,W,W,W,W]],   // 复用列 18
-      [99,11,[SA,SA,W,W,W,W,W,W,W,W,W]],    // 复用列 19
-      [100,11,[SA,SA,W,W,W,W,W,W,W,W,W]],   // 复用列 20
-      [101,11,[SA,SA,W,W,W,W,W,W,W,W,W]],   // 复用列 21
-      [102,11,[SA,SA,W,W,W,W,W,W,W,W,W]],   // 复用列 22
-      [103,11,[SA,SA,W,W,W,W,W,W,W,W,W]],   // 复用列 23
-      [104,11,[SA,SA,SA,W,W,W,W,W,W,W,W]],  // 复用列 24
-      [105,11,[SA,SA,W,W,W,W,W,W,W,W,W]],   // 复用列 25
-      [106,11,[SA,SA,W,W,W,W,W,W,W,W,W]],   // 复用列 26
-      [107,11,[SA,W,W,W,W,W,W,W,W,W,W]],    // 复用列 27
-      [108,11,[SA,W,W,W,W,W,W,W,W,W,W]],    // 复用列 28
-      [109,11,[SA,W,W,W,W,W,W,W,W,W,W]],    // 复用列 29
-      [110,11,[SA,W,W,W,W,W,W,W,W,W,W]],    // 复用列 30
-      [111,11,[SA,W,W,W,W,W,W,W,W,W,W]],    // 复用列 31
-      [112,11,[SA,W,W,W,W,W,W,W,W,W,W]],    // 复用列 32
-      [113,11,[SA,SA,W,W,W,W,W,W,W,W,W]],   // 复用列 33
-      [114,11,[SA,SA,W,W,W,W,W,W,W,W,W]],   // 复用列 34
-      [115,11,[SA,SA,W,W,W,W,W,W,W,W,W]],   // 复用列 35
-      [116,11,[SA,SA,SA,W,W,W,W,W,W,W,W]],  // 复用列 36
-      [117,11,[SA,SA,SA,W,W,W,W,W,W,W,W]],  // 复用列 37
-      [118,11,[SA,SA,W,W,W,W,W,W,W,W,W]],   // 复用列 38
-      [119,11,[SA,SA,W,W,W,W,W,W,W,W,W]],   // 复用列 39
+      [20,12,[V,V,SA,'bubble_coral',W,W,W,SA,'bubble_coral_fan',W,W,N]],
+      [21,12,[V,V,SA,'bubble_coral_fan',W,W,W,W,W,W,W,N]],
+      [22,12,[V,V,SA,W,W,W,W,W,W,W,W,N]],
+      [23,12,[V,V,SA,'seagrass',W,W,W,W,W,W,W,N]],
+      [24,12,[V,V,SA,'kelp_1','kelp_2','kelp_3',W,W,W,W,W,N]],
+      [25,12,[V,V,SA,SA,W,W,W,W,W,W,W,N]],
+      [26,12,[V,V,SA,SA,'fire_coral_fan',W,W,W,W,SA,W,N]],
+      [27,12,[V,V,SA,SA,'horn_coral',W,W,W,W,SA,W,N]],
+      [28,12,[V,V,V,SA,SA,W,W,W,V,SA,'horn_coral_fan',N]],
+      [29,12,[V,V,V,SA,SA,'fire_coral',W,W,V,SA,'fire_coral_fan',N]],
+      [30,12,[V,V,V,SA,SA,W,W,W,V,SA,W,N]],
+      [31,12,[V,V,SA,SA,SA,W,W,W,W,SA,W,N]],
+      [32,12,[V,V,SA,'fire_coral',W,W,W,W,W,W,W,N]],
+      [33,12,[V,V,SA,'fire_coral_fan',W,W,W,W,W,W,W,N]],
+      [34,12,[V,SA,SA,'tall_seagrass_1','tall_seagrass_2',W,W,W,W,W,W,N]],
+      [35,12,[V,SA,SA,W,W,W,W,W,W,W,W,N]],
+      [36,12,[V,SA,'bubble_coral_fan',W,W,W,W,W,W,W,W,N]],
+      [37,12,[V,SA,W,W,W,W,W,W,W,W,W,N]],
+      [38,12,[V,SA,'horn_coral',W,W,W,W,W,W,W,W,N]],
+      [39,12,[V,SA,SA,SA,SA,W,W,W,W,W,W,N]],
+      // 第3屏
+      [40,11,[V,V,V,SA,SA,SA,SA,W,W,W,W]],
+      [41,11,[V,V,SA,SA,SA,SA,W,W,W,W,W]],
+      [42,11,[V,V,SA,'horn_coral_fan',W,W,W,W,W,W,W]],
+      [43,11,[V,SA,SA,W,W,W,W,W,W,W,W]],
+      [44,11,[V,SA,SA,W,W,W,W,W,W,W,W]],
+      [45,11,[V,SA,W,W,W,W,W,W,W,W,W]],
+      [46,11,[V,SA,'tall_seagrass_1','tall_seagrass_2',W,W,W,W,W,W,W]],
+      [47,11,[V,SA,'seagrass',W,W,W,W,SA,W,W,W]],
+      [48,11,[V,SA,SA,W,W,W,W,SA,'fire_coral_fan',W,W]],
+      [49,11,[V,SA,SA,SA,'horn_coral',W,W,SA,'horn_coral_fan',W,W]],
+      [50,11,[V,SA,SA,'fire_coral',W,W,W,SA,SA,W,W]],
+      [51,11,[V,SA,SA,'bubble_coral',W,W,W,SA,W,W,W]],
+      [52,11,[V,SA,W,W,W,W,W,SA,'bubble_coral_fan',W,W]],
+      [53,11,[V,SA,W,W,W,W,W,SA,W,W,W]],
+      [54,11,[V,SA,'kelp_1','kelp_2','kelp_3',W,W,W,W,W,W]],
+      [55,11,[V,SA,SA,SA,W,W,W,W,W,W,W]],
+      [56,11,[V,SA,SA,SA,SA,SA,W,W,W,W,W]],
+      [57,11,[V,SA,SA,W,W,W,W,W,W,W,W]],
+      [58,11,[V,SA,W,W,W,W,W,W,W,W,W]],
+      [59,11,[V,SA,W,W,W,W,W,W,W,W,W]],
+      // 第4屏
+      [60,11,[V,SA,W,W,W,W,W,W,W,W,W]],
+      [61,11,[V,SA,SA,W,W,W,W,W,W,SA,W]],
+      [62,11,[V,SA,SA,'fire_coral',W,W,W,W,V,SA,W]],
+      [63,11,[V,V,SA,'horn_coral',W,W,W,W,V,SA,'fire_coral_fan']],
+      [64,11,[V,V,SA,'bubble_coral',W,W,W,W,SA,SA,W]],
+      [65,11,[V,V,SA,SA,W,W,W,W,SA,W,W]],
+      [66,11,[V,V,SA,SA,'fire_coral',W,W,W,SA,'bubble_coral_fan',W]],
+      [67,11,[V,SA,SA,'bubble_coral_fan',W,W,W,W,SA,W,W]],
+      [68,11,[V,SA,'tall_seagrass_1','tall_seagrass_2',W,W,W,W,W,W,W]],
+      [69,11,[V,SA,W,W,W,W,W,W,W,W,W]],
+      [70,11,[V,SA,W,W,W,W,W,W,W,W,W]],
+      [71,11,[V,SA,'fire_coral_fan',W,W,W,W,W,W,W,W]],
+      [72,11,[V,SA,W,W,W,W,W,W,W,W,W]],
+      [73,11,[V,SA,SA,W,W,W,W,W,W,W,W]],
+      [74,11,[V,V,SA,'bubble_coral_fan',W,W,W,W,W,W,W]],
+      [75,11,[V,V,SA,'fire_coral',W,W,W,W,W,W,W]],
+      [76,11,[V,V,SA,SA,SA,SA,W,W,W,W,W]],
+      [77,11,[V,SA,SA,SA,SA,W,W,W,W,W,W]],
+      [78,11,[V,SA,SA,W,W,W,W,W,W,W,W]],
+      [79,11,[V,SA,'horn_coral_fan',W,W,W,W,W,SA,'horn_coral',W]],
+      // 第5屏
+      [80,11,[V,SA,'bubble_coral_fan',W,W,W,W,W,SA,SA,'fire_coral']],
+      [81,11,[V,SA,W,W,W,W,W,W,SA,SA,W]],
+      [82,11,[V,SA,W,W,W,W,W,W,SA,W,W]],
+      [83,11,[V,SA,SA,'kelp_1','kelp_2','kelp_3',W,W,SA,W,W]],
+      [84,11,[V,SA,SA,W,W,W,W,W,SA,'tall_seagrass_1','tall_seagrass_2']],
+      [85,11,[V,V,SA,'bubble_coral',W,W,W,W,W,W,W]],
+      [86,11,[V,V,SA,SA,W,W,W,W,W,W,W]],
+      [87,11,[V,V,SA,SA,'horn_coral_fan',W,W,W,W,W,W]],
+      [88,11,[V,SA,SA,'fire_coral_fan',W,W,W,W,W,W,W]],
+      [89,11,[V,SA,SA,W,W,W,W,W,W,W,W]],
+      [90,11,[V,SA,SA,W,W,W,W,W,W,W,W]],
+      [91,11,[V,SA,'tall_seagrass_1','tall_seagrass_2',W,W,W,W,W,W,W]],
+      [92,11,[V,SA,W,W,W,W,W,W,W,W,W]],
+      [93,11,[V,SA,W,W,W,W,W,W,W,W,W]],
+      [94,11,[V,SA,SA,'bubble_coral',W,W,W,W,SA,'bubble_coral_fan',W]],
+      [95,11,[V,SA,SA,SA,W,W,W,W,SA,SA,'seagrass']],
+      [96,11,[V,SA,SA,SA,W,W,W,W,V,SA,W]],
+      [97,11,[V,V,SA,SA,SA,W,W,W,V,SA,'horn_coral']],
+      [98,11,[V,V,V,SA,SA,W,W,W,W,SA,'fire_coral']],
+      [99,11,[V,V,SA,SA,SA,'horn_coral_fan',W,W,W,SA,W]],
+      // 第6屏
+      [100,11,[V,V,SA,SA,'kelp_1','kelp_2','kelp_3',W,W,W,W]],
+      [101,11,[V,V,SA,SA,'fire_coral_fan',W,W,W,W,W,W]],
+      [102,11,[V,V,SA,SA,W,W,W,W,W,W,W]],
+      [103,11,[V,SA,SA,'bubble_coral',W,W,W,W,W,W,W]],
+      [104,11,[V,SA,SA,'horn_coral_fan',W,W,W,W,W,W,W]],
+      [105,11,[V,SA,SA,'fire_coral',W,W,W,W,W,W,W]],
+      [106,11,[V,SA,SA,W,W,W,W,W,W,W,W]],
+      [107,11,[V,SA,W,W,W,W,W,SA,W,W,W]],
+      [108,11,[V,SA,SA,W,W,W,W,SA,'fire_coral_fan',W,W]],
+      [109,11,[V,SA,W,W,W,W,W,SA,'seagrass',W,W]],
+      [110,11,[V,SA,SA,'seagrass',W,W,W,SA,SA,W,W]],
+      [111,11,[V,V,SA,SA,W,W,W,SA,SA,W,W]],
+      [112,11,[V,V,SA,SA,'horn_coral',W,W,V,SA,'bubble_coral_fan',W]],
+      [113,11,[V,SA,SA,W,W,W,W,W,SA,W,W]],
+      [114,11,[V,SA,'bubble_coral',W,W,W,W,W,W,W,W]],
+      [115,11,[V,SA,'fire_coral_fan',W,W,W,W,W,W,W,W]],
+      [116,11,[V,SA,W,W,W,W,W,W,W,W,W]],
+      [117,11,[V,SA,SA,'fire_coral',W,W,W,W,W,W,W]],
+      [118,11,[V,SA,SA,W,W,W,W,W,W,W,W]],
+      [119,11,[V,V,SA,SA,W,W,W,W,W,W,W]],
     ];
     terrain.forEach(([col, h, tiles]) => this.addTerrainColumn(col, h, tiles));
 
@@ -1578,10 +1648,31 @@ class WaterLevel extends Level {
   }
 
   drawTrees() {
-    const leavesImg = window.tile_oak_leaves;
-    const logImg = window.tile_oak_log;
-
+    // 水关：treeColumns 既包含树木，也包含水下植物/珊瑚，只做装饰，不参与碰撞
     if (!this.treeColumns) return;
+
+    const spriteMap = {
+      log: window.tile_oak_log,
+      leaves: window.tile_oak_leaves,
+      seagrass: window.tile_seagrass,
+      tall_seagrass_1: window.tile_tall_seagrass_1,
+      tall_seagrass_2: window.tile_tall_seagrass_2,
+      tube_coral: window.tile_tube_coral,
+      tube_coral_fan: window.tile_tube_coral_fan,
+      horn_coral: window.tile_horn_coral,
+      horn_coral_fan: window.tile_horn_coral_fan,
+      fire_coral: window.tile_fire_coral,
+      fire_coral_fan: window.tile_fire_coral_fan,
+      bubble_coral: window.tile_bubble_coral,
+      bubble_coral_fan: window.tile_bubble_coral_fan,
+      brain_coral: window.tile_brain_coral,
+      brain_coral_fan: window.tile_brain_coral_fan,
+      kelp_1: window.tile_kelp_1,
+      kelp_2: window.tile_kelp_2,
+      kelp_3: window.tile_kelp_3,
+      kelp_4: window.tile_kelp_4,
+      kelp_5: window.tile_kelp_5
+    };
 
     push();
     imageMode(CORNER);
@@ -1590,17 +1681,34 @@ class WaterLevel extends Level {
       const column = this.treeColumns[col] || [];
       for (let i = 0; i < column.length; i++) {
         const kind = column[i];
-        if (kind === T.NONE || kind === undefined || kind === null) continue;
+        if (!kind || kind === T.NONE) continue;
 
         const x = col * TILE_SIZE;
-        const y = 360 - (i + 1) * TILE_SIZE; // 从底部往上
+        const y = 360 - (i + 1) * TILE_SIZE;
 
-        if (kind === 'log') {
-          if (logImg && logImg.width > 0) image(logImg, x, y, TILE_SIZE, TILE_SIZE);
-          else { noStroke(); fill(120, 86, 54); rect(x, y, TILE_SIZE, TILE_SIZE); }
-        } else if (kind === 'leaves') {
-          if (leavesImg && leavesImg.width > 0) image(leavesImg, x, y, TILE_SIZE, TILE_SIZE);
-          else { noStroke(); fill(60, 140, 70, 230); rect(x, y, TILE_SIZE, TILE_SIZE); }
+        const img = spriteMap[kind];
+        if (img && img.width > 0) {
+          image(img, x, y, TILE_SIZE, TILE_SIZE);
+        } else {
+          noStroke();
+          if (kind === 'log') {
+            fill(120, 86, 54);
+          } else if (kind === 'leaves' || kind.startsWith('kelp') || kind.includes('seagrass')) {
+            fill(60, 140, 70, 230);
+          } else if (kind.includes('fire')) {
+            fill(220, 80, 60, 230);
+          } else if (kind.includes('bubble')) {
+            fill(200, 80, 210, 230);
+          } else if (kind.includes('brain')) {
+            fill(230, 120, 190, 230);
+          } else if (kind.includes('horn')) {
+            fill(230, 210, 80, 230);
+          } else if (kind.includes('tube')) {
+            fill(80, 120, 220, 230);
+          } else {
+            fill(80, 150, 120, 230);
+          }
+          rect(x, y, TILE_SIZE, TILE_SIZE);
         }
       }
     }
@@ -1609,20 +1717,31 @@ class WaterLevel extends Level {
   }
 
   addTerrainColumn(col, heightTiles, tiles) {
-    // 统一处理：地形、树木、浮空平台
+    // 统一处理：地形、树木、水下装饰
     // - 数组从底部往上：tiles[0] 是最底下那格
     // - 地形贴图（G/D/S/X/矿石/LAVA/ACID）：创建碰撞平台
-    // - 树木（'log'/'leaves'）：只绘制，不碰撞
+    // - 树木 / 水下植物（字符串标记）：只绘制，不碰撞
     // - T.NONE：空格子
     
-    const baseY = 360; // 地面基准线
+    const baseY = 360;
     if (!this.treeColumns) this.treeColumns = Array.from({ length: TERRAIN_COLS }, () => []);
     
-    // 找到第一个非 T.NONE/log/leaves 的地形块，作为地表高度
+    // 找到第一个非 T.NONE/装饰 的地形块，作为地表高度
     let terrainHeight = 0;
     for (let i = 0; i < tiles.length; i++) {
       const tile = tiles[i];
-      if (tile !== T.NONE && tile !== 'log' && tile !== 'leaves') {
+      const isBackground =
+        tile === 'log' || tile === 'leaves' ||
+        tile === 'seagrass' || tile === 'tall_seagrass_1' || tile === 'tall_seagrass_2' ||
+        tile === 'tube_coral' || tile === 'tube_coral_fan' ||
+        tile === 'horn_coral' || tile === 'horn_coral_fan' ||
+        tile === 'fire_coral' || tile === 'fire_coral_fan' ||
+        tile === 'bubble_coral' || tile === 'bubble_coral_fan' ||
+        tile === 'brain_coral' || tile === 'brain_coral_fan' ||
+        tile === 'kelp_1' || tile === 'kelp_2' ||
+        tile === 'kelp_3' || tile === 'kelp_4' || tile === 'kelp_5';
+
+      if (tile !== T.NONE && !isBackground) {
         terrainHeight = i + 1;
       }
     }
@@ -1637,26 +1756,34 @@ class WaterLevel extends Level {
       const tile = tiles[i];
       const y = baseY - (i + 1) * TILE_SIZE;
       
-      if (tile === T.NONE || tile === undefined || tile === null) {
-        continue;
-      }
+      if (tile === T.NONE || tile === undefined || tile === null) continue;
       
-      // 树木：只记录到 treeColumns，不创建平台
-      if (tile === 'log' || tile === 'leaves') {
+      // 树木 / 水下装饰：只记录到 treeColumns，不创建平台
+      if (
+        tile === 'log' || tile === 'leaves' ||
+        tile === 'seagrass' || tile === 'tall_seagrass_1' || tile === 'tall_seagrass_2' ||
+        tile === 'tube_coral' || tile === 'tube_coral_fan' ||
+        tile === 'horn_coral' || tile === 'horn_coral_fan' ||
+        tile === 'fire_coral' || tile === 'fire_coral_fan' ||
+        tile === 'bubble_coral' || tile === 'bubble_coral_fan' ||
+        tile === 'brain_coral' || tile === 'brain_coral_fan' ||
+        tile === 'kelp_1' || tile === 'kelp_2' ||
+        tile === 'kelp_3' || tile === 'kelp_4' || tile === 'kelp_5'
+      ) {
         if (!this.treeColumns[col]) this.treeColumns[col] = [];
         this.treeColumns[col][i] = tile;
         continue;
       }
 
-      // 水：只绘制，不创建碰撞平台（玩家/实体可以落入水中）
+      // 水：只绘制，不创建碰撞平台
       if (tile === T.WATER) {
         const row = i;
         this.tileMap[col][row] = tile;
         continue;
       }
       
-      // 地形：创建碰撞平台
-      const row = i; // 从底部开始的行号
+      // 其它地形：创建碰撞平台
+      const row = i;
       this.tileMap[col][row] = tile;
       const platform = new Platform(col * TILE_SIZE, y, TILE_SIZE, TILE_SIZE, terrainHeight > 0);
       platform._col = col;
@@ -1668,8 +1795,36 @@ class WaterLevel extends Level {
     }
   }
 
+  // 在水关中，整个屏幕都是水中环境。
+  // 只要玩家所在格子不是 SAND 或 GRAVEL，一律视为水中。
+  // （T.NONE = 空气格子就是水；装饰字符串不进 tileMap，也是水）
+  isWaterAtWorld(wx, wy) {
+    const tile = this.getTileAtWorld(wx, wy);
+    if (tile === T.SAND || tile === T.GRAVEL) return false;
+    return true;
+  }
+
   draw() {
-    // 绘制地形（从 tileMap 读取，T.NONE 不绘制）
+    // ===== 底层：整屏水背景（仅视觉效果，不影响碰撞和判定）=====
+    const waterImg = window.tile_water;
+    const tileW = TILE_SIZE;
+    const tileH = TILE_SIZE;
+
+    if (waterImg && waterImg.width > 0) {
+      // 用水贴图在整个关卡宽度范围内平铺
+      for (let y = 0; y < CANVAS_H; y += tileH) {
+        for (let x = 0; x < WORLD_WIDTH; x += tileW) {
+          image(waterImg, x, y, tileW, tileH);
+        }
+      }
+    } else {
+      // 贴图加载失败时，用纯色填充背景水层
+      noStroke();
+      fill(80, 140, 255);
+      rect(0, 0, WORLD_WIDTH, CANVAS_H);
+    }
+
+    // ===== 上层：正常地形（沙子/石头/水池等），逻辑与判定保持不变 =====
     for (let col = 0; col < TERRAIN_COLS; col++) {
       for (let row = 0; row < (this.tileMap[col]?.length || 0); row++) {
         const type = this.tileMap[col][row];
@@ -2736,9 +2891,17 @@ function setup() {
   const groundTiles = [
     'grass_block_side', 'dirt', 'stone', 'deepslate',
     'copper_ore', 'deepslate_copper_ore', 'deepslate_diamond_ore', 'deepslate_gold_ore', 'deepslate_iron_ore',
-    'diamond_ore', 'gold_ore', 'iron_ore','lava', 'acid', 'water', 'sand',
+    'diamond_ore', 'gold_ore', 'iron_ore','lava', 'acid', 'water', 'sand', 'gravel',
     // 树（仅作为背景装饰使用）
-    'oak_leaves', 'oak_log'
+    'oak_leaves', 'oak_log',
+    // 关卡2：水下植物与珊瑚（仅背景装饰）
+    'seagrass', 'tall_seagrass_1', 'tall_seagrass_2',
+    'tube_coral', 'tube_coral_fan',
+    'kelp_1', 'kelp_2', 'kelp_3', 'kelp_4', 'kelp_5',
+    'horn_coral', 'horn_coral_fan',
+    'fire_coral', 'fire_coral_fan',
+    'bubble_coral', 'bubble_coral_fan',
+    'brain_coral', 'brain_coral_fan'
   ];
   groundTiles.forEach(name => loadImage(`assets/pic/ground/${name}.png`, img => window[`tile_${name.replace(/-/g, '_')}`] = img, () => console.warn(`pic/ground/${name}.png 加载失败`)));
   //加载游戏开始界面
