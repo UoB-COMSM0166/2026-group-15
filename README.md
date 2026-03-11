@@ -163,7 +163,46 @@ We then wrote acceptance criteria in the Given–When–Then format to turn thos
 
 - 
 
-- One quantitative evaluation (of your choice) 
+- One quantitative evaluation (of your choice)
+
+## 1. Quantitative User Evaluation
+
+We conducted a structured usability and workload evaluation with 10 participants. Each user played the game at two difficulty levels: **Level 1 (Easy)** and **Level 2 (Hard)**.
+
+### 1.1 Methodology
+* **System Usability Scale (SUS):** A 10-item questionnaire to measure perceived usability.
+* **NASA Task Load Index (TLX):** Measured across 6 dimensions to assess mental and physical workload.
+* **Statistical Test:** Wilcoxon Signed-Rank Test (Paired, Two-tailed, $\alpha = 0.05$).
+
+### 1.2 Data Summary & Statistical Results
+1.1.1 raw data
+
+<img width="612" height="255" alt="SUS_raw" src="https://github.com/user-attachments/assets/26061f49-1f60-474f-87bb-11c12a449000" />
+
+statistical analysis of SUS data:
+<img width="1200" height="487" alt="SUS_analysis2" src="https://github.com/user-attachments/assets/19cfad5d-0a8b-49d1-b7a2-d41d8137339a" />
+
+<img width="833" height="570" alt="TLX_raw" src="https://github.com/user-attachments/assets/b504fd59-07d3-47c9-90cd-2e7c486ff82d" />
+
+Data Summary:
+| Metric | Level 1 Mean (SD) | Level 2 Mean (SD) | Wilcoxon Statistic | P-value | Significant? |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| **SUS Score** | 86.0 | 55.0 | $W = 0$ | $p < 0.01$ | **Yes** |
+| **NASA TLX** | 27.6 | 21.9 | $W = 8.5$ | $p > 0.05$ | **No** |
+
+
+### 1.3 Key Findings
+
+#### System Usability Scale (SUS)
+The SUS score dropped significantly from **86.0 (Grade A - Excellent)** to **55.0 (Grade F - Poor)**. 
+* **Interpretation:** The drastic drop suggests that as difficulty increases, the game's mechanics or UI become significantly more frustrating to use. The current "Hard" mode may be compromising the player's sense of control.
+
+#### NASA Task Load Index (TLX)
+Interestingly, the workload did not show a statistically significant difference ($p > 0.05$). 
+* **Interpretation:** While players felt the game was "less usable" (via SUS), their overall perceived workload (mental/physical effort) remained relatively stable. This might be due to a small effective sample size ($n=6$ after ties) or players reaching a "ceiling" of effort early on.
+
+
+
 
 - Description of how code was tested. 
 
