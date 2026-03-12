@@ -1232,10 +1232,10 @@ class ForestLevel extends Level {
     this.items.push(new Food(70 * TILE_SIZE + 4, groundY(70) - 24, 24, 24, 'apple'));
     this.items.push(new Food(107 * TILE_SIZE + 4, groundY(107) - 24, 24, 24, 'enlarged_golden_apple'));
 
-    // 被困小鸟（网 32x24，鸟 16x20）
-    const birdOffset = (TILE_SIZE - 32) / 2;
-    this.items.push(new TrappedBird(73 * TILE_SIZE + birdOffset, groundY(73) - 24, 32, 24));
-    this.items.push(new TrappedBird(92 * TILE_SIZE + birdOffset, groundY(92) - 24, 32, 24));
+    // 被困小鸟（网 48x36，鸟 24x30）
+    const birdOffset = (TILE_SIZE - 48) / 2;
+    this.items.push(new TrappedBird(73 * TILE_SIZE + birdOffset, groundY(73) - 36, 48, 36));
+    this.items.push(new TrappedBird(92 * TILE_SIZE + birdOffset, groundY(92) - 36, 48, 36));
 
     // 工具（平台上 + 地面上，居中放置）Tool(x, y, w, h, toolType)
     // toolType 为 pic/tool 下文件名不含 .png，如 'scissor' 'bucket'
@@ -2404,7 +2404,7 @@ class TNT extends Pollutant {
 }
 
 class TrappedBird extends Item {
-  constructor(x, y, w = 32, h = 24) {
+  constructor(x, y, w = 48, h = 36) {
     super(x, y, w, h, null);
     this.state = 'trapped';
     this.targetX = x;
@@ -2467,16 +2467,16 @@ class TrappedBird extends Item {
     const birdFlip = window.bird_flip;
     if (this.state === 'trapped') {
       if (webBack && webBack.width > 0) image(webBack, this.x, this.y, this.w, this.h);
-      const bx = this.x + (this.w - 16) / 2;
-      const by = this.y + (this.h - 20) / 2;
-      if (bird && bird.width > 0) image(bird, bx, by, 16, 20);
-      else { fill(200, 180, 80); rect(bx, by, 16, 20); }
+      const bx = this.x + (this.w - 24) / 2;
+      const by = this.y + (this.h - 30) / 2;
+      if (bird && bird.width > 0) image(bird, bx, by, 24, 30);
+      else { fill(200, 180, 80); rect(bx, by, 24, 30); }
       if (webFront && webFront.width > 0) image(webFront, this.x, this.y, this.w, this.h);
       return;
     }
     const flap = this.state === 'flying' && Math.floor(this.wingTick / 6) % 2 === 1;
     const img = flap ? birdFlip : bird;
-    this.drawBird(img, this.x, this.y, 16, 20);
+    this.drawBird(img, this.x, this.y, 24, 30);
   }
 }
 
