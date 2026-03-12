@@ -92,6 +92,10 @@ function drawTile(tileType, x, y) {
   }
 }
 
+// ====== 按键状态管理 ======
+let keys = {};
+let pressedKeys = new Set(); // 使用 Set 跟踪当前按下的键
+
 // ====== Game 类 ======
 let game;
 
@@ -1046,132 +1050,132 @@ class ForestLevel extends Level {
     // - 树木 / 水下植物（'log'/'leaves'/海草珊瑚标记字符串）：只绘制背景，不碰撞
     // - N (T.NONE)：空格子
     const terrain = [
-      // 第1屏
-      [0,6,[V,SA]],
-      [1,6,[V,SA]],
-      [2,6,[V,SA]],
-      [3,6,[V,SA]],
-      [4,6,[V,'fire_coral']],
-      [5,6,[V,'fire_coral']],
-      [6,6,[V,W,W,SA]],
-      [7,6,[V,W,W,SA]],
-      [8,6,[V,'tall_seagrass_1',W,SA]],
-      [9,6,[V,'tall_seagrass_1',W,SA]],
-      [10,6,[V,SA]],
-      [11,6,[V,SA]],
-      [12,6,[V,SA]],
-      [13,6,[V,SA]],
-      [14,6,[V,SA,'fire_coral',W,SA]],
-      [15,6,[V,SA,'fire_coral',W,SA]],
-      [16,6,[V,SA,W,W,SA]],
-      [17,6,[V,SA,W,W,SA]],
-      [18,6,[V,SA,W,W,SA,'tall_seagrass_1']],
-      [19,6,[V,SA,W,W,SA,'tall_seagrass_1']],
+      // 第1屏 - 包含树木
+      [0,8,[X,X,S,S,G,N,'leaves','leaves']], 
+      [1,10,[X,X,S,S,G,N,'leaves','leaves','leaves','leaves']], 
+      [2,10,[X,X,S,D,G,'log','log','log','leaves','leaves']], 
+      [3,10,[X,S,S,G,N,N,'leaves','leaves','leaves','leaves']], 
+      [4,8,[X,S,D,G,N,N,'leaves','leaves']],
+      [5,4,[X,S,D,G]], 
+      [6,3,[X,S,S]], 
+      [7,6,[X,S,S,N,N,G]], 
+      [8,7,[X,S,N,N,N,D,G]], 
+      [9,7,[X,T.LAVA,N,N,N,S,G]], 
+      [10,8,[X,T.LAVA,N,N,N,S,D,G]],
+      [11,8,[X,T.LAVA,N,N,N,N,D,G]],
+      [12,2,[X,T.LAVA]],
+      [13,3,[X,S,S]],
+      [14,6,[X,S,S,N,'leaves','leaves']],
+      [15,8,[X,S,G,N,'leaves','leaves','leaves','leaves']], 
+      [16,8,[X,S,G,'log','log','log','leaves','leaves']], 
+      [17,8,[X,S,G,N,'leaves','leaves','leaves','leaves']],
+      [18,6,[X,S,G,N,'leaves','leaves']],
+      [19,7,[X,S,D,G,N,'leaves','leaves']],
       // 第2屏
-      [20,6,[V,SA]],
-      [21,6,[V,SA]],
-      [22,6,[V,SA]],
-      [23,6,[V,SA]],
-      [24,6,[V,SA]],
-      [25,6,[V,SA]],
-      [26,6,[V,SA,'horn_coral']],
-      [27,6,[V,SA,'horn_coral']],
-      [28,6,[V,V,SA,W,V,'fire_coral']],
-      [29,6,[V,V,SA,W,V,'fire_coral']],
-      [30,6,[V,SA,SA]],
-      [31,6,[V,SA,SA]],
-      [32,6,[V,SA]],
-      [33,6,[V,SA]],
-      [34,6,[V,SA]],
-      [35,6,[V,SA]],
-      [36,6,[V]],
-      [37,6,[V]],
-      [38,6,[V,SA,SA]],
-      [39,6,[V,SA,SA]],
+      [20,9,[S,S,D,G,N,'leaves','leaves','leaves','leaves']], 
+      [21,9,[S,S,D,G,'log','log','log','leaves','leaves']], 
+      [22,9,[S,S,D,G,N,'leaves','leaves','leaves','leaves']], 
+      [23,7,[S,S,G,N,N,'leaves','leaves']], 
+      [24,3,[S,S,G]],
+      [25,3,[S,S,G]], 
+      [26,3,[X,S,S]], 
+      [27,3,[X,S,S]], 
+      [28,5,[X,X,S,S,S]],
+      [29,3,[X,S,S]], 
+      [30,2,[S,S]],
+      [31,2,[X,T.LAVA]], 
+      [32,2,[X,T.LAVA]], 
+      [33,2,[X,T.LAVA]],
+      [34,2,[X,T.LAVA]], 
+      [35,2,[X,T.LAVA]], 
+      [36,7,[X,S,S,N,N,'leaves','leaves']], 
+      [37,9,[X,S,G,N,N,'leaves','leaves','leaves','leaves']], 
+      [38,9,[S,S,D,G,'log','log','log','leaves','leaves']], 
+      [39,9,[S,S,D,G,N,'leaves','leaves','leaves','leaves']],
       // 第3屏
-      [40,6,[V,SA,SA]],
-      [41,6,[V,SA,SA]],
-      [42,6,[V,SA]],
-      [43,6,[V,SA]],
-      [44,6,[V]],
-      [45,6,[V]],
-      [46,6,[V,'tall_seagrass_1']],
-      [47,6,[V,'tall_seagrass_1']],
-      [48,6,[V,SA,'horn_coral',W,'horn_coral']],
-      [49,6,[V,SA,'horn_coral',W,'horn_coral']],
-      [50,6,[V,SA]],
-      [51,6,[V,SA]],
-      [52,6,[V]],
-      [53,6,[V]],
-      [54,6,[V,SA]],
-      [55,6,[V,SA]],
-      [56,6,[V,SA]],
-      [57,6,[V,SA]],
-      [58,6,[V]],
-      [59,6,[V]],
+      [40,7,[S,S,G,N,N,'leaves','leaves']], 
+      [41,3,[X,S,G]], 
+      [42,2,[S,S]], 
+      [43,2,[S,S]], 
+      [44,8,[S,S,Ir,N,N,N,'leaves','leaves']],
+      [45,10,[X,X,S,G,N,N,'leaves','leaves','leaves','leaves']], 
+      [46,10,[X,X,S,D,G,'log','log','log','leaves','leaves']], 
+      [47,10,[X,S,S,D,G,'leaves','leaves','leaves','leaves','leaves']], 
+      [48,9,[X,X,S,G,N,'leaves','leaves','leaves','leaves']], 
+      [49,9,[X,S,D,G,'log','log','log','leaves','leaves']], 
+      [50,9,[X,S,D,G,N,'leaves','leaves','leaves','leaves']], 
+      [51,7,[X,S,D,G,N,'leaves','leaves']],
+      [52,3,[S,S,G]], 
+      [53,3,[X,S,G]], 
+      [54,3,[X,S,G]], 
+      [55,3,[X,S,G]], 
+      [56,3,[X,S,G]],
+      [57,5,[X,D,G,'leaves','leaves']], 
+      [58,7,[S,G,N,'leaves','leaves','leaves','leaves']], 
+      [59,7,[S,G,'log','log','log','leaves','leaves']], 
       // 第4屏
-      [60,6,[V,SA]],
-      [61,6,[V,SA]],
-      [62,6,[V,SA,W,W,V,'fire_coral']],
-      [63,6,[V,SA,W,W,V,'fire_coral']],
-      [64,6,[V,SA,W,W,SA]],
-      [65,6,[V,SA,W,W,SA]],
-      [66,6,[V,SA,W,W,SA]],
-      [67,6,[V,SA,W,W,SA]],
-      [68,6,[V]],
-      [69,6,[V]],
-      [70,6,[V,'fire_coral']],
-      [71,6,[V,'fire_coral']],
-      [72,6,[V,SA]],
-      [73,6,[V,SA]],
-      [74,6,[V,SA]],
-      [75,6,[V,SA]],
-      [76,6,[V,SA,SA]],
-      [77,6,[V,SA,SA]],
-      [78,6,[V,'horn_coral',W,W,SA]],
-      [79,6,[V,'horn_coral',W,W,SA]],
+      [60,7,[S,G,N,'leaves','leaves','leaves','leaves']], 
+      [61,5,[S,G,N,'leaves','leaves']],
+      [62,3,[S,S,G]], 
+      [63,2,[S,T.LAVA]], 
+      [64,2,[S,T.LAVA]], 
+      [65,2,[S,T.LAVA]], 
+      [66,2,[S,T.LAVA]],
+      [67,2,[S,T.LAVA]],
+      [68,2,[S,S]], 
+      [69,3,[S,D,G]], 
+      [70,3,[S,D,G]], 
+      [71,6,[S,D,G,N,N,G]],
+      [72,7,[S,G,N,N,N,S,G]], 
+      [73,7,[S,G,N,N,N,S,G]], 
+      [74,7,[S,G,N,N,N,N,G]], 
+      [75,3,[X,S,G]],
+      [76,7,[X,S,G,N,N,'leaves','leaves']], 
+      [77,9,[X,S,D,G,N,'leaves','leaves','leaves','leaves']], 
+      [78,9,[X,S,D,G,'log','log','log','leaves','leaves']], 
+      [79,9,[X,S,D,G,N,'leaves','leaves','leaves','leaves']], 
       // 第5屏
-      [80,6,[V,W,W,W,SA]],
-      [81,6,[V,W,W,W,SA]],
-      [82,6,[V,SA,'tall_seagrass_1',W,SA]],
-      [83,6,[V,SA,'tall_seagrass_1',W,SA]],
-      [84,6,[V,SA]],
-      [85,6,[V,SA]],
-      [86,6,[V,SA,'horn_coral']],
-      [87,6,[V,SA,'horn_coral']],
-      [88,6,[V,SA]],
-      [89,6,[V,SA]],
-      [90,6,[V,'tall_seagrass_1']],
-      [91,6,[V,'tall_seagrass_1']],
-      [92,6,[V]],
-      [93,6,[V]],
-      [94,6,[V,SA,W,W,SA,'tall_seagrass_1']],
-      [95,6,[V,SA,W,W,SA,'tall_seagrass_1']],
-      [96,6,[V,SA,SA,W,V,'horn_coral']],
-      [97,6,[V,SA,SA,W,V,'horn_coral']],
-      [98,6,[V,SA,SA]],
-      [99,6,[V,SA,SA]],
+      [80,7,[X,S,D,G,N,'leaves','leaves']], 
+      [81,4,[X,S,D,G]],
+      [82,6,[X,S,G,N,'leaves','leaves']], 
+      [83,8,[X,S,G,N,'leaves','leaves','leaves','leaves']], 
+      [84,8,[X,S,G,'log','log','log','leaves','leaves']], 
+      [85,8,[X,S,G,N,'leaves','leaves','leaves','leaves']], 
+      [86,6,[X,S,G,N,'leaves','leaves']],
+      [87,2,[S,G]], 
+      [88,2,[S,G]], 
+      [89,2,[S,G]], 
+      [90,7,[S,D,G,N,N,N,G]], 
+      [91,8,[S,D,G,N,N,N,D,G]],
+      [92,8,[S,D,G,N,N,N,D,G]], 
+      [93,8,[S,D,G,N,N,N,D,G]], 
+      [94,7,[S,D,G,N,N,N,G]], 
+      [95,4,[X,S,S,S]],
+      [96,6,[X,X,X,S,S,S]], 
+      [97,3,[X,Di,G]], 
+      [98,3,[X,S,G]], 
+      [99,4,[X,S,D,G]],
       // 第6屏
-      [100,6,[V,SA,'fire_coral']],
-      [101,6,[V,SA,'fire_coral']],
-      [102,6,[V,SA]],
-      [103,6,[V,SA]],
-      [104,6,[V,SA]],
-      [105,6,[V,SA]],
-      [106,6,[V]],
-      [107,6,[V]],
-      [108,6,[V,W,W,W,'tall_seagrass_1']],
-      [109,6,[V,W,W,W,'tall_seagrass_1']],
-      [110,6,[V,SA,W,W,SA]],
-      [111,6,[V,SA,W,W,SA]],
-      [112,6,[V,SA,W,W,SA]],
-      [113,6,[V,SA,W,W,SA]],
-      [114,6,[V,'fire_coral']],
-      [115,6,[V,'fire_coral']],
-      [116,6,[V,SA]],
-      [117,6,[V,SA]],
-      [118,6,[V,SA]],
-      [119,6,[V,SA]],
+      [100,4,[X,S,D,G]], 
+      [101,4,[X,S,D,G]], 
+      [102,4,[X,S,D,G]], 
+      [103,7,[X,S,G,N,N,N,S]], 
+      [104,7,[X,S,G,N,N,N,S]],
+      [105,8,[X,S,G,N,N,N,S,G]], 
+      [106,8,[X,S,G,N,N,N,N,G]], 
+      [107,8,[X,S,G,N,N,N,N,G]], 
+      [108,4,[X,X,S,S]], 
+      [109,3,[X,S,S]], 
+      [110,5,[S,G,N,'leaves','leaves']], 
+      [111,7,[S,G,N,'leaves','leaves','leaves','leaves']],
+      [112,7,[S,G,'log','log','log','leaves','leaves']], 
+      [113,7,[S,G,N,'leaves','leaves','leaves','leaves']], 
+      [114,5,[S,T.LAVA,N,'leaves','leaves']], 
+      [115,2,[S,T.LAVA]], 
+      [116,2,[S,T.LAVA]],
+      [117,2,[S,T.LAVA]], 
+      [118,2,[S,S]], 
+      [119,3,[S,D,G]], 
     ];
     terrain.forEach(([col, h, tiles]) => this.addTerrainColumn(col, h, tiles));
 
@@ -1916,9 +1920,33 @@ class Player {
   }
 
   update(platforms, level) {
-    this.vx = 0;
-    if (keyIsDown(LEFT_ARROW)) this.vx = -this.speed;
-    if (keyIsDown(RIGHT_ARROW)) this.vx = this.speed;
+    // 地面上：每帧重置速度，完全由按键控制
+    // 空中：保持惯性，但有空气阻力
+    if (this.onGround) {
+      this.vx = 0;
+    } else {
+      // 空中减速：每帧减少 5% 的水平速度（模拟空气阻力）
+      this.vx *= 0.85;
+      // 速度太小时直接归零，避免永远飘
+      if (Math.abs(this.vx) < 0.1) this.vx = 0;
+    }
+    
+    // 纯 WSAD 键位（直接从 keys 字典读取，由 keyPressed/keyReleased 维护）
+    if (keys['a']) {
+      this.vx = -this.speed;
+    } else if (keys['d']) {
+      this.vx = this.speed;
+    } else if (this.onGround) {
+      // 只有在地面上且没有按键时才停止
+      this.vx = 0;
+    }
+    // 如果在空中且没有按键，保持原有的 vx 但会逐渐减速
+    
+    // 空中控制加成：在空中时水平移动速度提升 20%
+    if (!this.onGround && this.vx !== 0 && (keys['a'] || keys['d'])) {
+      this.vx *= 1.2;
+    }
+    
     if (this.vx !== 0) this.facingRight = this.vx > 0;
 
     const inWater = this.isInWater(level);
@@ -2844,6 +2872,21 @@ function setup() {
   c.elt.addEventListener('click', () => c.elt.focus());
   c.parent('game-container');
 
+  // 添加原生键盘事件监听器（备用方案，防止 p5.js 事件丢失）
+  window.addEventListener('keyup', (e) => {
+    const k = e.key.toLowerCase();
+    if (k === 'a' || k === 'd' || k === 'w') {
+      if (keys[k]) {
+        console.log(`[原生事件] 检测到 ${k} 键松开`);
+        keys[k] = false;
+        pressedKeys.delete(k);
+        if (k === 'w' && game?.player) {
+          game.player.swimUpHeld = false;
+        }
+      }
+    }
+  });
+
   game = new Game();
   game.setup();
 
@@ -2914,6 +2957,20 @@ function setup() {
 //每一帧更新游戏状态并绘制
 //加入游戏状态管理：开始界面、游戏进行中、结束界面
 function draw() {
+  // 主动同步按键状态（修复浏览器 keyReleased 事件丢失的问题）
+  if (game && game.state === "playing") {
+    // 检查 Set 中记录的按键，如果 keys 字典中有但 Set 中没有，说明事件丢失了
+    ['a', 'd', 'w'].forEach(k => {
+      if (keys[k] && !pressedKeys.has(k)) {
+        console.log(`修正: ${k} 键状态不一致，已修正`);
+        keys[k] = false;
+        if (k === 'w' && game.player) {
+          game.player.swimUpHeld = false;
+        }
+      }
+    });
+  }
+  
   if (game.state === "start") {
     drawStartScreen();
   }
@@ -2934,11 +2991,25 @@ function draw() {
 }
 
 function keyPressed() {
-  console.log("按键按下:", key, keyCode); // 测试用
+  // 防止键盘重复触发（长按时浏览器会持续触发 keyPressed）
+  const keyLower = key && key.length === 1 ? key.toLowerCase() : null;
+  
+  // 如果这个键已经是按下状态，就不再处理
+  if (keyLower && keys[keyLower] === true) {
+    return false; // 已经按下了，忽略重复事件
+  }
+
+  // 只记录字母键状态（不再使用 keyCode，因为 p5.js 的 keyCode 不可靠）
+  if (keyLower) {
+    keys[keyLower] = true;
+    pressedKeys.add(keyLower);
+    console.log("按键按下:", key, keyCode, "a:", keys['a'], "d:", keys['d'], "w:", keys['w'], "Set:", Array.from(pressedKeys));
+  }
+  
   //按ENTER开始游戏
-  if (game.state === "start" && (keyCode === ENTER ||keyCode === 13) ){
+  if (game.state === "start" && (keyCode === ENTER || keyCode === 13)) {
     game.state = "levelSelect";
-    return;
+    return false;
   }
 
   // 关卡选择界面：1 进入关卡1（原逻辑），2 回到开始界面
@@ -2947,46 +3018,70 @@ function keyPressed() {
       game = new Game("forest");
       game.setup();
       game.beginPlaying();
-      return;
+      return false;
     }
     if (key === '2' || keyCode === 50) {
       game = new Game("water");
       game.setup();
       game.beginPlaying();
-      return;
+      return false;
     }
   }
 
   //游戏结束之后按ENTER重启游戏
-  if ((game.state === "gameover"|| game.state === "victory") &&(keyCode === ENTER ||keyCode === 13)) {
+  if ((game.state === "gameover" || game.state === "victory") && (keyCode === ENTER || keyCode === 13)) {
     game.resetToPlayingFromBeginning();
-    return;
+    return false;
   }
-  if (game.state === "playing"){
-      //人物控制
-    if (key === ' ' || keyCode === UP_ARROW || keyCode === 38) {
-      // 在水中按下空格：开启上浮标志，由 Player.update 处理具体速度
-      if (key === ' ' && game?.level && typeof game.player?.isInWater === "function" && game.player.isInWater(game.level)) {
+  
+  if (game.state === "playing") {
+    //人物控制
+    // 跳跃/上浮：纯 W 键
+    if (key === 'w' || key === 'W') {
+      // 在水中按下 W：开启上浮标志，由 Player.update 处理具体速度
+      if (game?.level && typeof game.player?.isInWater === "function" && game.player.isInWater(game.level)) {
         if (game.player) game.player.swimUpHeld = true;
         return false;
       }
       game.player.jump();
       return false;
     }
+    
+    // 攻击
     if (key === 'f' || key === 'F' || keyCode === 70) {
       game.tryAttack();
       return false;
     }
-    if ([LEFT_ARROW, RIGHT_ARROW, UP_ARROW, DOWN_ARROW].includes(keyCode)) return false;
   }
+  
+  return false; // 阻止默认行为
 }
 
 function keyReleased() {
-  // 松开空格时，取消水中上浮标志
-  if (key === ' ') {
-    if (game?.player) {
-      game.player.swimUpHeld = false;
+  // 只处理字母键，不再使用 keyCode（因为 p5.js 的 keyCode 在某些情况下不可靠）
+  if (key && key.length === 1) {
+    const keyLower = key.toLowerCase();
+    keys[keyLower] = false;
+    pressedKeys.delete(keyLower);
+    
+    console.log("按键释放:", key, keyCode, "a:", keys['a'], "d:", keys['d'], "w:", keys['w'], "Set:", Array.from(pressedKeys));
+    
+    // 松开 W 键时，取消水中上浮标志
+    if (keyLower === 'w') {
+      if (game?.player) {
+        game.player.swimUpHeld = false;
+      }
     }
+  }
+}
+
+// 窗口失焦时清除所有按键状态（防止切换窗口导致按键卡住）
+function windowBlurred() {
+  console.log("窗口失焦，清除所有按键"); // 调试用
+  keys = {};
+  pressedKeys.clear(); // 清空 Set
+  if (game?.player) {
+    game.player.swimUpHeld = false;
   }
 }
 
