@@ -1613,9 +1613,11 @@ class WaterLevel extends Level {
     // this.enemies.push(new Enemy(54 * TILE_SIZE, groundY(54) - 64, 64, 64));
     // this.enemies.push(new Enemy(104 * TILE_SIZE, baseGroundY(104) - 64, 64, 64));
 
+    
     // 污染物
-    // this.items.push(new Pollutant(36 * TILE_SIZE + 4, groundY(36) - 18, 24, 18, "cigarette")); // 地面 col 36
-    // this.items.push(new Pollutant(48 * TILE_SIZE + 4, groundY(48) - 18, 24, 18, "plastic_bottle")); // 地面 col 48
+   this.items.push(new Pollutant(40 * TILE_SIZE + 4, groundY(40) - 18, 24, 18, "plastic_bottle"));
+   this.items.push(new Pollutant(46 * TILE_SIZE + 4, groundY(46) - 18, 24, 18, "plastic_bag"));
+   this.items.push(new Pollutant(60 * TILE_SIZE + 4, groundY(60) - 18, 24, 18, "plastic_bottle"));
 
     // TNT（不可收集，触发后爆炸）
     // this.items.push(new TNT(97 * TILE_SIZE, groundY(97) - TILE_SIZE, TILE_SIZE, TILE_SIZE));
@@ -2896,6 +2898,7 @@ function setup() {
   // 新增：污染物及被困小动物
   load('assets/pic/pollutant/cigarette.png', 'cigarette');
   load('assets/pic/pollutant/plastic_bottle.png', 'plastic_bottle');
+  load('assets/pic/pollutant/plastic_bag.png', 'plastic_bag');
   load('assets/pic/pollutant/tnt_side.png', 'tnt');
   load('assets/pic/animals/bird.png', 'bird');
   load('assets/pic/animals/bird_flip.png', 'bird_flip');
