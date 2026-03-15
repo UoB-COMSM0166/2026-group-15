@@ -115,12 +115,15 @@ class Game {
     this.showGuideMenu = false;
     this.activeGuideTab = 0;
     this.lavaFirstHintShown = false;
+    this.hintPriorityMessage = null;
+    this.hintPriorityHoldUntil = 0;
+    this.baseHintIntroUntil = 0;
     // 游戏状态：start playing gameover victory
     this.state = "start";
 
-    // --- 新增：救鸟后的感谢语显示逻辑 ---
-    this.lastRescueTime = 0;      // 记录最后一次成功解救的时间戳
-    this.rescueShowDuration = 3000; // 感谢语持续显示 3 秒
+    // --- 新增：统一的得分反馈提示（污染物/救援共用） ---
+    this.scoreToastMessage = null;   // 当前显示的得分提示文案
+    this.scoreToastUntil = 0;        // 提示显示截止时间戳（millis）
   }
   
   tryAttack() {
@@ -196,6 +199,12 @@ class Game {
   resetHintState() {
     this.victoryAt = 0;
     this.lavaFirstHintShown = false;
+    this.hintPriorityMessage = null;
+    this.hintPriorityHoldUntil = 0;
+    this.baseHintIntroUntil = millis() + 3800;
+    // 重置得分反馈提示状态（避免关卡切换残留文案）
+    this.scoreToastMessage = null;
+    this.scoreToastUntil = 0;
 }
 
   update() {
@@ -363,14 +372,16 @@ class Game {
 updateHintCat() {
     if (!this.player || !this.level || !this.level.hintCat) return;
 
+    const now = millis();
+
     // 记录历史
     this.playerHistory.push({
       x: this.player.x, y: this.player.y,
       w: this.player.w, h: this.player.h,
-      facingRight: this.player.facingRight, t: millis()
+      facingRight: this.player.facingRight, t: now
     });
 
-    const cutoff = millis() - HINT_CAT_DELAY_MS;
+    const cutoff = now - HINT_CAT_DELAY_MS;
     while (this.playerHistory.length && this.playerHistory[0].t < cutoff) {
       this.playerHistory.shift();
     }
@@ -382,7 +393,27 @@ updateHintCat() {
 
     // 执行跟随
     this.level.hintCat.follow(targetState, this.level);
-    this.level.hintCat.setMessage(this.getHintMessage());
+
+    const liveHint = this.getHintMessage();
+    const isBaseHint =
+      liveHint === "Move: A / D\nCrouch: S\n(Double)Jump: W(x2)" ||
+      liveHint === "Move: A / D\nDive: S\nSwim Up: Hold W";
+
+    if (liveHint && !isBaseHint) {
+      this.hintPriorityMessage = liveHint;
+      this.hintPriorityHoldUntil = now + 1600;
+      this.level.hintCat.setMessage(liveHint);
+      return;
+    }
+
+    if (this.hintPriorityMessage && now < this.hintPriorityHoldUntil) {
+      this.level.hintCat.setMessage(this.hintPriorityMessage);
+      return;
+    }
+
+    this.hintPriorityMessage = null;
+    this.hintPriorityHoldUntil = 0;
+    this.level.hintCat.setMessage(liveHint || null);
   }
 
 
@@ -467,10 +498,9 @@ tryRescueBirdWithScissor(slotIndex) {
     this.player.inventory.splice(slotIndex, 1);
     this.player.selectedSlot = -1;
     this.player.score += 1;
-
-    // --- 新增：成功救鸟后记录当前时间 ---
-    this.lastRescueTime = millis(); 
-    
+    // 成功解救小动物：弹出统一得分提示
+    this.scoreToastMessage = "Wildlife rescued! +1";
+    this.scoreToastUntil = millis() + 1800;
     return true;
   }
 
@@ -488,10 +518,20 @@ tryRescueBirdWithScissor(slotIndex) {
       }
     }
     const pool = nearest.upperCrown.length ? nearest.upperCrown : nearest.crown;
-    const pick = pool[Math.floor(random(pool.length))];
+    const trunkColCenter = nearest.trunkX / TILE_SIZE - 0.5;
+    let pick = pool[0];
+    let bestScore = Infinity;
+    for (const p of pool) {
+      const dx = Math.abs(p.col - trunkColCenter);
+      const score = dx * 1000 - p.row;
+      if (score < bestScore) {
+        bestScore = score;
+        pick = p;
+      }
+    }
     const targetX = pick.col * TILE_SIZE + (TILE_SIZE - 16) / 2;
     const tileTop = 360 - (pick.row + 1) * TILE_SIZE;
-    const targetY = tileTop + random(2, TILE_SIZE * 0.45);
+    const targetY = tileTop + TILE_SIZE * 0.25;
     return { x: targetX, y: targetY };
   }
 
@@ -671,18 +711,17 @@ tryRescueBirdWithScissor(slotIndex) {
   }
 
   getHintMessage() {
-    // --- 第一步：新增救鸟后的感谢提示（优先级最高） ---
-    // millis() 是当前时间，lastRescueTime 是你救鸟时记录的时间
-    if (millis() - this.lastRescueTime < this.rescueShowDuration) {
-      return "Thank you for \nrescuing a bird!";
+    // 优先显示短时得分反馈，覆盖普通环境提示
+    if (this.scoreToastMessage && millis() < this.scoreToastUntil) {
+      return this.scoreToastMessage;
     }
 
     // 1. 设置基础提示词（作为没有紧急事件时的默认显示）
     let baseHint = null;
     if (this.levelType === "water") {
-      baseHint = "Hold W to swim up!";
+      baseHint = "Move: A / D\nDive: S\nSwim Up: Hold W";
     } else if (this.levelType === "forest") {
-      baseHint = "Double-tap W to Double Jump!";
+      baseHint = "Move: A / D\nCrouch: S\n(Double)Jump: W(x2)";
     }
 
     // 2. 环境与道具检测（如果下方条件满足，会直接 return，从而覆盖上面的 baseHint）
@@ -700,7 +739,8 @@ tryRescueBirdWithScissor(slotIndex) {
       (enemy) => !enemy.isDead,
       this.distanceToEnemy
     );
-    if (closestEnemyDist <= MUTUAL_ATTACK_RANGE) return "Zombie close! Press F.";
+    const zombieHintRange = MUTUAL_ATTACK_RANGE * 1.6;
+    if (closestEnemyDist <= zombieHintRange) return "Zombie close! Press F.";
 
     // TNT 警告
     const closestTntDist = this.getClosestItemDistanceByClass(TNT);
@@ -725,8 +765,12 @@ tryRescueBirdWithScissor(slotIndex) {
     const closestScissorDist = this.getClosestToolDistance('scissor');
     if (closestScissorDist <= HINT_POLLUTANT_RANGE && !this.playerHasScissor()) return "Pick up scissors first.";
 
-    const closestBirdDist = this.getClosestItemDistanceByClass(TrappedBird);
-    if (closestBirdDist <= HINT_POLLUTANT_RANGE * 1.45) {
+    const closestBirdDist = this.getClosestDistance(
+      this.level.items,
+      (item) => item instanceof TrappedBird && item.isTrapped(),
+      this.distanceToItem
+    );
+    if (closestBirdDist <= HINT_POLLUTANT_RANGE * 1.7) {
       if (closestBirdDist <= HINT_POLLUTANT_RANGE * 0.9) return "Click scissors to rescue.";
       return "Bird needs rescue.";
     }
@@ -740,8 +784,13 @@ tryRescueBirdWithScissor(slotIndex) {
       return "Mine ore to upgrade sword.";
     }
 
-    // 3. 如果没有任何环境威胁或道具在身边，则显示该关卡的基础按键提示
-    return baseHint;
+    // 3. 基础提示：仅开局短暂停留，后续仅玩家静止时显示
+    const now = millis();
+    const noMoveInput = !keys['a'] && !keys['d'] && !keys['w'] && !keys['s'];
+    const isPlayerStill = Math.abs(this.player.vx || 0) < 0.06 && Math.abs(this.player.vy || 0) < 0.08;
+    const shouldShowBaseHint = now <= this.baseHintIntroUntil || (noMoveInput && isPlayerStill);
+    if (baseHint && shouldShowBaseHint) return baseHint;
+    return null;
   }
 
 handleMousePressed(mx, my) {
@@ -950,7 +999,9 @@ tryUseLimestone() {
 
     if (item instanceof Pollutant) {
       this.player.score += 1;
-      console.log("得分！当前总分:", this.player.score);
+      // 收集污染物：弹出统一得分提示
+      this.scoreToastMessage = "Pollutant collected! +1";
+      this.scoreToastUntil = millis() + 1400;
     }
 
     if (item instanceof Food) {
@@ -971,8 +1022,8 @@ tryUseLimestone() {
     push();
     translate(-this.cameraX, 0);
     this.level.draw();
-    this.level.hintCat.draw();
     this.player.draw();
+    this.level.hintCat.draw();
 
     // 如果玩家在水中，叠加一层半透明水贴图在玩家前面
     // if (typeof this.player.isInWater === "function" && this.player.isInWater(this.level)) {
@@ -1974,10 +2025,14 @@ class Player {
       if (Math.abs(this.vx) < 0.1) this.vx = 0;
     }
     
-    // 纯 WSAD 键位（直接从 keys 字典读取，由 keyPressed/keyReleased 维护）
-    if (keys['a']) {
+    // 仅 WASD：A/D 水平移动，S 下蹲
+    const leftHeld = !!keys['a'];
+    const rightHeld = !!keys['d'];
+    const crouchHeld = !!keys['s'];
+    this.isCrouching = crouchHeld && this.onGround;
+    if (leftHeld && !rightHeld) {
       this.vx = -this.speed;
-    } else if (keys['d']) {
+    } else if (rightHeld && !leftHeld) {
       this.vx = this.speed;
     } else if (this.onGround) {
       // 只有在地面上且没有按键时才停止
@@ -1986,7 +2041,7 @@ class Player {
     // 如果在空中且没有按键，保持原有的 vx 但会逐渐减速
     
     // 空中控制加成：在空中时水平移动速度提升 20%
-    if (!this.onGround && this.vx !== 0 && (keys['a'] || keys['d'])) {
+    if (!this.onGround && this.vx !== 0 && (leftHeld || rightHeld)) {
       this.vx *= 1.2;
     }
     
@@ -1998,7 +2053,7 @@ class Player {
       this.vx *= 0.3;
       // 水中：不走正常重力/跳跃，改为匀速下沉；按住空格匀速上浮
       const swimUp = this.swimUpHeld;
-      this.vy = swimUp ? WATER_RISE_VY : WATER_SINK_VY;
+      this.vy = swimUp ? WATER_RISE_VY : (crouchHeld ? WATER_SINK_VY * 1.35 : WATER_SINK_VY);
     } else {
       this.vy += this.gravity;
     }
@@ -2169,9 +2224,11 @@ class Player {
 
   draw() {
     const img = this.facingRight ? window.alexSpriteRight : window.alexSpriteLeft;
-    const offsetY = 0;
-    if (img && img.width > 0) image(img, this.x, this.y + offsetY, this.w, this.h);
-    else { fill(50, 100, 255); rect(this.x, this.y, this.w, this.h); }
+    const crouchScale = this.isCrouching ? 0.78 : 1;
+    const drawH = this.h * crouchScale;
+    const drawY = this.y + (this.h - drawH);
+    if (img && img.width > 0) image(img, this.x, drawY, this.w, drawH);
+    else { fill(50, 100, 255); rect(this.x, drawY, this.w, drawH); }
     // 手持武器：24×24，位置由 WEAPON_OFFSET_X/Y 相对玩家贴图微调
     if (this.equippedWeaponType) {
       const weaponImg = window['weapon_' + this.equippedWeaponType];
@@ -2594,7 +2651,7 @@ class Weapon extends Item {
 
 // ====== HintCat 类 ======
 class HintCat {
-  constructor(x, y) { Object.assign(this, { x, y, w: 32, h: 16, vy: 0, facingRight: true, messages: ["Move: Arrows", "Double Jump:Press W twice"], message: null }); }
+  constructor(x, y) { Object.assign(this, { x, y, w: 32, h: 16, vy: 0, facingRight: true, messages: ["Move: A / D, Crouch: S", "Double Jump: W x2"], message: null }); }
 
   setMessage(message) {
     this.message = message;
@@ -2657,35 +2714,31 @@ follow(state, level) {
     if (img && img.width > 0) image(img, this.x, this.y, this.w, this.h);
     else { fill(255, 200, 0); rect(this.x, this.y, this.w, this.h); }
     const msg = this.message;
-    if (msg || this.messages.length) {
+    if (msg) {
       push();
-      textSize(11);
-      const paddingX = 6;
-      const paddingY = 5;
-      const maxCharsPerLine = 18;
+      textSize(9);
+      const paddingX = 5;
+      const paddingY = 4;
+      const maxCharsPerLine = 16;
       let lines = [];
-      if (!msg) {
-        lines = this.messages.slice();
-      } else {
-        const parts = msg.split("\n");
-        for (const part of parts) {
-          const words = part.split(" ");
-          let current = "";
-          for (const word of words) {
-            const needsSpace = current.length > 0;
-            const next = (needsSpace ? current + " " : current) + word;
-            if (next.length <= maxCharsPerLine) {
-              current = next;
-            } else {
-              if (current.length > 0) lines.push(current);
-              current = word;
-            }
+      const parts = msg.split("\n");
+      for (const part of parts) {
+        const words = part.split(" ");
+        let current = "";
+        for (const word of words) {
+          const needsSpace = current.length > 0;
+          const next = (needsSpace ? current + " " : current) + word;
+          if (next.length <= maxCharsPerLine) {
+            current = next;
+          } else {
+            if (current.length > 0) lines.push(current);
+            current = word;
           }
-          if (current) lines.push(current);
         }
+        if (current) lines.push(current);
       }
-      const lineH = 14;
-      const bubbleW = min(148, max(...lines.map(l => textWidth(l))) + paddingX * 2);
+      const lineH = 11;
+      const bubbleW = min(132, max(...lines.map(l => textWidth(l))) + paddingX * 2);
       const bubbleH = lines.length * lineH + paddingY * 2;
       const bubbleX = this.x + this.w / 2 - bubbleW / 2;
       const bubbleY = max(6, this.y - bubbleH - 6);
@@ -2917,13 +2970,14 @@ function setup() {
 
   // 添加原生键盘事件监听器（备用方案，防止 p5.js 事件丢失）
   window.addEventListener('keyup', (e) => {
-    const k = e.key.toLowerCase();
-    if (k === 'a' || k === 'd' || k === 'w') {
+    let k = (e.key || '').toLowerCase();
+    if (e.keyCode === 32) k = ' ';
+    if (k === 'a' || k === 'd' || k === 'w' || k === 'arrowleft' || k === 'arrowright' || k === 'arrowup' || k === ' ') {
       if (keys[k]) {
         console.log(`[原生事件] 检测到 ${k} 键松开`);
         keys[k] = false;
         pressedKeys.delete(k);
-        if (k === 'w' && game?.player) {
+        if ((k === 'w' || k === 'arrowup' || k === ' ') && game?.player) {
           game.player.swimUpHeld = false;
         }
       }
@@ -3004,13 +3058,10 @@ function draw() {
   // 主动同步按键状态（修复浏览器 keyReleased 事件丢失的问题）
   if (game && game.state === "playing") {
     // 检查 Set 中记录的按键，如果 keys 字典中有但 Set 中没有，说明事件丢失了
-    ['a', 'd', 'w'].forEach(k => {
+    ['a', 'd', 's', 'w'].forEach(k => {
       if (keys[k] && !pressedKeys.has(k)) {
-        console.log(`修正: ${k} 键状态不一致，已修正`);
         keys[k] = false;
-        if (k === 'w' && game.player) {
-          game.player.swimUpHeld = false;
-        }
+        if (k === 'w' && game.player) game.player.swimUpHeld = false;
       }
     });
   }
@@ -3036,18 +3087,19 @@ function draw() {
 
 function keyPressed() {
   // 1. 基础按键处理
-  const keyLower = (key && key.length === 1) ? key.toLowerCase() : null;
+  let inputKey = null;
+  if (key && key.length === 1) inputKey = key.toLowerCase();
   
   // 防止键盘长按重复触发逻辑
-  if (keyLower && keys[keyLower] === true) {
+  if (inputKey && keys[inputKey] === true) {
     return false; 
   }
 
   // 记录按键状态
-  if (keyLower) {
-    keys[keyLower] = true;
-    pressedKeys.add(keyLower);
-    // console.log("按键按下:", keyLower, "当前队列:", Array.from(pressedKeys));
+  if (inputKey) {
+    keys[inputKey] = true;
+    pressedKeys.add(inputKey);
+    // console.log("按键按下:", inputKey, "当前队列:", Array.from(pressedKeys));
   }
   
   // 2. 状态机逻辑
@@ -3084,13 +3136,14 @@ function keyPressed() {
   if (game.state === "playing") {
     
     // 攻击逻辑：放在跳跃之前，确保 F 键响应优先级
-    if (keyLower === 'f' || keyCode === 70) {
+    if (inputKey === 'f' || keyCode === 70) {
       game.tryAttack(); // 确保 Game 类里这个方法没被删掉
       return false;
     }
 
-    // 跳跃/上浮逻辑
-    if (keyLower === 'w') {
+    // 跳跃/上浮逻辑（仅 W）
+    const jumpPressed = inputKey === 'w';
+    if (jumpPressed) {
       if (game.level && game.player && typeof game.player.isInWater === "function") {
         if (game.player.isInWater(game.level)) {
           game.player.swimUpHeld = true;
@@ -3109,20 +3162,19 @@ function keyPressed() {
 }
 
 function keyReleased() {
-  // 只处理字母键，不再使用 keyCode（因为 p5.js 的 keyCode 在某些情况下不可靠）
-  if (key && key.length === 1) {
-    const keyLower = key.toLowerCase();
-    keys[keyLower] = false;
-    pressedKeys.delete(keyLower);
-    
-    console.log("按键释放:", key, keyCode, "a:", keys['a'], "d:", keys['d'], "w:", keys['w'], "Set:", Array.from(pressedKeys));
-    
-    // 松开 W 键时，取消水中上浮标志
-    if (keyLower === 'w') {
-      if (game?.player) {
-        game.player.swimUpHeld = false;
-      }
-    }
+  let releasedKey = null;
+  if (key && key.length === 1) releasedKey = key.toLowerCase();
+
+  if (!releasedKey) return;
+
+  keys[releasedKey] = false;
+  pressedKeys.delete(releasedKey);
+  
+  console.log("按键释放:", key, keyCode, "a:", keys['a'], "d:", keys['d'], "w:", keys['w'], "Set:", Array.from(pressedKeys));
+  
+  // 松开上浮键时，取消水中上浮标志
+  if (releasedKey === 'w') {
+    if (game?.player) game.player.swimUpHeld = false;
   }
 }
 
