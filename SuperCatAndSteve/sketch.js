@@ -115,8 +115,53 @@ class Game {
     this.showGuideMenu = false;
     this.activeGuideTab = 0;
     this.lavaFirstHintShown = false;
-    //游戏状态：start playing gameover victory
+    // 游戏状态：start playing gameover victory
     this.state = "start";
+
+    // --- 新增：救鸟后的感谢语显示逻辑 ---
+    this.lastRescueTime = 0;      // 记录最后一次成功解救的时间戳
+    this.rescueShowDuration = 3000; // 感谢语持续显示 3 秒
+  }
+  
+  tryAttack() {
+    const now = millis();
+    // 1. 检查攻击冷却
+    if (now - this.lastAttackTime < ATTACK_COOLDOWN_MS) return;
+
+    // 2. 攻击力保底
+    let dmg = 2; 
+    if (typeof this.getAttackDamage === "function") {
+      let calcDmg = this.getAttackDamage();
+      if (calcDmg > 0) dmg = calcDmg;
+    }
+
+    let closest = null;
+    // 3. 扩大判定范围到 2.2 格，确保好用
+    let scanRange = 2.2 * TILE_SIZE; 
+    let closestDist = scanRange + 1;
+
+    // 4. 遍历并寻找最近的敌人
+    if (this.level && this.level.enemies) {
+      for (const enemy of this.level.enemies) {
+        if (enemy.isDead) continue;
+        
+        const d = this.distanceToEnemy(enemy);
+        
+        if (d <= scanRange && d < closestDist) {
+          closestDist = d;
+          closest = enemy;
+        }
+      }
+    }
+
+    // 5. 应用伤害
+    if (closest) {
+      closest.takeDamage(dmg);
+      this.lastAttackTime = now;
+      console.log("💥 击中目标！伤害:", dmg, "距离:", closestDist.toFixed(1));
+    } else {
+      console.log("☁️ 攻击挥空：附近没有敌人");
+    }
   }
 
   setup() { 
@@ -410,17 +455,22 @@ updateHintCat() {
     }
   }
 
-  tryRescueBirdWithScissor(slotIndex) {
+tryRescueBirdWithScissor(slotIndex) {
     const rescueRange = TILE_SIZE * 1.45;
     const trappedBird = this.level.items.find(item =>
       item instanceof TrappedBird && item.isTrapped() && this.distanceToItem(item) <= rescueRange
     );
     if (!trappedBird) return false;
+    
     const target = this.getNearestTreeCrownTarget(trappedBird);
     trappedBird.startRescue(target.x, target.y);
     this.player.inventory.splice(slotIndex, 1);
     this.player.selectedSlot = -1;
     this.player.score += 1;
+
+    // --- 新增：成功救鸟后记录当前时间 ---
+    this.lastRescueTime = millis(); 
+    
     return true;
   }
 
@@ -621,6 +671,12 @@ updateHintCat() {
   }
 
   getHintMessage() {
+    // --- 第一步：新增救鸟后的感谢提示（优先级最高） ---
+    // millis() 是当前时间，lastRescueTime 是你救鸟时记录的时间
+    if (millis() - this.lastRescueTime < this.rescueShowDuration) {
+      return "Thank you for \nrescuing a bird!";
+    }
+
     // 1. 设置基础提示词（作为没有紧急事件时的默认显示）
     let baseHint = null;
     if (this.levelType === "water") {
@@ -686,28 +742,6 @@ updateHintCat() {
 
     // 3. 如果没有任何环境威胁或道具在身边，则显示该关卡的基础按键提示
     return baseHint;
-  }
-
-  /** 按 F 键攻击：对距离 ≤ 2格 的最近敌人造成一次伤害 */
-  tryAttack() {
-    const now = millis();
-    if (now - this.lastAttackTime < ATTACK_COOLDOWN_MS) return;
-    const dmg = this.getAttackDamage();
-    if (dmg <= 0) return;
-    let closest = null;
-    let closestDist = MUTUAL_ATTACK_RANGE + 1;
-    for (const enemy of this.level.enemies) {
-      if (enemy.isDead) continue;
-      const d = this.distanceToEnemy(enemy);
-      if (d <= MUTUAL_ATTACK_RANGE && d < closestDist) {
-        closestDist = d;
-        closest = enemy;
-      }
-    }
-    if (closest) {
-      closest.takeDamage(dmg);
-      this.lastAttackTime = now;
-    }
   }
 
 handleMousePressed(mx, my) {
@@ -3001,28 +3035,30 @@ function draw() {
 }
 
 function keyPressed() {
-  // 防止键盘重复触发（长按时浏览器会持续触发 keyPressed）
-  const keyLower = key && key.length === 1 ? key.toLowerCase() : null;
+  // 1. 基础按键处理
+  const keyLower = (key && key.length === 1) ? key.toLowerCase() : null;
   
-  // 如果这个键已经是按下状态，就不再处理
+  // 防止键盘长按重复触发逻辑
   if (keyLower && keys[keyLower] === true) {
-    return false; // 已经按下了，忽略重复事件
+    return false; 
   }
 
-  // 只记录字母键状态（不再使用 keyCode，因为 p5.js 的 keyCode 不可靠）
+  // 记录按键状态
   if (keyLower) {
     keys[keyLower] = true;
     pressedKeys.add(keyLower);
-    console.log("按键按下:", key, keyCode, "a:", keys['a'], "d:", keys['d'], "w:", keys['w'], "Set:", Array.from(pressedKeys));
+    // console.log("按键按下:", keyLower, "当前队列:", Array.from(pressedKeys));
   }
   
-  //按ENTER开始游戏
+  // 2. 状态机逻辑
+  
+  // 开始界面 -> 关卡选择
   if (game.state === "start" && (keyCode === ENTER || keyCode === 13)) {
     game.state = "levelSelect";
     return false;
   }
 
-  // 关卡选择界面：1 进入关卡1（原逻辑），2 回到开始界面
+  // 关卡选择界面
   if (game.state === "levelSelect") {
     if (key === '1' || keyCode === 49) {
       game = new Game("forest");
@@ -3038,33 +3074,38 @@ function keyPressed() {
     }
   }
 
-  //游戏结束之后按ENTER重启游戏
+  // 结算界面重启
   if ((game.state === "gameover" || game.state === "victory") && (keyCode === ENTER || keyCode === 13)) {
     game.resetToPlayingFromBeginning();
     return false;
   }
   
+  // 3. 游戏内操作 (核心修改区)
   if (game.state === "playing") {
-    //人物控制
-    // 跳跃/上浮：纯 W 键
-    if (key === 'w' || key === 'W') {
-      // 在水中按下 W：开启上浮标志，由 Player.update 处理具体速度
-      if (game?.level && typeof game.player?.isInWater === "function" && game.player.isInWater(game.level)) {
-        if (game.player) game.player.swimUpHeld = true;
-        return false;
-      }
-      game.player.jump();
+    
+    // 攻击逻辑：放在跳跃之前，确保 F 键响应优先级
+    if (keyLower === 'f' || keyCode === 70) {
+      game.tryAttack(); // 确保 Game 类里这个方法没被删掉
       return false;
     }
-    
-    // 攻击
-    if (key === 'f' || key === 'F' || keyCode === 70) {
-      game.tryAttack();
+
+    // 跳跃/上浮逻辑
+    if (keyLower === 'w') {
+      if (game.level && game.player && typeof game.player.isInWater === "function") {
+        if (game.player.isInWater(game.level)) {
+          game.player.swimUpHeld = true;
+          return false;
+        }
+      }
+      // 陆地跳跃
+      if (game.player) {
+        game.player.jump();
+      }
       return false;
     }
   }
   
-  return false; // 阻止默认行为
+  return false; // 阻止浏览器默认行为（如按空格翻页）
 }
 
 function keyReleased() {
