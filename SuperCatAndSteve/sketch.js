@@ -2657,55 +2657,124 @@ class HintCat {
     this.message = message;
   }
 
-follow(state, level) {
+  follow(state, level) {
     // 1. 基础安全检查：数据不完整直接退出，不执行任何逻辑
     if (!state || typeof state.x === 'undefined' || !level) return;
 
     // 2. 水平跟随：紧跟 state (玩家历史位置)
-    let gap = 48;
-    let targetX = state.x + (state.facingRight ? -gap : gap);
+    const gap = 48;
+    const targetX = state.x + (state.facingRight ? -gap : gap);
     this.x = lerp(this.x, targetX, 0.15);
     this.facingRight = state.facingRight;
 
-    // 3. 垂直锁定：寻找脚下“最高”的方块表面
-    let groundY = level.baseGroundY || CANVAS_H;
+    // 3. 垂直逻辑
+    // 水关卡：让猫的 Y 轴直接跟随玩家（或延迟后的玩家状态），实现“在水里一起游”
+    const isWaterLevel = level && level.constructor && level.constructor.name === 'WaterLevel';
+    if (isWaterLevel) {
+      this.y = state.y;
+      return;
+    }
 
+    // 非水关：寻找“当前猫 X 轴下且不高于玩家脚底太多的安全表面”（地形列 + 平台），让猫贴着这一层走
+    let groundY = CANVAS_H;
+    const candidates = [];
+    const cxCenter = this.x + this.w / 2; // 只看猫当前位置，不预判玩家
+    const playerFeetY = (state.y || 0) + (state.h || this.h); // 玩家脚底（越大越低）
 
-    // 扫描当前 X 轴对应的 terrain 数组
-    if (level.terrain) {
-      let col = Math.floor((this.x + this.w / 2) / TILE_SIZE);
-      if (col >= 0 && col < level.terrain.length) {
-        let columnData = level.terrain[col];
-        for (let row = 0; row < columnData.length; row++) {
-          if (columnData[row] !== 0) {
-            groundY = row * TILE_SIZE; 
-            break;
-          }
+    // 3.1 收集整列地形的所有非空且非岩浆的格子顶面
+    if (level.tileMap) {
+      const col = Math.floor(cxCenter / TILE_SIZE);
+      if (col >= 0 && col < level.tileMap.length) {
+        const column = level.tileMap[col] || [];
+        for (let row = column.length - 1; row >= 0; row--) {
+          const t = column[row];
+          if (t === undefined || t === T.NONE || t === T.LAVA) continue;
+          const surfaceY = CANVAS_H - (row + 1) * TILE_SIZE;
+          candidates.push(surfaceY);
+          break; // 只要最高一块，避免提前踩更高层
         }
       }
     }
 
-    // 扫描浮空平台 (如果猫正对着平台，且玩家在平台上)
+    // 3.2 再看浮空平台：平台顶面也作为候选，X 轴需要覆盖当前猫身
     if (level.platforms) {
       for (let p of level.platforms) {
-        if (this.x + this.w > p.x && this.x < p.x + p.w) {
-          // 如果玩家历史高度是在平台上方，猫就吸附到这个平台
-          if (state.y + 24 <= p.y + 5) {
-            groundY = Math.min(groundY, p.y); 
-          }
+        if (cxCenter > p.x && cxCenter < p.x + p.w) {
+          candidates.push(p.y);
         }
       }
     }
-    // 4. 猫的 Y 坐标 = 地表高度 - 猫自身高度
-    let targetY = groundY - this.h;
-    this.y = targetY;
-    // 5. 如果计算结果让猫低于了 level.baseGroundY，强行拉回
-    if (this.y < level.baseGroundY) {
-      this.y = level.baseGroundY;
+
+    // 3.3 约束：不高于玩家脚底（无容差），防止玩家在下层时猫跳到上层；否则取最近
+    if (candidates.length) {
+      const notHigher = candidates.filter(y => y >= playerFeetY); // y 越小越高
+      if (notHigher.length) {
+        groundY = Math.min(...notHigher);
+      } else {
+        const sorted = [...candidates].sort((a, b) => Math.abs(a - playerFeetY) - Math.abs(b - playerFeetY));
+        groundY = sorted[0];
+      }
     }
-    
 
+    // 4. 先按“贴地”逻辑计算一个原始 Y
+    let targetY = groundY - this.h;
 
+    // 4.1 防穿模：如果目标位置与固体方块重叠，向上推到方块顶
+    if (typeof level.getTileAtWorld === 'function') {
+      const solidTiles = (x, y) => {
+        const t = level.getTileAtWorld(x, y);
+        return t !== undefined && t !== T.NONE && t !== T.LAVA;
+      };
+      const pushOutOfSolid = () => {
+        const left = this.x;
+        const right = this.x + this.w;
+        const bottom = targetY + this.h;
+        // 采样猫的左右脚和中点，若落在固体内则推到方块顶
+        const samples = [
+          { x: left + 2, y: bottom - 1 },
+          { x: (left + right) / 2, y: bottom - 1 },
+          { x: right - 2, y: bottom - 1 }
+        ];
+        for (const s of samples) {
+          if (solidTiles(s.x, s.y)) {
+            const tileTop = Math.floor(s.y / TILE_SIZE) * TILE_SIZE;
+            targetY = tileTop - this.h;
+            return true;
+          }
+        }
+        return false;
+      };
+      // 可能需要多次推，直到不重叠或推不动
+      let guard = 0;
+      while (pushOutOfSolid() && guard++ < 4) {}
+    }
+
+    // 5. 检查脚下是否是岩浆，如果是，就把 groundY 往上抬 1.5 格
+    if (typeof level.getTileAtWorld === 'function') {
+      const cx = this.x + this.w / 2;
+      const feetY = targetY + this.h; // 猫脚底的 Y 坐标
+
+      let lavaNearFeet = false;
+      const offsets = [0, TILE_SIZE]; // 脚底这一格，以及再往下 1 格
+
+      for (const off of offsets) {
+        const sampleY = feetY + off;
+        const tile = level.getTileAtWorld(cx, sampleY);
+        if (tile === T.LAVA) {
+          lavaNearFeet = true;
+          break;
+        }
+      }
+
+      if (lavaNearFeet) {
+        const raiseTiles = 1.5;            // 抬高 1.5 格，可按手感微调
+        groundY -= raiseTiles * TILE_SIZE; 
+        targetY = groundY - this.h;        // 基于新的 groundY 重新计算 Y
+      }
+    }
+
+    // 6. 最终把高度应用到猫身上
+    this.y = targetY;
   }
 
   
