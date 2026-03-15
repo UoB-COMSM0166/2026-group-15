@@ -115,8 +115,12 @@ class Game {
     this.showGuideMenu = false;
     this.activeGuideTab = 0;
     this.lavaFirstHintShown = false;
-    //游戏状态：start playing gameover victory
+    // 游戏状态：start playing gameover victory
     this.state = "start";
+
+    // --- 新增：救鸟后的感谢语显示逻辑 ---
+    this.lastRescueTime = 0;      // 记录最后一次成功解救的时间戳
+    this.rescueShowDuration = 3000; // 感谢语持续显示 3 秒
   }
 
   setup() { 
@@ -410,17 +414,22 @@ updateHintCat() {
     }
   }
 
-  tryRescueBirdWithScissor(slotIndex) {
+tryRescueBirdWithScissor(slotIndex) {
     const rescueRange = TILE_SIZE * 1.45;
     const trappedBird = this.level.items.find(item =>
       item instanceof TrappedBird && item.isTrapped() && this.distanceToItem(item) <= rescueRange
     );
     if (!trappedBird) return false;
+    
     const target = this.getNearestTreeCrownTarget(trappedBird);
     trappedBird.startRescue(target.x, target.y);
     this.player.inventory.splice(slotIndex, 1);
     this.player.selectedSlot = -1;
     this.player.score += 1;
+
+    // --- 新增：成功救鸟后记录当前时间 ---
+    this.lastRescueTime = millis(); 
+    
     return true;
   }
 
@@ -621,6 +630,12 @@ updateHintCat() {
   }
 
   getHintMessage() {
+    // --- 新增：救鸟后的感谢提示优先判断 ---
+    // 如果当前时间距离最后一次救鸟时间小于 3 秒 (3000ms)
+    if (millis() - this.lastRescueTime < this.rescueShowDuration) {
+      return "Thank you for \nrescuing a bird!";
+    }
+
     // 1. 设置基础提示词（作为没有紧急事件时的默认显示）
     let baseHint = null;
     if (this.levelType === "water") {
@@ -686,28 +701,6 @@ updateHintCat() {
 
     // 3. 如果没有任何环境威胁或道具在身边，则显示该关卡的基础按键提示
     return baseHint;
-  }
-
-  /** 按 F 键攻击：对距离 ≤ 2格 的最近敌人造成一次伤害 */
-  tryAttack() {
-    const now = millis();
-    if (now - this.lastAttackTime < ATTACK_COOLDOWN_MS) return;
-    const dmg = this.getAttackDamage();
-    if (dmg <= 0) return;
-    let closest = null;
-    let closestDist = MUTUAL_ATTACK_RANGE + 1;
-    for (const enemy of this.level.enemies) {
-      if (enemy.isDead) continue;
-      const d = this.distanceToEnemy(enemy);
-      if (d <= MUTUAL_ATTACK_RANGE && d < closestDist) {
-        closestDist = d;
-        closest = enemy;
-      }
-    }
-    if (closest) {
-      closest.takeDamage(dmg);
-      this.lastAttackTime = now;
-    }
   }
 
 handleMousePressed(mx, my) {
