@@ -2689,6 +2689,11 @@ class HintCat {
   }
 
   getCollisionCandidates(level, box) {
+    const isWaterLevel = level && level.constructor && level.constructor.name === 'WaterLevel';
+    if (!isWaterLevel) {
+      // 森林关：关闭 HintCat 碰撞阻挡，避免被平台/地块卡住
+      return [];
+    }
     return [
       ...(level?.platforms || []),
       ...this.getSolidTileRects(level, box)
@@ -2763,6 +2768,19 @@ class HintCat {
       // 水关：Y 轴也要阻挡实心方块
       const dy = state.y - this.y;
       this.moveWithCollision(level, 0, dy);
+
+      // 如果与玩家水平距离超过3格，视为被卡，瞬移到玩家身后
+      const catCx = this.x + this.w / 2;
+      const playerCx = state.x + (state.w || this.w) / 2;
+      const horizontalDist = Math.abs(playerCx - catCx);
+      const TELEPORT_DIST = TILE_SIZE * 3; // 超过3格
+      if (horizontalDist > TELEPORT_DIST) {
+        const gap = 48; // 瞬移到玩家身后固定间距
+        this.x = state.x + (state.facingRight ? -gap : gap);
+        this.y = state.y;
+        this.vy = 0;
+        this.x = constrain(this.x, 0, WORLD_WIDTH - this.w);
+      }
       return;
     }
 
