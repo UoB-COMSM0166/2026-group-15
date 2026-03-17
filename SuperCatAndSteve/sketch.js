@@ -2653,6 +2653,93 @@ class Weapon extends Item {
 class HintCat {
   constructor(x, y) { Object.assign(this, { x, y, w: 32, h: 16, vy: 0, facingRight: true, messages: ["Move: A / D, Crouch: S", "Double Jump: W x2"], message: null }); }
 
+  getCollisionBox() {
+    return { x: this.x, y: this.y, w: this.w, h: this.h };
+  }
+
+  isSolidTile(tile) {
+    return tile !== undefined && tile !== null && tile !== T.NONE && tile !== T.WATER;
+  }
+
+  getSolidTileRects(level, box) {
+    if (!level || !level.tileMap) return [];
+    const colStart = Math.max(0, Math.floor(box.x / TILE_SIZE));
+    const colEnd = Math.min(TERRAIN_COLS - 1, Math.floor((box.x + box.w - 1) / TILE_SIZE));
+    const rowTop = Math.floor((CANVAS_H - box.y - 1) / TILE_SIZE);
+    const rowBottom = Math.max(0, Math.floor((CANVAS_H - (box.y + box.h) - 1) / TILE_SIZE));
+
+    const rects = [];
+    const seen = new Set();
+    for (let col = colStart; col <= colEnd; col++) {
+      const column = level.tileMap[col];
+      if (!column) continue;
+      const rowMax = Math.min(column.length - 1, rowTop);
+      for (let row = rowBottom; row <= rowMax; row++) {
+        const tile = column[row];
+        if (!this.isSolidTile(tile)) continue;
+        const key = `${col}:${row}`;
+        if (seen.has(key)) continue;
+        const tb = level.terrainBlocks?.[col]?.[row];
+        if (tb) rects.push(tb);
+        else rects.push({ x: col * TILE_SIZE, y: CANVAS_H - (row + 1) * TILE_SIZE, w: TILE_SIZE, h: TILE_SIZE });
+        seen.add(key);
+      }
+    }
+    return rects;
+  }
+
+  getCollisionCandidates(level, box) {
+    return [
+      ...(level?.platforms || []),
+      ...this.getSolidTileRects(level, box)
+    ];
+  }
+
+  moveWithCollision(level, dx, dy) {
+    const maxStep = 0.5;
+    const steps = Math.max(1, Math.ceil(Math.max(Math.abs(dx), Math.abs(dy)) / maxStep));
+    const stepX = dx / steps;
+    const stepY = dy / steps;
+
+    for (let i = 0; i < steps; i++) {
+      const oldX = this.x, oldY = this.y;
+      this.x += stepX;
+      this.y += stepY;
+
+      const box = this.getCollisionBox();
+      const candidates = this.getCollisionCandidates(level, box);
+      let collided = false;
+      for (const p of candidates) {
+        if (rectCollision(box.x, box.y, box.w, box.h, p.x, p.y, p.w, p.h)) {
+          collided = true;
+          break;
+        }
+      }
+      if (collided) {
+        this.x = oldX;
+        this.y = oldY;
+        break;
+      }
+    }
+  }
+
+  snapDownToGround(level) {
+    const box = this.getCollisionBox();
+    const bottom = box.y + box.h;
+    const maxSnap = TILE_SIZE * 0.95;
+    let bestGap = Infinity;
+    const candidates = this.getCollisionCandidates(level, box);
+    for (const p of candidates) {
+      if (box.x < p.x + p.w && box.x + box.w > p.x) {
+        const gap = p.y - bottom;
+        if (gap >= 0 && gap <= maxSnap && gap < bestGap) bestGap = gap;
+      }
+    }
+    if (bestGap !== Infinity) {
+      this.y += bestGap;
+    }
+  }
+
   setMessage(message) {
     this.message = message;
   }
@@ -2664,14 +2751,18 @@ class HintCat {
     // 2. 水平跟随：紧跟 state (玩家历史位置)
     const gap = 48;
     const targetX = state.x + (state.facingRight ? -gap : gap);
-    this.x = lerp(this.x, targetX, 0.15);
+    const dx = lerp(this.x, targetX, 0.15) - this.x;
+    // 先尝试水平移动并做碰撞阻挡
+    this.moveWithCollision(level, dx, 0);
     this.facingRight = state.facingRight;
 
     // 3. 垂直逻辑
     // 水关卡：让猫的 Y 轴直接跟随玩家（或延迟后的玩家状态），实现“在水里一起游”
     const isWaterLevel = level && level.constructor && level.constructor.name === 'WaterLevel';
     if (isWaterLevel) {
-      this.y = state.y;
+      // 水关：Y 轴也要阻挡实心方块
+      const dy = state.y - this.y;
+      this.moveWithCollision(level, 0, dy);
       return;
     }
 
@@ -2773,8 +2864,10 @@ class HintCat {
       }
     }
 
-    // 6. 最终把高度应用到猫身上
-    this.y = targetY;
+    // 6. 应用高度并做最终碰撞阻挡（含台阶吸附）
+    const dy = targetY - this.y;
+    this.moveWithCollision(level, 0, dy);
+    this.snapDownToGround(level);
   }
 
   
