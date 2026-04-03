@@ -15,6 +15,7 @@ const ATTACK_COOLDOWN_MS = 400;  // 攻击冷却
 const MUTUAL_ATTACK_RANGE = 1.3 * TILE_SIZE;  // 敌人和玩家相互攻击的距离（中心距离 < 1.3格）
 const ENEMY_CONTACT_DAMAGE_INTERVAL_MS = 1000;
 const ENEMY_ATTACK_START_DELAY_MS = 1000;  // 敌人进入攻击范围后延迟才开始造成伤害（毫秒）
+const PLAYER_ATTACK_RANGE = 2.2 * TILE_SIZE; // 玩家挥剑攻击范围：70.4 px
 
 // 水中物理（可按需调参）
 const WATER_SINK_VY = 0.8;   // 在水中不按空格：匀速下沉
@@ -130,6 +131,10 @@ class Game {
     const now = millis();
     // 1. 检查攻击冷却
     if (now - this.lastAttackTime < ATTACK_COOLDOWN_MS) return;
+  
+    if (this.player && typeof this.player.startAttackAnimation === "function") {
+      this.player.startAttackAnimation();
+    }
 
     // 2. 攻击力保底
     let dmg = 2; 
@@ -139,8 +144,8 @@ class Game {
     }
 
     let closest = null;
-    // 3. 扩大判定范围到 2.2 格，确保好用
-    let scanRange = 2.2 * TILE_SIZE; 
+    
+    let scanRange = PLAYER_ATTACK_RANGE;
     let closestDist = scanRange + 1;
 
     // 4. 遍历并寻找最近的敌人
@@ -1974,6 +1979,10 @@ class Player {
     Object.assign(this, { x, y, w: 32, h: 64, vx: 0, vy: 0, speed: 2, jumpForce: -6.32, gravity: 0.5, onGround: false, maxHealth: 10, health: 10, inventory: [], facingRight: true });
     this.equippedWeaponType = 'wooden_sword';  // 手持武器，通过挖掘对应矿石升级
     
+    this.isAttacking = false;
+    this.attackAnimStart = 0;
+    this.attackAnimDuration = 150; // 挥剑持续时间，毫秒
+
     // 碰撞箱尺寸（独立于贴图尺寸）
     this.collisionW = 24;
     this.collisionH = 56;
@@ -2222,6 +2231,15 @@ class Player {
   collect(item) { if (this.inventory.length < INVENTORY_SLOTS) this.inventory.push(item); }
   takeDamage(amount) { this.health = max(0, this.health - amount); }
 
+  startAttackAnimation() {
+    this.isAttacking = true;
+    this.attackAnimStart = millis();
+  }
+
+  startAttackAnimation() {
+    this.isAttacking = true;
+    this.attackAnimStart = millis();
+  }
   draw() {
     const img = this.facingRight ? window.alexSpriteRight : window.alexSpriteLeft;
     const crouchScale = this.isCrouching ? 0.78 : 1;
@@ -2230,28 +2248,80 @@ class Player {
     if (img && img.width > 0) image(img, this.x, drawY, this.w, drawH);
     else { fill(50, 100, 255); rect(this.x, drawY, this.w, drawH); }
     // 手持武器：24×24，位置由 WEAPON_OFFSET_X/Y 相对玩家贴图微调
+// 手持武器：固定在左手，并支持挥剑动画
     if (this.equippedWeaponType) {
       const weaponImg = window['weapon_' + this.equippedWeaponType];
       const S = WEAPON_DRAW_SIZE;
-      const baseY = this.y + this.h * 0.45;
-      const baseXRight = this.x + this.w - S;
-      const baseXLeft = this.x;
-      const drawX = this.facingRight ? baseXRight + WEAPON_OFFSET_X : baseXLeft + WEAPON_OFFSET_X;
-      const drawY = baseY + WEAPON_OFFSET_Y;
-      if (weaponImg && weaponImg.width > 0) {
-        push();
-        if (this.facingRight) {
-          image(weaponImg, drawX, drawY, S, S);
+
+      // 左手基准位置
+      const handX = this.x + 4;
+      const handY = this.y + this.h * 0.45;
+
+      // 朝左时额外往左一点
+      const facingLeftExtraOffset = this.facingRight ? 0 : -8;
+
+      const weaponX = handX + WEAPON_OFFSET_X + facingLeftExtraOffset;
+      const weaponY = handY + WEAPON_OFFSET_Y;
+
+      // 计算挥剑角度
+      let attackAngle = 0;
+      if (this.isAttacking) {
+        const elapsed = millis() - this.attackAnimStart;
+        const t = elapsed / this.attackAnimDuration;
+
+        if (t >= 1) {
+          this.isAttacking = false;
         } else {
-          translate(drawX + S, drawY);
-          scale(-1, 1);
-          image(weaponImg, 0, 0, S, S);
+          attackAngle = radians(-50 + 90 * t);
         }
-        pop();
-      } else {
-        fill(180, 120, 80);
-        rect(drawX, drawY, S, S);
       }
+
+        push();
+
+        // 以剑柄附近为旋转中心
+        translate(weaponX + S * 0.25, weaponY + S * 0.8);
+
+        // 根据人物朝向决定剑和挥砍方向
+        const faceDir = this.facingRight ? 1 : -1;
+        scale(faceDir, 1);
+        rotate(faceDir * attackAngle);
+
+        // ===== 挥剑时的剑风线条 =====
+        if (this.isAttacking) {
+          const elapsed = millis() - this.attackAnimStart;
+          const t = elapsed / this.attackAnimDuration;
+
+          // 让剑风在挥动中段最明显
+          const windAlpha = 1 - abs(0.5 - t) * 2;
+
+          push();
+          noFill();
+          strokeWeight(3);
+
+          // 第一条短剑风
+          stroke(255, 255, 255, 140 * windAlpha);
+          arc(0, 0, 36, 36, radians(-95), radians(-35));
+
+          // 第二条中剑风
+          stroke(180, 240, 255, 120 * windAlpha);
+          arc(0, 0, 52, 52, radians(-100), radians(-28));
+
+          // 第三条长剑风（接近实际攻击范围方向）
+          stroke(120, 220, 255, 90 * windAlpha);
+          arc(0, 0, 90, 90, radians(-105), radians(-20));
+
+          pop();
+        }
+
+        // ===== 再画剑本体 =====
+        if (weaponImg && weaponImg.width > 0) {
+          image(weaponImg, -S * 0.25, -S * 0.8, S, S);
+        } else {
+          fill(180, 120, 80);
+          rect(-S * 0.25, -S * 0.8, S, S);
+        }
+
+        pop();
     }
   }
 }
