@@ -220,7 +220,7 @@ class Game {
     // 更新所有敌人（追踪玩家）
     for (const enemy of this.level.enemies) {
       if (!enemy.isDead && typeof enemy.update === "function") {
-        enemy.update(this.player, this.level.platforms);
+        enemy.update(this.player, this.level.platforms, this.level);
       }
     }
     
@@ -439,7 +439,7 @@ updateHintCat() {
     return (WEAPON_CONFIG[w] && WEAPON_CONFIG[w].damage) || 1;
   }
 
-  /** 挖掘到矿石时若对应武器更高级则升级手持武器 */
+  /**d 挖掘到矿石时若对应武器更高级则升级手持武器 */
   tryWeaponUpgrade(tileType) {
     const weapon = ORE_TO_WEAPON[tileType];
     if (!weapon) return;
@@ -1706,11 +1706,14 @@ class WaterLevel extends Level {
     };
 
     // ===== 敌人和物品生成（基于当前地形）=====
-    // 敌人
-    // this.enemies.push(new Enemy(54 * TILE_SIZE, groundY(54) - 64, 64, 64));
-    // this.enemies.push(new Enemy(104 * TILE_SIZE, baseGroundY(104) - 64, 64, 64));
+    // 溺尸：至少 4 个，这里放 6 个，确保整张海洋图都有遭遇战
+    this.enemies.push(new Drowned(14 * TILE_SIZE, 176, 40, 56, 4));
+    this.enemies.push(new Drowned(32 * TILE_SIZE, 214, 40, 56, 4));
+    this.enemies.push(new Drowned(50 * TILE_SIZE, 188, 40, 56, 4));
+    this.enemies.push(new Drowned(68 * TILE_SIZE, 232, 40, 56, 4));
+    this.enemies.push(new Drowned(88 * TILE_SIZE, 196, 40, 56, 4));
+    this.enemies.push(new Drowned(108 * TILE_SIZE, 220, 40, 56, 4));
 
-    
     // 污染物
    this.items.push(new Pollutant(40 * TILE_SIZE + 4, groundY(40) - 18, 24, 18, "plastic_bottle"));
    this.items.push(new Pollutant(46 * TILE_SIZE + 4, groundY(46) - 18, 24, 18, "plastic_bag"));
@@ -2365,7 +2368,7 @@ class Enemy {
   get isDead() { return this.health <= 0; }
   
   // 更新敌人状态（追踪玩家）
-  update(player, platforms) {
+  update(player, platforms, level = null) {
     if (this.isDead) return;
     
     const px = player.x + player.w / 2;
@@ -2442,6 +2445,180 @@ class Enemy {
     else { fill(200, 50, 50); rect(this.x, this.y, this.w, this.h); }
   }
 }
+
+
+class Drowned extends Enemy {
+  constructor(x, y, w, h, health) {
+    super(x, y, w, h, health);
+    // 水中敌人不受重力影响，并采用更贴合体型的碰撞箱
+    this.gravity = 0;
+    this.collisionW = min(24, this.w - 8);
+    this.collisionH = min(48, this.h - 4);
+    this.collisionOffsetX = (this.w - this.collisionW) / 2;
+    this.collisionOffsetY = this.h - this.collisionH;
+
+    // 漂浮相位与时间偏移（避免同频抖动）
+    this.floatPhase = random(TWO_PI);
+    this.floatOffset = random(TWO_PI);
+    this.avoidDirY = random() < 0.5 ? -1 : 1;
+    this.avoidUntilMs = 0;
+    this.renderScaleX = 1.15;
+  }
+  draw() {
+    const img = window.drownedLeft;
+    const drawW = this.w * this.renderScaleX;
+    const drawX = this.x - (drawW - this.w) / 2;
+    if (img && img.width > 0) {
+      if (this.facingRight) {
+        push();
+        translate(drawX + drawW, this.y);
+        scale(-1, 1);
+        image(img, 0, 0, drawW, this.h);
+        pop();
+      } else {
+        image(img, drawX, this.y, drawW, this.h);
+      }
+    } else {
+      fill(80, 120, 200);
+      rect(this.x, this.y, this.w, this.h);
+    }
+  }
+
+  intersectsAnyPlatform(box, platforms) {
+    for (let i = 0; i < platforms.length; i++) {
+      const p = platforms[i];
+      if (rectCollision(box.x, box.y, box.w, box.h, p.x, p.y, p.w, p.h)) return true;
+    }
+    return false;
+  }
+
+  isBoxInSeaWater(box, level) {
+    if (!level || typeof level.isWaterAtWorld !== "function") return true;
+    const pts = [
+      { x: box.x + 2, y: box.y + 2 },
+      { x: box.x + box.w - 2, y: box.y + 2 },
+      { x: box.x + 2, y: box.y + box.h - 2 },
+      { x: box.x + box.w - 2, y: box.y + box.h - 2 },
+      { x: box.x + box.w * 0.5, y: box.y + box.h * 0.5 }
+    ];
+    for (let i = 0; i < pts.length; i++) {
+      if (!level.isWaterAtWorld(pts[i].x, pts[i].y)) return false;
+    }
+    return true;
+  }
+
+  canMoveTo(dx, dy, platforms, level) {
+    const nextBox = this.getCollisionBox();
+    nextBox.x += dx;
+    nextBox.y += dy;
+    if (this.intersectsAnyPlatform(nextBox, platforms)) return false;
+    if (!this.isBoxInSeaWater(nextBox, level)) return false;
+    return true;
+  }
+
+  update(player, platforms, level = null) {
+    if (this.isDead) return;
+
+    const px = player.x + player.w / 2;
+    const py = player.y + player.h / 2;
+    const ex = this.x + this.w / 2;
+    const ey = this.y + this.h / 2;
+    const distance = Math.hypot(px - ex, py - ey);
+    const xDistance = Math.abs(px - ex);
+
+    this.floatOffset += 0.05;
+    this.y += Math.sin(this.floatOffset) * 0.3;
+
+    // X 轴接近即激活（更符合海洋追击预期）
+    const DROWNED_X_AGGRO_RANGE = 10 * TILE_SIZE;
+    if (!this.activated && (distance <= ENEMY_DETECT_RANGE || xDistance <= DROWNED_X_AGGRO_RANGE)) {
+      this.activated = true;
+    }
+
+    if (this.activated) {
+      const DROWNED_SPEED_X = ENEMY_SPEED * 0.9;
+      const DROWNED_SPEED_Y = ENEMY_SPEED * 0.65;
+      const dirX = px >= ex ? 1 : -1;
+
+      // 左右追踪
+      if (px < ex - 5) {
+        this.vx = -DROWNED_SPEED_X;
+        this.facingRight = false;
+      } else if (px > ex + 5) {
+        this.vx = DROWNED_SPEED_X;
+        this.facingRight = true;
+      } else {
+        this.vx = 0;
+      }
+
+      // 上下追踪
+      if (py < ey - 5) {
+        this.vy = -DROWNED_SPEED_Y;
+      } else if (py > ey + 5) {
+        this.vy = DROWNED_SPEED_Y;
+      } else {
+        this.vy = 0;
+      }
+
+      // 前方有障碍时，优先上下绕行，而不是贴墙抖动
+      const box = this.getCollisionBox();
+      const lookAhead = {
+        x: box.x + dirX * 8,
+        y: box.y,
+        w: box.w,
+        h: box.h
+      };
+      const blockedAhead = this.intersectsAnyPlatform(lookAhead, platforms);
+      if (blockedAhead) {
+        this.avoidUntilMs = millis() + 260;
+        const upProbe = { x: lookAhead.x, y: lookAhead.y - TILE_SIZE * 0.9, w: lookAhead.w, h: lookAhead.h };
+        const downProbe = { x: lookAhead.x, y: lookAhead.y + TILE_SIZE * 0.9, w: lookAhead.w, h: lookAhead.h };
+        const upFree = !this.intersectsAnyPlatform(upProbe, platforms);
+        const downFree = !this.intersectsAnyPlatform(downProbe, platforms);
+
+        if (upFree && (!downFree || py < ey)) this.avoidDirY = -1;
+        else if (downFree) this.avoidDirY = 1;
+        else this.avoidDirY *= -1;
+      }
+
+      if (millis() < this.avoidUntilMs) {
+        this.vy = this.avoidDirY * DROWNED_SPEED_Y * 1.35;
+        this.vx *= 0.7;
+      }
+
+      // 漂浮效果（叠加）
+      this.vy += sin(frameCount * 0.05 + this.floatPhase) * 0.3;
+
+      // 移动必须保持在“纯海水”区域内，不能穿入沙砾/地形块
+      if (this.canMoveTo(this.vx, this.vy, platforms, level)) {
+        this.x += this.vx;
+        this.y += this.vy;
+      } else {
+        const vAbs = max(Math.abs(this.vy), DROWNED_SPEED_Y * 1.2);
+        const candidates = [
+          { dx: 0, dy: this.avoidDirY * vAbs },
+          { dx: 0, dy: -this.avoidDirY * vAbs },
+          { dx: this.vx * 0.4, dy: 0 },
+          { dx: 0, dy: 0 }
+        ];
+
+        for (let i = 0; i < candidates.length; i++) {
+          const c = candidates[i];
+          if (!this.canMoveTo(c.dx, c.dy, platforms, level)) continue;
+          this.x += c.dx;
+          this.y += c.dy;
+          break;
+        }
+      }
+
+      // 世界边界钳制，避免溺尸漂出可见区域
+      this.x = constrain(this.x, 0, WORLD_WIDTH - this.w);
+      this.y = constrain(this.y, 20, CANVAS_H - this.h - 4);
+    }
+  }
+}
+
+
 
 class Item {
   constructor(x, y, w, h, sprite) {
@@ -3006,6 +3183,7 @@ class HintCat {
   }
 }
 
+
 // ====== UIManager 类 ======
 class UIManager {
   getTopRightButtons() {
@@ -3258,6 +3436,8 @@ function setup() {
   // 敌人（assets/pic/enemy）
   load('assets/pic/enemy/zombie_left.png', 'zombieSpriteLeft');
   load('assets/pic/enemy/zombie_right.png', 'zombieSpriteRight');
+  // 水下敌人（assets/pic/enemy/drowned）
+  load("assets/pic/enemy/drowned_left.png", 'drownedLeft');
 
   // 工具（assets/pic/tool 中全部，新增图片时在此数组加入文件名不含 .png）
   ['scissor', 'limestone', 'enlarged_water_bucket'].forEach(name =>load(`assets/pic/tool/${name}.png`, `tool_${name}`));
@@ -3501,3 +3681,8 @@ function drawVictoryScreen() {
   fill(200, 255, 150);
   text("Press ENTER to Play Again", width / 2, height / 2 + 60);
 }
+
+
+
+
+
