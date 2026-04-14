@@ -41,6 +41,45 @@ const WEAPON_DRAW_SIZE = 24;
 const WEAPON_OFFSET_X = 18;   // 相对手部基准的 x 偏移，可调
 const WEAPON_OFFSET_Y = -12;  // 相对手部基准的 y 偏移，可调
 
+// ====== 字体定义 ======
+const FONT_CONFIGS = {
+  mojangRegular: {
+    family: 'MojangRegular',
+    file: 'assets/fonts/Mojang-Regular.ttf'
+  },
+  mojangBold: {
+    family: 'MojangBold',
+    file: 'assets/fonts/Mojang-Bold.ttf'
+  },
+  pixel10Regular: {
+    family: 'PixelMplus10Regular',
+    file: 'assets/fonts/PixelMplus10-Regular.ttf'
+  },
+  pixel10Bold: {
+    family: 'PixelMplus10Bold',
+    file: 'assets/fonts/PixelMplus10-Bold.ttf'
+  },
+  pixel12Regular: {
+    family: 'PixelMplus12Regular',
+    file: 'assets/fonts/PixelMplus12-Regular.ttf'
+  },
+  pixel12Bold: {
+    family: 'PixelMplus12Bold',
+    file: 'assets/fonts/PixelMplus12-Bold.ttf'
+  }
+};
+const ACTIVE_FONT_KEY = 'mojangRegular';
+let activeFont;
+
+function getActiveFontConfig() {
+  return FONT_CONFIGS[ACTIVE_FONT_KEY];
+}
+
+function applyGameFont() {
+  const activeFontConfig = getActiveFontConfig();
+  textFont(activeFont || activeFontConfig.family);
+}
+
 // ====== 工具函数 ======
 function rectCollision(ax, ay, aw, ah, bx, by, bw, bh) {
   return ax < bx + bw && ax + aw > bx && ay < by + bh && ay + ah > by;
@@ -3651,9 +3690,9 @@ class UIManager {
 
   drawScore(score, x, y) {
     push();
-    fill(255);
+    fill(0);
     textAlign(LEFT, BASELINE);
-    textSize(20);
+    textSize(14);
     text("Score: " + score, x, y);
     pop();
   }
@@ -3727,10 +3766,10 @@ class UIManager {
     if (icon && icon.width > 0) image(icon, x, y - 10, 12, 12);
     else { fill(120, 160, 220); rect(x, y - 10, 12, 12, 2); }
     fill(255);
-    textSize(9);
+    textSize(10);
     text(name, x + 16, y - 1);
     fill(196, 214, 255);
-    textSize(8);
+    textSize(9);
     text(desc, x + 16, y + 8, 126);
   }
 
@@ -3744,10 +3783,10 @@ class UIManager {
     else { fill(120, 160, 220); rect(iconX, iconY, 16, 16, 3); }
 
     fill(255);
-    textSize(10);
+    textSize(11);
     text(name, x + 28, y + 12);
     fill(196, 214, 255);
-    textSize(9);
+    textSize(10);
     text(desc, x + 28, y + 23);
   }
 
@@ -3758,7 +3797,7 @@ class UIManager {
     rect(panel.x, panel.y, panel.w, panel.h, 4);
 
     fill(255);
-    textSize(12);
+    textSize(14);
     textAlign(LEFT, BASELINE);
     text("Field Guide", panel.x + 10, panel.y + 16);
 
@@ -3770,7 +3809,7 @@ class UIManager {
       fill(i === activeGuideTab ? color(68, 110, 162, 240) : color(40, 58, 86, 210));
       rect(t.x, t.y, t.w, t.h, 4);
       fill(255);
-      textSize(9);
+      textSize(10);
       text(tabLabels[i], t.x + t.w / 2, t.y + t.h / 2);
     }
     textAlign(LEFT, BASELINE);
@@ -3811,6 +3850,10 @@ class UIManager {
 
 
 // ====== p5.js 生命周期 ======
+function preload() {
+  activeFont = null;
+}
+
 function setup() {
   const c = createCanvas(CANVAS_W, CANVAS_H);
   c.elt.tabIndex = 0;
@@ -3842,7 +3885,7 @@ function setup() {
   const load = (path, key) => loadImage(path, img => window[key] = img, () => console.warn(`${path} 加载失败`));
 
   // 新增：污染物及被困小动物
-  load('assets/pic/pollutant/cigarette.png', 'cigarette');
+  // load('assets/pic/pollutant/cigarette.png', 'cigarette');
   load('assets/pic/pollutant/plastic_bottle.png', 'plastic_bottle');
   load('assets/pic/pollutant/plastic_bag.png', 'plastic_bag');
   load('assets/pic/pollutant/tnt_side.png', 'tnt');
@@ -3909,6 +3952,11 @@ function setup() {
 //每一帧更新游戏状态并绘制
 //加入游戏状态管理：开始界面、游戏进行中、结束界面
 function draw() {
+
+  applyGameFont();
+  if (drawingContext) {
+    drawingContext.fontKerning = 'none';
+  }
   // 主动同步按键状态（修复浏览器 keyReleased 事件丢失的问题）
   if (game && game.state === "playing") {
     // 检查 Set 中记录的按键，如果 keys 字典中有但 Set 中没有，说明事件丢失了
@@ -4065,7 +4113,7 @@ function drawStartScreen() {
   }
   fill(255, 165, 0)
   textAlign(CENTER, CENTER);
-  textSize(24);
+  textSize(28);
   text("Press ENTER to Start", width / 2, height / 2 + 50);
 }
 
@@ -4078,7 +4126,7 @@ function drawLevelSelectScreen() {
 
   fill(255);
   textAlign(CENTER, CENTER);
-  textSize(24);
+  textSize(28);
   text("Press 1, 2 or 3 to Choose Chapter", width / 2, height / 2 + 50);
 }
 
@@ -4087,9 +4135,9 @@ function drawGameOverScreen() {
   background(0);
   fill(255, 0, 0);
   textAlign(CENTER, CENTER);
-  textSize(48);
+  textSize(52);
   text("GAME OVER", width / 2, height / 2 - 40);
-  textSize(20);
+  textSize(24);
   fill(255);
   text("Press ENTER to Restart", width / 2, height / 2 + 20);
 }
@@ -4099,15 +4147,15 @@ function drawVictoryScreen() {
   background(0, 100, 50); // 深绿色背景
   fill(200, 255, 150); // 浅绿色文字
   textAlign(CENTER, CENTER);
-  textSize(48);
+  textSize(52);
   text("Victory!", width / 2, height / 2 - 60);
   
   // 显示分数
-  textSize(32);
+  textSize(36);
   fill(255, 255, 100); // 金黄色
   text("Score: " + game.player.score, width / 2, height / 2);
   
-  textSize(24);
+  textSize(28);
   fill(200, 255, 150);
   text("Press ENTER to Play Again", width / 2, height / 2 + 60);
 }
