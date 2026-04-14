@@ -26,7 +26,9 @@ const T = {
   NONE: 0,
   GRASS: 1, DIRT: 2, STONE: 3, DEEP: 4,
   COPPER: 5, DEEP_COPPER: 6, DEEP_DIAMOND: 7, DEEP_GOLD: 8, DEEP_IRON: 9,
-  DIAMOND: 10, GOLD: 11, IRON: 12,  LAVA: 13, ACID: 14, WATER: 15, SAND: 16, GRAVEL: 17
+  DIAMOND: 10, GOLD: 11, IRON: 12,  LAVA: 13, ACID: 14, WATER: 15, SAND: 16, GRAVEL: 17,
+  // 工厂关（assets/pic/ground：bricks / pipe_narrow / deepslate_bricks）
+  BRICKS: 18, PIPE_NARROW: 19, DEEPSLATE_BRICKS: 20
 };
 
 // UI 常量
@@ -42,6 +44,132 @@ const WEAPON_OFFSET_Y = -12;  // 相对手部基准的 y 偏移，可调
 // ====== 工具函数 ======
 function rectCollision(ax, ay, aw, ah, bx, by, bw, bh) {
   return ax < bx + bw && ax + aw > bx && ay < by + bh && ay + ah > by;
+}
+
+function getCollisionRectsForCollider(collider) {
+  if (!collider) return [];
+  if (Array.isArray(collider.collisionRects) && collider.collisionRects.length > 0) {
+    return collider.collisionRects;
+  }
+  return [{ x: collider.x, y: collider.y, w: collider.w, h: collider.h }];
+}
+
+const PIPE_WALL_THICKNESS = 5;
+
+function isPipeTileType(tileType) {
+  return !!(
+    tileType &&
+    typeof tileType === 'object' &&
+    typeof tileType.textureKey === 'string' &&
+    tileType.textureKey.startsWith('tile_pipe_')
+  );
+}
+
+function normalizeQuarterTurns(rotation = 0) {
+  const quarter = Math.round(rotation / HALF_PI);
+  return ((quarter % 4) + 4) % 4;
+}
+
+function rotateLocalRect(rect, quarterTurns) {
+  const turns = ((quarterTurns % 4) + 4) % 4;
+  if (turns === 0) return { ...rect };
+  if (turns === 1) {
+    return {
+      x: TILE_SIZE - (rect.y + rect.h),
+      y: rect.x,
+      w: rect.h,
+      h: rect.w
+    };
+  }
+  if (turns === 2) {
+    return {
+      x: TILE_SIZE - (rect.x + rect.w),
+      y: TILE_SIZE - (rect.y + rect.h),
+      w: rect.w,
+      h: rect.h
+    };
+  }
+  return {
+    x: rect.y,
+    y: TILE_SIZE - (rect.x + rect.w),
+    w: rect.h,
+    h: rect.w
+  };
+}
+
+function getPipeBaseCollisionRects(textureKey) {
+  const t = PIPE_WALL_THICKNESS;
+  const edge = TILE_SIZE - t;
+  const corner = t + 2;
+
+  switch (textureKey) {
+    // rotation=0 对应 LEFT：左壁
+    case 'tile_pipe_wide':
+      return [{ x: 0, y: 0, w: t, h: TILE_SIZE }];
+
+    // rotation=0 对应 UP：左右壁
+    case 'tile_pipe_narrow':
+      return [
+        { x: 0, y: 0, w: t, h: TILE_SIZE },
+        { x: edge, y: 0, w: t, h: TILE_SIZE }
+      ];
+
+    // rotation=0 对应 UP：左上+右上补块
+    case 'tile_pipe_narrow_to_wide':
+      return [
+        { x: 0, y: 0, w: corner, h: corner },
+        { x: TILE_SIZE - corner, y: 0, w: corner, h: corner }
+      ];
+
+    // rotation=0 对应 UP：左上+右上补块 + 下壁
+    case 'tile_pipe_narrow_to_narrow':
+      return [
+        { x: 0, y: 0, w: corner, h: corner },
+        { x: TILE_SIZE - corner, y: 0, w: corner, h: corner },
+        { x: 0, y: edge, w: TILE_SIZE, h: t }
+      ];
+
+    // rotation=0 对应 UP_RIGHT：右上内角块
+    case 'tile_pipe_wide_inner_corner':
+      return [{ x: TILE_SIZE - corner, y: 0, w: corner, h: corner }];
+
+    // rotation=0 对应 DOWN_LEFT：左壁 + 下壁
+    case 'tile_pipe_wide_outer_corner':
+      return [
+        { x: 0, y: 0, w: t, h: TILE_SIZE },
+        { x: 0, y: edge, w: TILE_SIZE, h: t }
+      ];
+
+    // rotation=0 对应 DOWN_LEFT：左壁 + 下壁 + 右上角补块
+    case 'tile_pipe_narrow_corner':
+      return [
+        { x: 0, y: 0, w: t, h: TILE_SIZE },
+        { x: 0, y: edge, w: TILE_SIZE, h: t },
+        { x: TILE_SIZE - corner, y: 0, w: corner, h: corner }
+      ];
+
+    default:
+      return [{ x: 0, y: 0, w: TILE_SIZE, h: TILE_SIZE }];
+  }
+}
+
+function buildTileCollisionRects(tileType, tileX, tileY) {
+  if (!isPipeTileType(tileType)) {
+    return [{ x: tileX, y: tileY, w: TILE_SIZE, h: TILE_SIZE }];
+  }
+
+  const baseRects = getPipeBaseCollisionRects(tileType.textureKey);
+  const quarterTurns = normalizeQuarterTurns(tileType.rotation || 0);
+
+  return baseRects.map(local => {
+    const rotated = rotateLocalRect(local, quarterTurns);
+    return {
+      x: tileX + rotated.x,
+      y: tileY + rotated.y,
+      w: rotated.w,
+      h: rotated.h
+    };
+  });
 }
 
 // 用于“装饰物/背景物”生成的稳定随机（同一 col 每次都一致）
@@ -69,7 +197,10 @@ function getTextures() {
     [T.ACID]: window.tile_acid,
     [T.WATER]: window.tile_water,
     [T.SAND]: window.tile_sand,
-    [T.GRAVEL]: window.tile_gravel
+    [T.GRAVEL]: window.tile_gravel,
+    [T.BRICKS]: window.tile_bricks,
+    [T.PIPE_NARROW]: window.tile_pipe_narrow,
+    [T.DEEPSLATE_BRICKS]: window.tile_deepslate_bricks
   };
 }
 const FALLBACK_COLORS = {
@@ -79,10 +210,36 @@ const FALLBACK_COLORS = {
   [T.GOLD]: [220, 180, 50], [T.IRON]: [180, 160, 140], [T.LAVA]: [255, 80, 0],[T.ACID]: [120, 255, 120],
   [T.WATER]: [80, 140, 255],
   [T.SAND]: [230, 220, 170],
-  [T.GRAVEL]: [150, 150, 150]
+  [T.GRAVEL]: [150, 150, 150],
+  [T.BRICKS]: [91, 95, 98],
+  [T.PIPE_NARROW]: [248, 246, 247],
+  [T.DEEPSLATE_BRICKS]: [55, 55, 60]
 };
 
+function drawRotatedTile(img, x, y, rotation = 0, flipX = false, flipY = false) {
+  push();
+  imageMode(CENTER);
+  translate(x + TILE_SIZE / 2, y + TILE_SIZE / 2);
+  scale(flipX ? -1 : 1, flipY ? -1 : 1);
+  rotate(rotation);
+  image(img, 0, 0, TILE_SIZE, TILE_SIZE);
+  imageMode(CORNER);
+  pop();
+}
+
 function drawTile(tileType, x, y) {
+  if (tileType && typeof tileType === 'object' && tileType.textureKey) {
+    const img = window[tileType.textureKey];
+    if (img && img.width > 0) {
+      drawRotatedTile(img, x, y, tileType.rotation || 0, !!tileType.flipX, !!tileType.flipY);
+      return;
+    }
+    const c = [80, 80, 80];
+    fill(c[0], c[1], c[2]);
+    rect(x, y, TILE_SIZE, TILE_SIZE);
+    return;
+  }
+
   const img = getTextures()[tileType];
   if (img && img.width > 0) {
     image(img, x, y, TILE_SIZE, TILE_SIZE);
@@ -102,8 +259,11 @@ let game;
 
 class Game {
   constructor(levelType = "forest") {
-    this.levelType = levelType; // 'forest' | 'water'
-    this.level = levelType === "water" ? new WaterLevel() : new ForestLevel();
+    this.levelType = levelType; // 'forest' | 'water' | 'factory'
+    this.level =
+      levelType === "water" ? new WaterLevel() :
+      levelType === "factory" ? new FactoryLevel() :
+      new ForestLevel();
     this.level.loadAssets();
     //this.player = new Player(80, 60); 
     this.uiManager = new UIManager();
@@ -725,7 +885,7 @@ tryRescueBirdWithScissor(slotIndex) {
     let baseHint = null;
     if (this.levelType === "water") {
       baseHint = "Move: A / D\nDive: S\nSwim Up: Hold W";
-    } else if (this.levelType === "forest") {
+    } else if (this.levelType === "forest" || this.levelType === "factory") {
       baseHint = "Move: A / D\nCrouch: S\n(Double)Jump: W(x2)";
     }
 
@@ -1505,6 +1665,7 @@ class ForestLevel extends Level {
       platform._col = col;
       platform._row = row;
       platform._tileType = tile;
+      platform.collisionRects = buildTileCollisionRects(tile, col * TILE_SIZE, y);
       this.platforms.push(platform);
       if (!this.terrainBlocks[col]) this.terrainBlocks[col] = [];
       this.terrainBlocks[col][row] = platform;
@@ -1529,6 +1690,241 @@ class ForestLevel extends Level {
     this.platforms.filter(p => !p.isTerrain).forEach(p => p.draw());
     this.enemies.filter(e => !e.isDead).forEach(e => e.draw());
     this.items.forEach(it => it.draw());
+  }
+}
+
+
+// 关卡：工厂（地形数据由 assets/pic/stage_3.png 按色值最近邻分类生成）
+class FactoryLevel extends ForestLevel {
+  loadAssets() {
+    const N = T.NONE, P = T.PIPE_NARROW, Bk = T.BRICKS, Db = T.DEEPSLATE_BRICKS, A = T.ACID;
+
+    // 管道贴图方向常量（通过 rotation / flip 实现同图多方向）
+    const PIPE_WIDE_UP = { textureKey: 'tile_pipe_wide', rotation: HALF_PI };
+    const PIPE_WIDE_DOWN = { textureKey: 'tile_pipe_wide', rotation: -HALF_PI };
+    const PIPE_WIDE_LEFT = { textureKey: 'tile_pipe_wide', rotation: 0 };
+    const PIPE_WIDE_RIGHT = { textureKey: 'tile_pipe_wide', rotation: PI };
+
+    const PIPE_NARROW_UP = { textureKey: 'tile_pipe_narrow', rotation: 0 };
+    const PIPE_NARROW_LEFT = { textureKey: 'tile_pipe_narrow', rotation: -HALF_PI };
+
+    const PIPE_WIDE_INNER_CORNER_UP_RIGHT = { textureKey: 'tile_pipe_wide_inner_corner', rotation: 0 };
+    const PIPE_WIDE_INNER_CORNER_DOWN_LEFT = { textureKey: 'tile_pipe_wide_inner_corner', rotation: PI };
+    const PIPE_WIDE_INNER_CORNER_UP_LEFT = { textureKey: 'tile_pipe_wide_inner_corner', rotation: -HALF_PI };
+    const PIPE_WIDE_INNER_CORNER_DOWN_RIGHT = { textureKey: 'tile_pipe_wide_inner_corner', rotation: HALF_PI };
+
+    const PIPE_WIDE_OUTER_CORNER_UP_RIGHT = { textureKey: 'tile_pipe_wide_outer_corner', rotation: PI };
+    const PIPE_WIDE_OUTER_CORNER_DOWN_LEFT = { textureKey: 'tile_pipe_wide_outer_corner', rotation: 0 };
+    const PIPE_WIDE_OUTER_CORNER_UP_LEFT = { textureKey: 'tile_pipe_wide_outer_corner', rotation: HALF_PI };
+    const PIPE_WIDE_OUTER_CORNER_DOWN_RIGHT = { textureKey: 'tile_pipe_wide_outer_corner', rotation: -HALF_PI };
+
+    const PIPE_NARROW_CORNER_UP_RIGHT = { textureKey: 'tile_pipe_narrow_corner', rotation: PI };
+    const PIPE_NARROW_CORNER_DOWN_LEFT = { textureKey: 'tile_pipe_narrow_corner', rotation: 0 };
+    const PIPE_NARROW_CORNER_UP_LEFT = { textureKey: 'tile_pipe_narrow_corner', rotation: HALF_PI };
+    const PIPE_NARROW_CORNER_DOWN_RIGHT = { textureKey: 'tile_pipe_narrow_corner', rotation: -HALF_PI };
+
+    const PIPE_NARROW_TO_WIDE_UP = { textureKey: 'tile_pipe_narrow_to_wide', rotation: 0 };
+    const PIPE_NARROW_TO_WIDE_DOWN = { textureKey: 'tile_pipe_narrow_to_wide', rotation: PI };
+    const PIPE_NARROW_TO_WIDE_LEFT = { textureKey: 'tile_pipe_narrow_to_wide', rotation: -HALF_PI };
+    const PIPE_NARROW_TO_WIDE_RIGHT = { textureKey: 'tile_pipe_narrow_to_wide', rotation: HALF_PI };
+
+    const PIPE_NARROW_TO_NARROW_UP = { textureKey: 'tile_pipe_narrow_to_narrow', rotation: 0 };
+    const PIPE_NARROW_TO_NARROW_DOWN = { textureKey: 'tile_pipe_narrow_to_narrow', rotation: PI };
+    const PIPE_NARROW_TO_NARROW_LEFT = { textureKey: 'tile_pipe_narrow_to_narrow', rotation: -HALF_PI };
+    const PIPE_NARROW_TO_NARROW_RIGHT = { textureKey: 'tile_pipe_narrow_to_narrow', rotation: HALF_PI };
+
+    const terrain = [
+      [0,12,[Db,Db,Bk,N,N,N,N,N,N,Bk,Bk,Bk]],
+      [1,12,[Db,Db,Bk,N,N,N,N,N,N,Bk,Bk,Bk]],
+      [2,12,[Db,Db,Bk,N,N,N,N,N,N,Bk,Bk,Bk]],
+      [3,12,[Db,Db,Bk,N,N,N,N,N,N,N,Bk,Bk]],
+      [4,12,[Db,Db,Bk,N,N,N,N,N,N,N,Bk,Bk]],
+      [5,12,[N,N,N,N,N,N,N,N,N,N,N,PIPE_NARROW_LEFT]],
+      [6,12,[Db,Db,N,N,N,N,N,N,N,N,N,PIPE_NARROW_LEFT]],
+      [7,12,[Db,Db,N,N,N,N,N,N,N,N,N,PIPE_NARROW_LEFT]],
+      [8,12,[Db,Db,Bk,Bk,N,N,N,N,N,N,N,PIPE_NARROW_LEFT]],
+      [9,12,[Db,Db,Bk,Bk,N,N,N,N,N,N,N,PIPE_NARROW_LEFT]],
+      [10,12,[Db,Db,Bk,Bk,N,N,N,N,N,N,N,PIPE_NARROW_LEFT]],
+      [11,12,[Db,Db,Bk,Bk,N,N,N,N,N,N,N,PIPE_NARROW_LEFT]],
+      [12,12,[Db,Db,Bk,Bk,N,N,Bk,N,N,N,N,PIPE_NARROW_LEFT]],
+      [13,12,[N,N,N,N,N,N,Bk,N,N,N,N,PIPE_NARROW_LEFT]],
+      [14,12,[N,N,N,N,N,N,Bk,Bk,N,N,N,PIPE_NARROW_LEFT]],
+      [15,12,[N,N,N,N,N,N,Bk,Bk,N,N,N,PIPE_NARROW_LEFT]],
+      [16,12,[Db,Bk,N,N,N,N,Bk,Bk,N,N,N,PIPE_NARROW_LEFT]],
+      [17,12,[Db,Bk,N,N,N,N,Bk,Bk,N,N,N,PIPE_NARROW_LEFT]],
+      [18,12,[Db,Bk,Bk,Bk,N,N,Bk,Bk,N,N,Bk,Bk]],
+      [19,12,[Db,Bk,Bk,Bk,N,N,Bk,Bk,N,N,Bk,Bk]],
+      [20,12,[Db,Bk,Bk,Bk,N,N,Bk,Bk,N,N,N,Bk]],
+      [21,12,[Db,Bk,Bk,Bk,N,N,N,Bk,N,N,N,Bk]],
+      [22,12,[Db,Bk,Bk,Bk,N,N,N,Bk,N,N,N,Bk]],
+      [23,12,[Db,Bk,Bk,Bk,N,N,N,Bk,N,N,N,Bk]],
+      [24,12,[Db,PIPE_WIDE_DOWN,PIPE_WIDE_UP,Bk,N,N,N,N,N,N,N,Bk]],
+      [25,12,[Db,PIPE_WIDE_DOWN,PIPE_WIDE_INNER_CORNER_UP_LEFT,PIPE_WIDE_LEFT,N,N,N,N,N,N,Bk,Bk]],
+      [26,12,[Db,PIPE_WIDE_DOWN,PIPE_WIDE_INNER_CORNER_UP_RIGHT,PIPE_WIDE_RIGHT,N,N,N,N,N,N,Bk,Bk]],
+      [27,12,[Db,PIPE_WIDE_DOWN,PIPE_WIDE_UP,Bk,N,N,N,N,N,Bk,Bk,Bk]],
+      [28,12,[Db,PIPE_WIDE_DOWN,PIPE_NARROW_TO_WIDE_UP,PIPE_NARROW_UP,PIPE_NARROW_UP,PIPE_NARROW_UP,PIPE_NARROW_UP,PIPE_NARROW_UP,PIPE_NARROW_CORNER_UP_LEFT,Bk,Bk,Bk]],
+      [29,12,[Db,PIPE_WIDE_DOWN,PIPE_WIDE_UP,Bk,N,N,N,N,PIPE_NARROW_LEFT,Bk,Bk,Bk]],
+      [30,12,[Db,PIPE_WIDE_DOWN,PIPE_NARROW_TO_WIDE_UP,PIPE_NARROW_UP,PIPE_NARROW_UP,PIPE_NARROW_UP,PIPE_NARROW_CORNER_UP_LEFT,N,PIPE_NARROW_TO_NARROW_UP,PIPE_NARROW_UP,Bk,Bk]],
+      [31,12,[Db,PIPE_WIDE_DOWN,PIPE_WIDE_UP,Bk,N,N,PIPE_NARROW_LEFT,N,PIPE_NARROW_LEFT,Bk,Bk,Bk]],
+      [32,12,[Db,PIPE_WIDE_DOWN,PIPE_NARROW_TO_WIDE_UP,PIPE_NARROW_UP,PIPE_NARROW_CORNER_UP_LEFT,N,PIPE_NARROW_CORNER_DOWN_RIGHT,PIPE_NARROW_UP,PIPE_NARROW_UP,PIPE_NARROW_UP,Bk,Bk]],
+      [33,12,[Db,PIPE_WIDE_DOWN,PIPE_WIDE_UP,Bk,PIPE_NARROW_LEFT,N,N,N,PIPE_NARROW_LEFT,Bk,Bk,Bk]],
+      [34,12,[Db,PIPE_WIDE_DOWN,PIPE_WIDE_UP,Bk,PIPE_NARROW_CORNER_DOWN_RIGHT,PIPE_NARROW_UP,PIPE_NARROW_UP,PIPE_NARROW_UP,PIPE_NARROW_UP,PIPE_NARROW_UP,Bk,Bk]],
+      [35,12,[Db,PIPE_WIDE_DOWN,PIPE_WIDE_UP,Bk,N,N,N,N,PIPE_NARROW_LEFT,Bk,Bk,Bk]],
+      [36,12,[Db,PIPE_WIDE_DOWN,PIPE_WIDE_UP,Bk,N,N,N,N,PIPE_NARROW_CORNER_DOWN_RIGHT,PIPE_NARROW_UP,Bk,Bk]],
+      [37,12,[Db,PIPE_WIDE_DOWN,PIPE_WIDE_UP,Bk,N,N,N,N,N,Bk,Bk,Bk]],
+      [38,12,[Db,PIPE_WIDE_DOWN,PIPE_WIDE_UP,Bk,N,N,N,N,N,N,Bk,Bk]],
+      [39,12,[Db,N,N,N,N,N,N,N,N,N,N,Bk]],
+      [40,12,[N,N,N,N,N,N,N,N,N,N,N,Bk]],
+      [41,12,[Db,N,N,N,N,N,N,N,N,N,Bk,Bk]],
+      [42,12,[Db,N,N,N,N,N,N,N,N,N,Bk,Bk]],
+      [43,12,[Db,N,N,N,N,N,N,N,N,N,Bk,Bk]],
+      [44,12,[Db,Bk,Bk,N,N,N,N,N,N,N,Bk,Bk]],
+      [45,12,[Db,Bk,Bk,N,N,N,N,N,N,Bk,Bk,Bk]],
+      [46,12,[Db,Bk,Bk,N,N,N,N,N,N,Bk,Bk,Bk]],
+      [47,12,[Db,Bk,N,N,N,N,N,N,N,Bk,Bk,N]],
+      [48,12,[N,N,N,N,N,N,N,N,N,Bk,Bk,N]],
+      [49,12,[Db,Db,Bk,N,N,N,N,N,N,Bk,Bk,N]],
+      [50,12,[Db,Db,Bk,N,N,N,N,N,Bk,Bk,Bk,N]],
+      [51,12,[Bk,Bk,Bk,N,N,Bk,N,N,Bk,Bk,Bk,N]],
+      [52,12,[A,N,N,N,N,Bk,N,N,Bk,N,N,N]],
+      [53,12,[A,N,N,N,N,Bk,N,N,Bk,N,N,N]],
+      [54,12,[A,N,N,N,N,Bk,N,N,Bk,N,N,Bk]],
+      [55,12,[A,N,N,N,N,Bk,N,N,Bk,N,N,Bk]],
+      [56,12,[A,N,N,N,N,Bk,N,N,Bk,N,N,Bk]],
+      [57,12,[A,N,N,N,N,Bk,N,Bk,Bk,N,N,Bk]],
+      [58,12,[Bk,N,N,N,N,Bk,Bk,Bk,Bk,N,N,Bk]],
+      [59,12,[Bk,Bk,N,N,N,N,Bk,Bk,Bk,N,N,Bk]],
+      [60,12,[Db,Bk,Bk,N,N,N,N,N,Bk,N,N,PIPE_NARROW_LEFT]],
+      [61,12,[Db,Db,Bk,N,N,N,N,N,N,N,N,PIPE_NARROW_LEFT]],
+      [62,12,[Db,Db,Bk,N,N,N,N,N,N,N,N,PIPE_NARROW_LEFT]],
+      [63,12,[Db,Db,Bk,N,N,N,N,N,N,N,N,PIPE_NARROW_LEFT]],
+      [64,12,[Db,Db,Bk,N,N,N,N,N,N,N,N,PIPE_NARROW_LEFT]],
+      [65,12,[N,N,N,N,N,N,N,N,N,N,N,PIPE_NARROW_LEFT]],
+      [66,12,[Db,Db,N,N,N,N,N,N,N,N,N,PIPE_NARROW_LEFT]],
+      [67,12,[Db,Db,N,N,N,N,N,N,N,N,N,PIPE_NARROW_LEFT]],
+      [68,12,[Db,Db,Bk,Bk,N,N,N,N,N,N,N,PIPE_NARROW_LEFT]],
+      [69,12,[Db,Db,Bk,Bk,N,N,N,N,N,N,N,PIPE_NARROW_LEFT]],
+      [70,12,[Db,Db,Bk,Bk,N,N,N,N,N,N,N,PIPE_NARROW_LEFT]],
+      [71,12,[Db,Bk,Bk,Bk,N,N,N,N,N,N,N,PIPE_NARROW_LEFT]],
+      [72,12,[Bk,Bk,N,N,N,N,N,N,N,N,N,PIPE_NARROW_LEFT]],
+      [73,12,[A,N,N,N,N,N,Bk,N,N,N,N,PIPE_NARROW_LEFT]],
+      [74,12,[A,N,N,N,N,N,Bk,N,N,N,N,PIPE_NARROW_LEFT]],
+      [75,12,[A,N,N,N,N,N,Bk,Bk,N,N,N,PIPE_NARROW_LEFT]],
+      [76,12,[A,N,N,N,N,N,Bk,Bk,N,N,N,PIPE_NARROW_LEFT]],
+      [77,12,[A,N,N,N,N,N,Bk,Bk,N,N,N,PIPE_NARROW_LEFT]],
+      [78,12,[Db,Bk,N,N,N,N,Bk,Bk,N,N,Bk,Bk]],
+      [79,12,[Db,Bk,N,N,N,N,Bk,Bk,N,N,Bk,Bk]],
+      [80,12,[Db,Bk,Bk,Bk,N,N,Bk,Bk,N,N,N,Bk]],
+      [81,12,[Db,Bk,Bk,Bk,N,N,N,Bk,N,N,N,Bk]],
+      [82,12,[Db,Bk,Bk,Bk,N,N,N,Bk,N,N,N,Bk]],
+      [83,12,[Db,Bk,Bk,Bk,N,N,N,Bk,N,N,N,Bk]],
+      [84,12,[Db,PIPE_WIDE_DOWN,PIPE_WIDE_UP,Bk,N,N,N,N,N,N,N,Bk]],
+      [85,12,[Db,PIPE_WIDE_DOWN,PIPE_WIDE_INNER_CORNER_UP_LEFT,PIPE_WIDE_LEFT,N,N,N,N,N,N,Bk,Bk]],
+      [86,12,[Db,PIPE_WIDE_DOWN,PIPE_WIDE_INNER_CORNER_UP_RIGHT,PIPE_WIDE_RIGHT,N,N,N,N,N,N,Bk,Bk]],
+      [87,12,[Db,PIPE_WIDE_DOWN,PIPE_WIDE_UP,Bk,N,N,N,N,N,Bk,Bk,Bk]],
+      [88,12,[Db,PIPE_WIDE_DOWN,PIPE_NARROW_TO_WIDE_UP,PIPE_NARROW_UP,PIPE_NARROW_UP,PIPE_NARROW_UP,PIPE_NARROW_UP,PIPE_NARROW_UP,PIPE_NARROW_CORNER_UP_LEFT,Bk,Bk,Bk]],
+      [89,12,[Db,PIPE_WIDE_DOWN,PIPE_WIDE_UP,Bk,N,N,N,N,PIPE_NARROW_LEFT,Bk,Bk,Bk]],
+      [90,12,[Db,PIPE_WIDE_DOWN,PIPE_NARROW_TO_WIDE_UP,PIPE_NARROW_UP,PIPE_NARROW_UP,PIPE_NARROW_UP,PIPE_NARROW_CORNER_UP_LEFT,N,PIPE_NARROW_TO_NARROW_UP,PIPE_NARROW_UP,Bk,Bk]],
+      [91,12,[Db,PIPE_WIDE_DOWN,PIPE_WIDE_UP,Bk,N,N,PIPE_NARROW_LEFT,N,PIPE_NARROW_LEFT,Bk,Bk,Bk]],
+      [92,12,[Db,PIPE_WIDE_DOWN,PIPE_NARROW_TO_WIDE_UP,PIPE_NARROW_UP,PIPE_NARROW_CORNER_UP_LEFT,N,PIPE_NARROW_CORNER_DOWN_RIGHT,PIPE_NARROW_UP,PIPE_NARROW_UP,PIPE_NARROW_UP,Bk,Bk]],
+      [93,12,[Db,PIPE_WIDE_DOWN,PIPE_WIDE_UP,Bk,PIPE_NARROW_LEFT,N,N,N,PIPE_NARROW_LEFT,Bk,Bk,Bk]],
+      [94,12,[Db,PIPE_WIDE_DOWN,PIPE_WIDE_UP,Bk,PIPE_NARROW_CORNER_DOWN_RIGHT,PIPE_NARROW_UP,PIPE_NARROW_UP,PIPE_NARROW_UP,PIPE_NARROW_UP,PIPE_NARROW_UP,Bk,Bk]],
+      [95,12,[Db,PIPE_WIDE_DOWN,PIPE_WIDE_UP,Bk,N,N,N,N,PIPE_NARROW_LEFT,Bk,Bk,Bk]],
+      [96,12,[Db,PIPE_WIDE_DOWN,PIPE_WIDE_UP,Bk,N,N,N,N,PIPE_NARROW_CORNER_DOWN_RIGHT,PIPE_NARROW_UP,Bk,Bk]],
+      [97,12,[Db,PIPE_WIDE_DOWN,PIPE_WIDE_UP,Bk,N,N,N,N,N,Bk,Bk,Bk]],
+      [98,12,[Db,PIPE_WIDE_DOWN,PIPE_WIDE_UP,Bk,N,N,N,N,N,N,Bk,Bk]],
+      [99,12,[Db,N,N,N,N,N,N,N,N,N,N,Bk]],
+      [100,12,[N,N,N,N,N,N,N,N,N,N,N,Bk]],
+      [101,12,[Db,N,N,N,N,N,N,N,N,N,Bk,Bk]],
+      [102,12,[Db,N,N,N,N,N,N,N,N,N,Bk,Bk]],
+      [103,12,[Db,N,N,N,N,N,N,N,N,N,Bk,Bk]],
+      [104,12,[Db,N,N,N,N,N,N,Bk,Bk,Bk,Bk,Bk]],
+      [105,12,[Db,N,N,N,N,N,N,Bk,N,N,N,PIPE_NARROW_LEFT]],
+      [106,12,[Db,N,N,N,N,N,N,Bk,N,N,N,PIPE_NARROW_LEFT]],
+      [107,12,[Db,Bk,Bk,N,N,N,N,Bk,N,N,N,PIPE_NARROW_LEFT]],
+      [108,12,[Db,Bk,Bk,N,N,N,N,Bk,N,N,N,PIPE_NARROW_LEFT]],
+      [109,12,[Db,Bk,Bk,N,N,N,N,Bk,N,N,N,PIPE_NARROW_LEFT]],
+      [110,12,[Db,Bk,N,N,N,N,N,Bk,N,N,N,PIPE_NARROW_LEFT]],
+      [111,12,[A,N,N,N,N,N,N,Bk,N,N,N,PIPE_NARROW_LEFT]],
+      [112,12,[A,N,N,N,Bk,N,N,N,N,N,N,PIPE_NARROW_LEFT]],
+      [113,12,[A,N,N,N,Bk,N,N,N,N,N,N,PIPE_NARROW_LEFT]],
+      [114,12,[A,N,N,N,Bk,Bk,Bk,N,N,N,N,PIPE_NARROW_LEFT]],
+      [115,12,[A,N,N,N,Bk,Bk,Bk,N,N,N,N,PIPE_NARROW_LEFT]],
+      [116,12,[Bk,N,N,N,Bk,Bk,Bk,N,N,N,N,PIPE_NARROW_LEFT]],
+      [117,12,[Bk,N,N,N,N,Bk,Bk,N,N,N,N,PIPE_NARROW_LEFT]],
+      [118,12,[Bk,Bk,N,N,N,Bk,Bk,N,N,N,Bk,Bk]],
+      [119,12,[Db,Bk,N,N,N,Bk,Bk,Bk,Bk,Bk,Bk,Bk]],
+    ];
+    terrain.forEach(([col, h, tiles]) => this.addTerrainColumn(col, h, tiles));
+  }
+
+  addTerrainColumn(col, heightTiles, tiles) {
+    const baseY = 360;
+    if (!this.treeColumns) this.treeColumns = Array.from({ length: TERRAIN_COLS }, () => []);
+
+    let terrainHeight = 0;
+    for (let i = 0; i < tiles.length; i++) {
+      const tile = tiles[i];
+      const isBackground =
+        tile === 'log' || tile === 'leaves' ||
+        tile === 'seagrass' || tile === 'tall_seagrass_1' || tile === 'tall_seagrass_2' ||
+        tile === 'tube_coral' || tile === 'tube_coral_fan' ||
+        tile === 'horn_coral' || tile === 'horn_coral_fan' ||
+        tile === 'fire_coral' || tile === 'fire_coral_fan' ||
+        tile === 'bubble_coral' || tile === 'bubble_coral_fan' ||
+        tile === 'brain_coral' || tile === 'brain_coral_fan' ||
+        tile === 'kelp_1' || tile === 'kelp_2' ||
+        tile === 'kelp_3' || tile === 'kelp_4' || tile === 'kelp_5';
+
+      if (tile === T.NONE || tile === undefined || tile === null) break;
+      if (isBackground) break;
+      terrainHeight = i + 1;
+    }
+
+    if (terrainHeight > 0) {
+      const surfaceY = baseY - terrainHeight * TILE_SIZE;
+      this.terrainHeights[col] = surfaceY;
+    }
+
+    for (let i = 0; i < tiles.length; i++) {
+      const tile = tiles[i];
+      const y = baseY - (i + 1) * TILE_SIZE;
+
+      if (tile === T.NONE || tile === undefined || tile === null) continue;
+
+      if (
+        tile === 'log' || tile === 'leaves' ||
+        tile === 'seagrass' || tile === 'tall_seagrass_1' || tile === 'tall_seagrass_2' ||
+        tile === 'tube_coral' || tile === 'tube_coral_fan' ||
+        tile === 'horn_coral' || tile === 'horn_coral_fan' ||
+        tile === 'fire_coral' || tile === 'fire_coral_fan' ||
+        tile === 'bubble_coral' || tile === 'bubble_coral_fan' ||
+        tile === 'brain_coral' || tile === 'brain_coral_fan' ||
+        tile === 'kelp_1' || tile === 'kelp_2' ||
+        tile === 'kelp_3' || tile === 'kelp_4' || tile === 'kelp_5'
+      ) {
+        if (!this.treeColumns[col]) this.treeColumns[col] = [];
+        this.treeColumns[col][i] = tile;
+        continue;
+      }
+
+      if (tile === T.WATER) {
+        const row = i;
+        this.tileMap[col][row] = tile;
+        continue;
+      }
+
+      const row = i;
+      this.tileMap[col][row] = tile;
+      const platform = new Platform(col * TILE_SIZE, y, TILE_SIZE, TILE_SIZE, terrainHeight > 0);
+      platform._col = col;
+      platform._row = row;
+      platform._tileType = tile;
+      platform.collisionRects = buildTileCollisionRects(tile, col * TILE_SIZE, y);
+      this.platforms.push(platform);
+      if (!this.terrainBlocks[col]) this.terrainBlocks[col] = [];
+      this.terrainBlocks[col][row] = platform;
+    }
   }
 }
 
@@ -1895,6 +2291,7 @@ class WaterLevel extends Level {
       platform._col = col;
       platform._row = row;
       platform._tileType = tile;
+      platform.collisionRects = buildTileCollisionRects(tile, col * TILE_SIZE, y);
       this.platforms.push(platform);
       if (!this.terrainBlocks[col]) this.terrainBlocks[col] = [];
       this.terrainBlocks[col][row] = platform;
@@ -1988,9 +2385,12 @@ class Player {
 
     // 碰撞箱尺寸（独立于贴图尺寸）
     this.collisionW = 24;
-    this.collisionH = 56;
+    this.standingCollisionH = 56;
+    this.crouchScale = 0.78;
+    this.crouchingCollisionH = this.h * this.crouchScale;
+    this.collisionH = this.standingCollisionH;
     this.collisionOffsetX = (this.w - this.collisionW) / 2;  // 水平居中：(32-24)/2 = 4
-    this.collisionOffsetY = this.h - this.collisionH;  // 底部对齐：(64-56) = 8
+    this.collisionOffsetY = this.h - this.collisionH;  // 底部对齐
 
     this.score = 0;
     this.selectedSlot = -1;   // 当前鼠标选中的背包格子
@@ -2042,6 +2442,8 @@ class Player {
     const rightHeld = !!keys['d'];
     const crouchHeld = !!keys['s'];
     this.isCrouching = crouchHeld && this.onGround;
+    this.collisionH = this.isCrouching ? this.crouchingCollisionH : this.standingCollisionH;
+    this.collisionOffsetY = this.h - this.collisionH;
     if (leftHeld && !rightHeld) {
       this.vx = -this.speed;
     } else if (rightHeld && !leftHeld) {
@@ -2136,8 +2538,11 @@ class Player {
   checkCollision(platforms, horizontal) {
     const box = this.getCollisionBox();
     for (let p of platforms) {
-      if (rectCollision(box.x, box.y, box.w, box.h, p.x, p.y, p.w, p.h)) {
-        return true;
+      const rects = getCollisionRectsForCollider(p);
+      for (const r of rects) {
+        if (rectCollision(box.x, box.y, box.w, box.h, r.x, r.y, r.w, r.h)) {
+          return true;
+        }
       }
     }
     return false;
@@ -2150,13 +2555,15 @@ class Player {
     const testY = box.y + box.h + 1;
     
     for (let p of platforms) {
-      // 检测玩家脚底是否刚好在平台顶部
-      if (box.x < p.x + p.w && box.x + box.w > p.x) {
-        if (Math.abs(testY - p.y) <= 2) {
-          this.onGround = true;
-          this.jumpsRemaining = this.maxJumps;
-          this.vy = 0;
-          return;
+      const rects = getCollisionRectsForCollider(p);
+      for (const r of rects) {
+        if (box.x < r.x + r.w && box.x + box.w > r.x) {
+          if (Math.abs(testY - r.y) <= 2) {
+            this.onGround = true;
+            this.jumpsRemaining = this.maxJumps;
+            this.vy = 0;
+            return;
+          }
         }
       }
     }
@@ -2167,7 +2574,10 @@ class Player {
     const box = this.getCollisionBox();
     
     for (let p of platforms) {
-      if (rectCollision(box.x, box.y, box.w, box.h, p.x, p.y, p.w, p.h)) {
+      const rects = getCollisionRectsForCollider(p);
+      for (const r of rects) {
+        if (!rectCollision(box.x, box.y, box.w, box.h, r.x, r.y, r.w, r.h)) continue;
+
         // 调试：检测到 94-95 列附近的碰撞
         if (p._col >= 94 && p._col <= 96) {
           console.log(`碰撞修正: col=${p._col}, row=${p._row}, horizontal=${horizontal}, playerX=${this.x.toFixed(1)}, playerY=${this.y.toFixed(1)}, vy=${this.vy.toFixed(2)}`);
@@ -2176,18 +2586,18 @@ class Player {
         if (horizontal) {
           // 水平碰撞：调整玩家的 x（考虑偏移量）
           if (this.vx > 0) {
-            this.x = p.x - this.collisionW - this.collisionOffsetX;
+            this.x = r.x - this.collisionW - this.collisionOffsetX;
           } else {
-            this.x = p.x + p.w - this.collisionOffsetX;
+            this.x = r.x + r.w - this.collisionOffsetX;
           }
           this.vx = 0;
         } else {
           if (this.vy > 0) { 
-            this.y = p.y - this.h; 
+            this.y = r.y - this.h; 
             this.onGround = true; 
             this.jumpsRemaining = this.maxJumps; 
           } else if (this.vy < 0) {
-            this.y = p.y + p.h;
+            this.y = r.y + r.h;
           }
           this.vy = 0;
         }
@@ -2201,16 +2611,18 @@ class Player {
     let collided = false;
     
     for (let p of platforms) {
-      if (rectCollision(box.x, box.y, box.w, box.h, p.x, p.y, p.w, p.h)) {
+      const rects = getCollisionRectsForCollider(p);
+      for (const r of rects) {
+        if (!rectCollision(box.x, box.y, box.w, box.h, r.x, r.y, r.w, r.h)) continue;
         collided = true;
         if (horizontal) {
           // 水平碰撞：调整玩家的 x（考虑偏移量）
-          if (this.vx > 0) this.x = p.x - this.collisionW - this.collisionOffsetX;
-          else this.x = p.x + p.w - this.collisionOffsetX;
+          if (this.vx > 0) this.x = r.x - this.collisionW - this.collisionOffsetX;
+          else this.x = r.x + r.w - this.collisionOffsetX;
           this.vx = 0;
         } else {
-          if (this.vy > 0) { this.y = p.y - this.h; this.onGround = true; this.jumpsRemaining = this.maxJumps; }
-          else if (this.vy < 0) this.y = p.y + p.h;
+          if (this.vy > 0) { this.y = r.y - this.h; this.onGround = true; this.jumpsRemaining = this.maxJumps; }
+          else if (this.vy < 0) this.y = r.y + r.h;
           this.vy = 0;
         }
       }
@@ -2421,17 +2833,19 @@ class Enemy {
   resolveCollision(platforms, horizontal) {
     const box = this.getCollisionBox();
     for (let p of platforms) {
-      if (rectCollision(box.x, box.y, box.w, box.h, p.x, p.y, p.w, p.h)) {
+      const rects = getCollisionRectsForCollider(p);
+      for (const r of rects) {
+        if (!rectCollision(box.x, box.y, box.w, box.h, r.x, r.y, r.w, r.h)) continue;
         if (horizontal) {
-          if (this.vx > 0) this.x = p.x - box.w - this.collisionOffsetX;
-          else this.x = p.x + p.w - this.collisionOffsetX;
+          if (this.vx > 0) this.x = r.x - box.w - this.collisionOffsetX;
+          else this.x = r.x + r.w - this.collisionOffsetX;
           this.vx = 0;
         } else {
           if (this.vy > 0) {
-            this.y = p.y - this.h;
+            this.y = r.y - this.h;
             this.onGround = true;
           } else if (this.vy < 0) {
-            this.y = p.y + p.h;
+            this.y = r.y + r.h;
           }
           this.vy = 0;
         }
@@ -2632,10 +3046,12 @@ class Item {
     this.y += this.vy;
 
     for (let p of platforms) {
-      if (rectCollision(this.x, this.y, this.w, this.h, p.x, p.y, p.w, p.h)) {
-        this.y = p.y - this.h;
+      const rects = getCollisionRectsForCollider(p);
+      for (const r of rects) {
+        if (!rectCollision(this.x, this.y, this.w, this.h, r.x, r.y, r.w, r.h)) continue;
+        this.y = r.y - this.h;
         this.vy = 0;
-        break;
+        return;
       }
     }
 
@@ -2962,10 +3378,14 @@ class HintCat {
       const candidates = this.getCollisionCandidates(level, box);
       let collided = false;
       for (const p of candidates) {
-        if (rectCollision(box.x, box.y, box.w, box.h, p.x, p.y, p.w, p.h)) {
-          collided = true;
-          break;
+        const rects = getCollisionRectsForCollider(p);
+        for (const r of rects) {
+          if (rectCollision(box.x, box.y, box.w, box.h, r.x, r.y, r.w, r.h)) {
+            collided = true;
+            break;
+          }
         }
+        if (collided) break;
       }
       if (collided) {
         this.x = oldX;
@@ -2982,9 +3402,12 @@ class HintCat {
     let bestGap = Infinity;
     const candidates = this.getCollisionCandidates(level, box);
     for (const p of candidates) {
-      if (box.x < p.x + p.w && box.x + box.w > p.x) {
-        const gap = p.y - bottom;
-        if (gap >= 0 && gap <= maxSnap && gap < bestGap) bestGap = gap;
+      const rects = getCollisionRectsForCollider(p);
+      for (const r of rects) {
+        if (box.x < r.x + r.w && box.x + box.w > r.x) {
+          const gap = r.y - bottom;
+          if (gap >= 0 && gap <= maxSnap && gap < bestGap) bestGap = gap;
+        }
       }
     }
     if (bestGap !== Infinity) {
@@ -3220,8 +3643,8 @@ class UIManager {
   }
 
   drawTopRightIcon(rectInfo, img, fallbackColor) {
-    fill(18, 28, 44, 210);
-    rect(rectInfo.x - 2, rectInfo.y - 2, rectInfo.w + 4, rectInfo.h + 4, 4);
+    // fill(18, 28, 44, 210);
+    // rect(rectInfo.x - 2, rectInfo.y - 2, rectInfo.w + 4, rectInfo.h + 4, 4);
     if (img && img.width > 0) image(img, rectInfo.x, rectInfo.y, rectInfo.w, rectInfo.h);
     else { fill(...fallbackColor); rect(rectInfo.x, rectInfo.y, rectInfo.w, rectInfo.h, 3); }
   }
@@ -3463,6 +3886,7 @@ function setup() {
     'grass_block_side', 'dirt', 'stone', 'deepslate',
     'copper_ore', 'deepslate_copper_ore', 'deepslate_diamond_ore', 'deepslate_gold_ore', 'deepslate_iron_ore',
     'diamond_ore', 'gold_ore', 'iron_ore','lava', 'acid', 'water', 'sand', 'gravel',
+    'bricks', 'pipe_narrow', 'deepslate_bricks', 'pipe_wide', 'pipe_wide_inner_corner', 'pipe_wide_outer_corner', 'pipe_narrow_corner', 'pipe_narrow_to_wide', 'pipe_narrow_to_narrow',
     // 树（仅作为背景装饰使用）
     'oak_leaves', 'oak_log',
     // 关卡2：水下植物与珊瑚（仅背景装饰）
@@ -3550,6 +3974,12 @@ function keyPressed() {
     }
     if (key === '2' || keyCode === 50) {
       game = new Game("water");
+      game.setup();
+      game.beginPlaying();
+      return false;
+    }
+    if (key === '3' || keyCode === 51) {
+      game = new Game("factory");
       game.setup();
       game.beginPlaying();
       return false;
@@ -3649,7 +4079,7 @@ function drawLevelSelectScreen() {
   fill(255);
   textAlign(CENTER, CENTER);
   textSize(24);
-  text("Press 1 or 2 to Choose Chapter", width / 2, height / 2 + 50);
+  text("Press 1, 2 or 3 to Choose Chapter", width / 2, height / 2 + 50);
 }
 
 //===== gameover screen ======
