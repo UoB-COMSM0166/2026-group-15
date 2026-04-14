@@ -66,18 +66,109 @@ const FONT_CONFIGS = {
   pixel12Bold: {
     family: 'PixelMplus12Bold',
     file: 'assets/fonts/PixelMplus12-Bold.ttf'
+  },
+  fusionZhHans: {
+    family: 'FusionPixelZhHans',
+    file: 'assets/fonts/fusion-pixel-12px-proportional-zh_hans.ttf'
+  },
+  fusionLatin: {
+    family: 'FusionPixelLatin',
+    file: 'assets/fonts/fusion-pixel-12px-proportional-latin.ttf'
+  },
+  fusionJa: {
+    family: 'FusionPixelJa',
+    file: 'assets/fonts/fusion-pixel-12px-proportional-ja.ttf'
+  },
+  fusionKo: {
+    family: 'FusionPixelKo',
+    file: 'assets/fonts/fusion-pixel-12px-proportional-ko.ttf'
   }
 };
-const ACTIVE_FONT_KEY = 'mojangRegular';
+const DEFAULT_LANGUAGE = 'EN';
+const SUPPORTED_LANGUAGES = ['EN', '中文', 'FR', 'RU', 'JA', 'KO'];
+const LANGUAGE_FONT_KEY_MAP = {
+  EN: 'mojangRegular',
+  中文: 'fusionZhHans',
+  FR: 'fusionLatin',
+  RU: 'fusionLatin',
+  JA: 'fusionJa',
+  KO: 'fusionKo'
+};
+const I18N_BY_EN = {
+  Start: { FR: 'Démarrer', RU: 'Старт', JA: 'スタート', KO: '시작' },
+  Settings: { FR: 'Paramètres', RU: 'Настройки', JA: '設定', KO: '설정' },
+  'Press Start to begin your adventure': { FR: 'Appuyez sur Démarrer pour commencer votre aventure', RU: 'Нажмите Старт, чтобы начать приключение', JA: 'スタートを押して冒険を始めよう', KO: '시작을 눌러 모험을 시작하세요' },
+  'Level 1': { FR: 'Niveau 1', RU: 'Уровень 1', JA: 'レベル1', KO: '레벨 1' },
+  'Level 2': { FR: 'Niveau 2', RU: 'Уровень 2', JA: 'レベル2', KO: '레벨 2' },
+  'Level 3': { FR: 'Niveau 3', RU: 'Уровень 3', JA: 'レベル3', KO: '레벨 3' },
+  'Choose your level': { FR: 'Choisissez votre niveau', RU: 'Выберите уровень', JA: 'レベルを選択', KO: '레벨을 선택하세요' },
+  Back: { FR: 'Retour', RU: 'Назад', JA: '戻る', KO: '뒤로' },
+  'Music Volume': { FR: 'Volume de la musique', RU: 'Громкость музыки', JA: '音楽音量', KO: '음악 볼륨' },
+  'SFX Volume': { FR: 'Volume des effets', RU: 'Громкость эффектов', JA: '効果音音量', KO: '효과음 볼륨' },
+  Fullscreen: { FR: 'Plein écran', RU: 'Полный экран', JA: '全画面', KO: '전체 화면' },
+  ON: { FR: 'ON', RU: 'ВКЛ', JA: 'オン', KO: '켜짐' },
+  OFF: { FR: 'OFF', RU: 'ВЫКЛ', JA: 'オフ', KO: '꺼짐' },
+  Language: { FR: 'Langue', RU: 'Язык', JA: '言語', KO: '언어' },
+  'GAME OVER': { FR: 'FIN DE PARTIE', RU: 'КОНЕЦ ИГРЫ', JA: 'ゲームオーバー', KO: '게임 오버' },
+  'Press ENTER to Restart': { FR: 'Appuyez sur ENTER pour recommencer', RU: 'Нажмите ENTER для перезапуска', JA: 'ENTERで再開', KO: 'ENTER를 눌러 재시작' },
+  'Victory!': { FR: 'Victoire!', RU: 'ПОБЕДА!', JA: '勝利！', KO: '승리!' },
+  Score: { FR: 'Score', RU: 'Очки', JA: 'スコア', KO: '점수' },
+  'Press ENTER to Play Again': { FR: 'Appuyez sur ENTER pour rejouer', RU: 'Нажмите ENTER, чтобы играть снова', JA: 'ENTERでもう一度プレイ', KO: 'ENTER를 눌러 다시 플레이' },
+  'Wildlife rescued! +1': { FR: 'Animal sauvé ! +1', RU: 'Животное спасено! +1', JA: '野生動物を救出！ +1', KO: '야생동물 구조! +1' },
+  'Pollutant collected! +1': { FR: 'Polluant collecté ! +1', RU: 'Загрязнитель собран! +1', JA: '汚染物を回収！ +1', KO: '오염물 수집! +1' },
+  'Field Guide': { FR: 'Guide', RU: 'Справочник', JA: 'ガイド', KO: '가이드' },
+  Tools: { FR: 'Outils', RU: 'Инструменты', JA: '道具', KO: '도구' },
+  Pollutants: { FR: 'Polluants', RU: 'Загрязнители', JA: '汚染物', KO: '오염물' },
+  Trapped: { FR: 'Piégés', RU: 'В ловушке', JA: '要救助', KO: '구조 대상' },
+  'Enemy / Danger': { FR: 'Ennemi / Danger', RU: 'Враг / Опасность', JA: '敵 / 危険', KO: '적 / 위험' },
+  Scissors: { FR: 'Ciseaux', RU: 'Ножницы', JA: 'はさみ', KO: '가위' },
+  Bucket: { FR: 'Seau', RU: 'Ведро', JA: 'バケツ', KO: '양동이' },
+  Limestone: { FR: 'Calcaire', RU: 'Известняк', JA: '石灰石', KO: '석회암' },
+  Cigarette: { FR: 'Cigarette', RU: 'Сигарета', JA: 'たばこ', KO: '담배' },
+  'Plastic Bottle': { FR: 'Bouteille plastique', RU: 'Пластиковая бутылка', JA: 'ペットボトル', KO: '플라스틱 병' },
+  Wrapper: { FR: 'Emballage', RU: 'Обертка', JA: '包装ごみ', KO: '포장지' },
+  'Acid Pool': { FR: 'Bassin acide', RU: 'Кислотная лужа', JA: '酸の池', KO: '산성 웅덩이' },
+  Bird: { FR: 'Oiseau', RU: 'Птица', JA: '鳥', KO: '새' },
+  Zombie: { FR: 'Zombie', RU: 'Зомби', JA: 'ゾンビ', KO: '좀비' },
+  'Cut webs to rescue': { FR: 'Coupez la toile pour sauver', RU: 'Разрежьте паутину, чтобы спасти', JA: 'クモの巣を切って救出', KO: '거미줄을 잘라 구조' },
+  'Use near lava': { FR: 'Utiliser près de la lave', RU: 'Используйте рядом с лавой', JA: '溶岩の近くで使用', KO: '용암 근처에서 사용' },
+  'Use near acid': { FR: 'Utiliser près de l’acide', RU: 'Используйте рядом с кислотой', JA: '酸の近くで使用', KO: '산 근처에서 사용' },
+  Collect: { FR: 'Collecter', RU: 'Соберите', JA: '回収', KO: '수집' },
+  'Treat with limestone': { FR: 'Traiter avec calcaire', RU: 'Обработайте известняком', JA: '石灰石で中和', KO: '석회암으로 처리' },
+  'Click scissors to rescue': { FR: 'Cliquez les ciseaux pour sauver', RU: 'Нажмите ножницы, чтобы спасти', JA: 'はさみをクリックして救出', KO: '가위를 클릭해 구조' },
+  'Press F to attack': { FR: 'Appuyez sur F pour attaquer', RU: 'Нажмите F для атаки', JA: 'Fキーで攻撃', KO: 'F키로 공격' },
+  'Keep away': { FR: 'Restez à distance', RU: 'Держитесь подальше', JA: '近づかないで', KO: '가까이 가지 마세요' }
+};
 let activeFont;
 
-function getActiveFontConfig() {
-  return FONT_CONFIGS[ACTIVE_FONT_KEY];
+function getLanguageFontConfig(language) {
+  const fontKey = LANGUAGE_FONT_KEY_MAP[language] || LANGUAGE_FONT_KEY_MAP[DEFAULT_LANGUAGE];
+  return FONT_CONFIGS[fontKey] || FONT_CONFIGS[LANGUAGE_FONT_KEY_MAP[DEFAULT_LANGUAGE]];
 }
 
 function applyGameFont() {
-  const activeFontConfig = getActiveFontConfig();
+  const language = game?.settings?.language || DEFAULT_LANGUAGE;
+  const activeFontConfig = getLanguageFontConfig(language);
   textFont(activeFont || activeFontConfig.family);
+}
+
+function cloneSettings(settings) {
+  if (!settings) return null;
+  return {
+    musicVolume: settings.musicVolume,
+    sfxVolume: settings.sfxVolume,
+    fullscreen: settings.fullscreen,
+    language: settings.language
+  };
+}
+
+function createGameWithSameSettings(levelType, previousSettings = game?.settings) {
+  const nextGame = new Game(levelType);
+  const preserved = cloneSettings(previousSettings);
+  if (preserved) {
+    nextGame.settings = { ...nextGame.settings, ...preserved };
+  }
+  return nextGame;
 }
 
 // ====== 工具函数 ======
@@ -325,7 +416,7 @@ class Game {
     musicVolume: 80,
     sfxVolume: 80,
     fullscreen: false,
-    language: "EN"
+    language: DEFAULT_LANGUAGE
 };
 
     // --- 新增：统一的得分反馈提示（污染物/救援共用） ---
@@ -384,7 +475,7 @@ class Game {
    }
 
   resetGameToState(state) {
-    game = new Game(this.levelType);
+    game = createGameWithSameSettings(this.levelType, this.settings);
     game.setup();
     game.state = state;
     game.showGuideMenu = false;
@@ -399,7 +490,7 @@ class Game {
   }
 
   resetToPlayingFromBeginning() {
-    game = new Game(this.levelType);
+    game = createGameWithSameSettings(this.levelType, this.settings);
     game.setup();
     game.state = "playing";
   }
@@ -714,7 +805,7 @@ tryRescueBirdWithScissor(slotIndex) {
     this.player.selectedSlot = -1;
     this.player.score += 1;
     // 成功解救小动物：弹出统一得分提示
-    this.scoreToastMessage = "Wildlife rescued! +1";
+    this.scoreToastMessage = t("Wildlife rescued! +1", "成功救援野生动物！+1");
     this.scoreToastUntil = millis() + 1800;
     return true;
   }
@@ -1215,7 +1306,7 @@ tryUseLimestone() {
     if (item instanceof Pollutant) {
       this.player.score += 1;
       // 收集污染物：弹出统一得分提示
-      this.scoreToastMessage = "Pollutant collected! +1";
+      this.scoreToastMessage = t("Pollutant collected! +1", "收集污染物！+1");
       this.scoreToastUntil = millis() + 1400;
     }
 
@@ -3704,7 +3795,7 @@ class UIManager {
     fill(0);
     textAlign(LEFT, BASELINE);
     textSize(14);
-    text("Score: " + score, x, y);
+    text(`${t("Score", "得分")}: ${score}`, x, y);
     pop();
   }
 
@@ -3810,9 +3901,14 @@ class UIManager {
     fill(255);
     textSize(14);
     textAlign(LEFT, BASELINE);
-    text("Field Guide", panel.x + 10, panel.y + 16);
+    text(t("Field Guide", "图鉴"), panel.x + 10, panel.y + 16);
 
-    const tabLabels = ["Tools", "Pollutants", "Trapped", "Enemy / Danger"];
+    const tabLabels = [
+      t("Tools", "工具"),
+      t("Pollutants", "污染物"),
+      t("Trapped", "待救援"),
+      t("Enemy / Danger", "敌人 / 危险")
+    ];
     const tabs = this.getGuideTabRects();
     textAlign(CENTER, CENTER);
     for (let i = 0; i < tabs.length; i++) {
@@ -3827,22 +3923,22 @@ class UIManager {
 
     const rowsByTab = [
       [
-        [window.tool_scissor, "Scissors", "Cut webs to rescue"],
-        [window.tool_enlarged_water_bucket, "Bucket", "Use near lava"],
-        [window.tool_limestone, "Limestone", "Use near acid"]
+        [window.tool_scissor, t("Scissors", "剪刀"), t("Cut webs to rescue", "剪开蛛网进行救援")],
+        [window.tool_enlarged_water_bucket, t("Bucket", "水桶"), t("Use near lava", "在岩浆附近使用")],
+        [window.tool_limestone, t("Limestone", "石灰石"), t("Use near acid", "在酸液附近使用")]
       ],
       [
-        [window.cigarette, "Cigarette", "Collect"],
-        [window.plastic_bottle, "Plastic Bottle", "Collect"],
-        [null, "Wrapper", "Collect"],
-        [null, "Acid Pool", "Treat with limestone"]
+        [window.cigarette, t("Cigarette", "香烟"), t("Collect", "收集")],
+        [window.plastic_bottle, t("Plastic Bottle", "塑料瓶"), t("Collect", "收集")],
+        [null, t("Wrapper", "包装纸"), t("Collect", "收集")],
+        [null, t("Acid Pool", "酸液池"), t("Treat with limestone", "使用石灰石处理")]
       ],
       [
-        [window.bird, "Bird", "Click scissors to rescue"]
+        [window.bird, t("Bird", "小鸟"), t("Click scissors to rescue", "点击剪刀进行救援")]
       ],
       [
-        [window.zombieSpriteRight, "Zombie", "Press F to attack"],
-        [window.tnt, "TNT", "Keep away"]
+        [window.zombieSpriteRight, t("Zombie", "僵尸"), t("Press F to attack", "按 F 攻击")],
+        [window.tnt, "TNT", t("Keep away", "远离")]
       ]
     ];
 
@@ -4024,19 +4120,19 @@ function keyPressed() {
 
   if (game.state === "levelSelect") {
     if (inputKey === '1') {
-      game = new Game("forest");
+      game = createGameWithSameSettings("forest");
       game.setup();
       game.beginPlaying();
       return false;
     }
     if (inputKey === '2') {
-      game = new Game("water");
+      game = createGameWithSameSettings("water");
       game.setup();
       game.beginPlaying();
       return false;
     }
     if (inputKey === '3') {
-      game = new Game("factory");
+      game = createGameWithSameSettings("factory");
       game.setup();
       game.beginPlaying();
       return false;
@@ -4146,21 +4242,21 @@ function mousePressed() {
     const ui = getLevelSelectRects();
 
     if (isInside(mouseX, mouseY, ui.level1)) {
-      game = new Game("forest");
+      game = createGameWithSameSettings("forest");
       game.setup();
       game.beginPlaying();
       return;
     }
 
     if (isInside(mouseX, mouseY, ui.level2)) {
-      game = new Game("water");
+      game = createGameWithSameSettings("water");
       game.setup();
       game.beginPlaying();
       return;
     }
 
     if (isInside(mouseX, mouseY, ui.level3)) {
-      game = new Game("factory");
+      game = createGameWithSameSettings("factory");
       game.setup();
       game.beginPlaying();
       return;
@@ -4205,7 +4301,9 @@ function mousePressed() {
     }
 
     if (isInside(mouseX, mouseY, ui.language)) {
-      s.language = s.language === "EN" ? "中文" : "EN";
+      const currentIndex = SUPPORTED_LANGUAGES.indexOf(s.language);
+      const nextIndex = (currentIndex + 1) % SUPPORTED_LANGUAGES.length;
+      s.language = SUPPORTED_LANGUAGES[nextIndex];
       return;
     }
 
@@ -4224,7 +4322,10 @@ function mousePressed() {
 // ====== startscreen ======
 function t(en, zh) {
   if (!game || !game.settings) return en;
-  return game.settings.language === "中文" ? zh : en;
+  const lang = game.settings.language || DEFAULT_LANGUAGE;
+  if (lang === '中文') return zh;
+  if (lang === 'EN') return en;
+  return I18N_BY_EN[en]?.[lang] || en;
 }
 
 function isInside(mx, my, rect) {
@@ -4419,10 +4520,10 @@ function drawGameOverScreen() {
   fill(255, 0, 0);
   textAlign(CENTER, CENTER);
   textSize(52);
-  text("GAME OVER", width / 2, height / 2 - 40);
+  text(t("GAME OVER", "游戏结束"), width / 2, height / 2 - 40);
   textSize(24);
   fill(255);
-  text("Press ENTER to Restart", width / 2, height / 2 + 20);
+  text(t("Press ENTER to Restart", "按 ENTER 重新开始"), width / 2, height / 2 + 20);
 }
 
 
@@ -4431,16 +4532,16 @@ function drawVictoryScreen() {
   fill(200, 255, 150); // 浅绿色文字
   textAlign(CENTER, CENTER);
   textSize(52);
-  text("Victory!", width / 2, height / 2 - 60);
+  text(t("Victory!", "胜利!"), width / 2, height / 2 - 60);
   
   // 显示分数
   textSize(36);
   fill(255, 255, 100); // 金黄色
-  text("Score: " + game.player.score, width / 2, height / 2);
+  text(`${t("Score", "得分")}: ${game.player.score}`, width / 2, height / 2);
   
   textSize(28);
   fill(200, 255, 150);
-  text("Press ENTER to Play Again", width / 2, height / 2 + 60);
+  text(t("Press ENTER to Play Again", "按 ENTER 再玩一次"), width / 2, height / 2 + 60);
 }
 
 
