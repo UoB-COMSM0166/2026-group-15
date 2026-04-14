@@ -3395,8 +3395,8 @@ class UIManager {
   }
 
   drawTopRightIcon(rectInfo, img, fallbackColor) {
-    fill(18, 28, 44, 210);
-    rect(rectInfo.x - 2, rectInfo.y - 2, rectInfo.w + 4, rectInfo.h + 4, 4);
+    // fill(18, 28, 44, 210);
+    // rect(rectInfo.x - 2, rectInfo.y - 2, rectInfo.w + 4, rectInfo.h + 4, 4);
     if (img && img.width > 0) image(img, rectInfo.x, rectInfo.y, rectInfo.w, rectInfo.h);
     else { fill(...fallbackColor); rect(rectInfo.x, rectInfo.y, rectInfo.w, rectInfo.h, 3); }
   }
