@@ -282,6 +282,13 @@ class Game {
     // 游戏状态：start playing gameover victory
     this.state = "start";
 
+    this.settings = {
+    musicVolume: 80,
+    sfxVolume: 80,
+    fullscreen: false,
+    language: "EN"
+};
+
     // --- 新增：统一的得分反馈提示（污染物/救援共用） ---
     this.scoreToastMessage = null;   // 当前显示的得分提示文案
     this.scoreToastUntil = 0;        // 提示显示截止时间戳（millis）
@@ -347,11 +354,15 @@ class Game {
   }
 
   resetToStartScreen() {
-    this.resetGameToState("start");
+    this.state = "start";
+    this.showGuideMenu = false;
+    this.activeGuideTab = 0;
   }
 
   resetToPlayingFromBeginning() {
-    this.resetGameToState("playing");
+    game = new Game(this.levelType);
+    game.setup();
+    game.state = "playing";
   }
 
   beginPlaying() {
@@ -3911,7 +3922,6 @@ function setup() {
 function draw() {
   // 主动同步按键状态（修复浏览器 keyReleased 事件丢失的问题）
   if (game && game.state === "playing") {
-    // 检查 Set 中记录的按键，如果 keys 字典中有但 Set 中没有，说明事件丢失了
     ['a', 'd', 's', 'w'].forEach(k => {
       if (keys[k] && !pressedKeys.has(k)) {
         keys[k] = false;
@@ -3919,106 +3929,115 @@ function draw() {
       }
     });
   }
-  
+
   if (game.state === "start") {
     drawStartScreen();
   }
   else if (game.state === "levelSelect") {
     drawLevelSelectScreen();
   }
+  else if (game.state === "settings") {
+    drawSettingsScreen();
+  }
   else if (game.state === "playing") {
     game.update();
     game.draw();
   }
-
-  if (game.state === "gameover") {
+  else if (game.state === "gameover") {
     drawGameOverScreen();
   }
-  if (game.state === "victory") {
+  else if (game.state === "victory") {
     drawVictoryScreen();
   }
 }
 
 function keyPressed() {
-  // 1. 基础按键处理
   let inputKey = null;
   if (key && key.length === 1) inputKey = key.toLowerCase();
-  
-  // 防止键盘长按重复触发逻辑
+
+  // 防止长按重复触发
   if (inputKey && keys[inputKey] === true) {
-    return false; 
+    return false;
   }
 
   // 记录按键状态
   if (inputKey) {
     keys[inputKey] = true;
     pressedKeys.add(inputKey);
-    // console.log("按键按下:", inputKey, "当前队列:", Array.from(pressedKeys));
   }
-  
-  // 2. 状态机逻辑
-  
-  // 开始界面 -> 关卡选择
-  if (game.state === "start" && (keyCode === ENTER || keyCode === 13)) {
-    game.state = "levelSelect";
+
+  // ===== 菜单状态 =====
+  if (game.state === "start") {
+    if (keyCode === ENTER) {
+      game.state = "levelSelect";
+    }
     return false;
   }
 
-  // 关卡选择界面
   if (game.state === "levelSelect") {
-    if (key === '1' || keyCode === 49) {
+    if (inputKey === '1') {
       game = new Game("forest");
       game.setup();
       game.beginPlaying();
       return false;
     }
-    if (key === '2' || keyCode === 50) {
+    if (inputKey === '2') {
       game = new Game("water");
       game.setup();
       game.beginPlaying();
       return false;
     }
-    if (key === '3' || keyCode === 51) {
+    if (inputKey === '3') {
       game = new Game("factory");
       game.setup();
       game.beginPlaying();
       return false;
     }
-  }
-
-  // 结算界面重启
-  if ((game.state === "gameover" || game.state === "victory") && (keyCode === ENTER || keyCode === 13)) {
-    game.resetToPlayingFromBeginning();
+    if (keyCode === ESCAPE) {
+      game.state = "start";
+      return false;
+    }
     return false;
   }
-  
-  // 3. 游戏内操作 (核心修改区)
-  if (game.state === "playing") {
-    
-    // 攻击逻辑：放在跳跃之前，确保 F 键响应优先级
-    if (inputKey === 'f' || keyCode === 70) {
-      game.tryAttack(); // 确保 Game 类里这个方法没被删掉
-      return false;
+
+  if (game.state === "settings") {
+    if (keyCode === ESCAPE) {
+      game.state = "start";
+    }
+    return false;
+  }
+
+  if (game.state === "gameover" || game.state === "victory") {
+    if (keyCode === ENTER) {
+      game.resetToStartScreen();
+    }
+    return false;
+  }
+
+  // ===== 非 playing 状态直接结束 =====
+  if (game.state !== "playing") return false;
+
+  // ===== 游戏内操作 =====
+  if (inputKey === 'f') {
+    game.tryAttack();
+    return false;
+  }
+
+  if (inputKey === 'w') {
+    if (game.level && game.player && typeof game.player.isInWater === "function") {
+      if (game.player.isInWater(game.level)) {
+        game.player.swimUpHeld = true;
+        return false;
+      }
     }
 
-    // 跳跃/上浮逻辑（仅 W）
-    const jumpPressed = inputKey === 'w';
-    if (jumpPressed) {
-      if (game.level && game.player && typeof game.player.isInWater === "function") {
-        if (game.player.isInWater(game.level)) {
-          game.player.swimUpHeld = true;
-          return false;
-        }
-      }
-      // 陆地跳跃
-      if (game.player) {
-        game.player.jump();
-      }
-      return false;
+    if (game.player) {
+      game.player.jump();
     }
+    return false;
   }
-  
-  return false; // 阻止浏览器默认行为（如按空格翻页）
+
+  return false;
 }
 
 function keyReleased() {
@@ -4049,38 +4068,302 @@ function windowBlurred() {
 }
 
 function mousePressed() {
-  if (!game || game.state !== "playing") return;
-  if (typeof game.handleMousePressed === "function") {
-    game.handleMousePressed(mouseX, mouseY);
+  if (!game) return;
+
+  // 游戏中保留原本点击逻辑
+  if (game.state === "playing") {
+    if (typeof game.handleMousePressed === "function") {
+      game.handleMousePressed(mouseX, mouseY);
+    }
+    return;
+  }
+
+  // 开始页面
+  if (game.state === "start") {
+    const ui = getStartScreenRects();
+
+    if (isInside(mouseX, mouseY, ui.startBtn)) {
+      game.state = "levelSelect";
+      return;
+    }
+
+    if (isInside(mouseX, mouseY, ui.settingsBtn)) {
+      game.state = "settings";
+      return;
+    }
+  }
+
+  // 选关页面
+  if (game.state === "levelSelect") {
+    const ui = getLevelSelectRects();
+
+    if (isInside(mouseX, mouseY, ui.level1)) {
+      game = new Game("forest");
+      game.setup();
+      game.beginPlaying();
+      return;
+    }
+
+    if (isInside(mouseX, mouseY, ui.level2)) {
+      game = new Game("water");
+      game.setup();
+      game.beginPlaying();
+      return;
+    }
+
+    if (isInside(mouseX, mouseY, ui.level3)) {
+      game = new Game("factory");
+      game.setup();
+      game.beginPlaying();
+      return;
+    }
+
+    if (isInside(mouseX, mouseY, ui.backBtn)) {
+      game.state = "start";
+      return;
+    }
+  }
+
+  // 设置页面
+  if (game.state === "settings") {
+    const ui = getSettingsRects();
+    const s = game.settings;
+
+    if (isInside(mouseX, mouseY, ui.musicMinus)) {
+      s.musicVolume = max(0, s.musicVolume - 10);
+      return;
+    }
+
+    if (isInside(mouseX, mouseY, ui.musicPlus)) {
+      s.musicVolume = min(100, s.musicVolume + 10);
+      return;
+    }
+
+    if (isInside(mouseX, mouseY, ui.sfxMinus)) {
+      s.sfxVolume = max(0, s.sfxVolume - 10);
+      return;
+    }
+
+    if (isInside(mouseX, mouseY, ui.sfxPlus)) {
+      s.sfxVolume = min(100, s.sfxVolume + 10);
+      return;
+    }
+
+    if (isInside(mouseX, mouseY, ui.fullscreen)) {
+      s.fullscreen = !s.fullscreen;
+      let fs = fullscreen();
+      fullscreen(!fs);
+      return;
+    }
+
+    if (isInside(mouseX, mouseY, ui.language)) {
+      s.language = s.language === "EN" ? "中文" : "EN";
+      return;
+    }
+
+    if (isInside(mouseX, mouseY, ui.backBtn)) {
+      game.state = "start";
+      return;
+    }
+  }
+
+  // game over / victory 页面，鼠标点击回开始页
+  if (game.state === "gameover" || game.state === "victory") {
+    game.resetToStartScreen();
   }
 }
 
+// ====== startscreen ======
+function t(en, zh) {
+  if (!game || !game.settings) return en;
+  return game.settings.language === "中文" ? zh : en;
+}
+
+function isInside(mx, my, rect) {
+  return mx >= rect.x && mx <= rect.x + rect.w &&
+         my >= rect.y && my <= rect.y + rect.h;
+}
+
+function drawMenuButton(x, y, w, h, label, hovered = false) {
+  push();
+  stroke(255);
+  strokeWeight(2);
+  fill(hovered ? color(255, 170, 60) : color(30, 45, 85, 220));
+  rect(x, y, w, h, 12);
+
+  noStroke();
+  fill(255);
+  textAlign(CENTER, CENTER);
+  textSize(20);
+  text(label, x + w / 2, y + h / 2);
+  pop();
+}
+
+function getStartScreenRects() {
+  return {
+    startBtn: { x: width / 2 - 110, y: 150, w: 220, h: 52 },
+    settingsBtn: { x: width / 2 - 110, y: 220, w: 220, h: 52 }
+  };
+}
+
+function getLevelSelectRects() {
+  return {
+    level1: { x: 70, y: 180, w: 140, h: 70 },
+    level2: { x: 250, y: 180, w: 140, h: 70 },
+    level3: { x: 430, y: 180, w: 140, h: 70 },
+    backBtn: { x: 20, y: 20, w: 100, h: 42 }
+  };
+}
+
+function getSettingsRects() {
+  return {
+    musicMinus: { x: 360, y: 100, w: 42, h: 42 },
+    musicPlus:  { x: 500, y: 100, w: 42, h: 42 },
+
+    sfxMinus:   { x: 360, y: 155, w: 42, h: 42 },
+    sfxPlus:    { x: 500, y: 155, w: 42, h: 42 },
+
+    fullscreen: { x: 360, y: 215, w: 180, h: 42 },
+    language:   { x: 360, y: 275, w: 180, h: 42 },
+
+    backBtn:    { x: 20, y: 20, w: 100, h: 42 }
+  };
+}
 
 // ====== startscreen ======
 function drawStartScreen() {
   if (window.startBg && window.startBg.width > 0) {
-    image(window.startBg, 0, 0, width, height); // 填满画布
+    image(window.startBg, 0, 0, width, height);
   } else {
-    background(50, 50, 100); // 加载失败显示背景色
+    background(50, 50, 100);
   }
-  fill(255, 165, 0)
+  
+  fill(255);
   textAlign(CENTER, CENTER);
-  textSize(24);
-  text("Press ENTER to Start", width / 2, height / 2 + 50);
+  textSize(38);
+
+  textSize(16);
+  fill(255, 230, 180);
+
+  const ui = getStartScreenRects();
+
+  drawMenuButton(
+    ui.startBtn.x, ui.startBtn.y, ui.startBtn.w, ui.startBtn.h,
+    t("Start", "开始"),
+    isInside(mouseX, mouseY, ui.startBtn)
+  );
+
+  drawMenuButton(
+    ui.settingsBtn.x, ui.settingsBtn.y, ui.settingsBtn.w, ui.settingsBtn.h,
+    t("Settings", "设置"),
+    isInside(mouseX, mouseY, ui.settingsBtn)
+  );
+
+  fill(255, 230, 180);
+  textAlign(CENTER, CENTER);
+  textSize(16);
+  text(
+  t("Press Start to begin your adventure", "点击开始进入游戏"),
+  width / 2,
+  ui.settingsBtn.y + ui.settingsBtn.h + 40);
 }
 
 function drawLevelSelectScreen() {
   if (window.startBg && window.startBg.width > 0) {
-    image(window.startBg, 0, 0, width, height); // 复用开始界面背景
+    image(window.startBg, 0, 0, width, height);
   } else {
     background(50, 50, 100);
   }
 
   fill(255);
   textAlign(CENTER, CENTER);
-  textSize(24);
-  text("Press 1, 2 or 3 to Choose Chapter", width / 2, height / 2 + 50);
+  textSize(32);
+
+  textSize(16);
+  fill(230);
+
+  const ui = getLevelSelectRects();
+
+  drawMenuButton(
+    ui.level1.x, ui.level1.y, ui.level1.w, ui.level1.h,
+    t("Level 1", "第一关"),
+    isInside(mouseX, mouseY, ui.level1)
+  );
+
+  drawMenuButton(
+    ui.level2.x, ui.level2.y, ui.level2.w, ui.level2.h,
+    t("Level 2", "第二关"),
+    isInside(mouseX, mouseY, ui.level2)
+  );
+
+  drawMenuButton(
+    ui.level3.x, ui.level3.y, ui.level3.w, ui.level3.h,
+    t("Level 3", "第三关"),
+    isInside(mouseX, mouseY, ui.level3)
+  );
+
+  fill(255, 230, 180);
+  textAlign(CENTER, CENTER);
+  textSize(16);
+
+  text(
+  t("Choose your level", "请选择关卡"),
+  width / 2,
+  ui.level1.y + ui.level1.h + 60);
+
+  drawMenuButton(
+    ui.backBtn.x, ui.backBtn.y, ui.backBtn.w, ui.backBtn.h,
+    t("Back", "返回"),
+    isInside(mouseX, mouseY, ui.backBtn)
+  );
 }
+
+function drawSettingsScreen() {
+  background(28, 35, 60);
+
+  fill(255);
+  textAlign(CENTER, CENTER);
+  textSize(32);
+  text(t("Settings", "设置"), width / 2, 55);
+
+  const s = game.settings;
+  const ui = getSettingsRects();
+
+  textAlign(LEFT, CENTER);
+  textSize(20);
+  fill(255);
+
+  text(t("Music Volume", "音乐音量"), 100, 120);
+  text(`${s.musicVolume}`, 440, 120);
+  drawMenuButton(ui.musicMinus.x, ui.musicMinus.y, ui.musicMinus.w, ui.musicMinus.h, "-");
+  drawMenuButton(ui.musicPlus.x, ui.musicPlus.y, ui.musicPlus.w, ui.musicPlus.h, "+");
+
+  text(t("SFX Volume", "音效音量"), 100, 175);
+  text(`${s.sfxVolume}`, 440, 175);
+  drawMenuButton(ui.sfxMinus.x, ui.sfxMinus.y, ui.sfxMinus.w, ui.sfxMinus.h, "-");
+  drawMenuButton(ui.sfxPlus.x, ui.sfxPlus.y, ui.sfxPlus.w, ui.sfxPlus.h, "+");
+
+  text(t("Fullscreen", "全屏开关"), 100, 235);
+  drawMenuButton(
+    ui.fullscreen.x, ui.fullscreen.y, ui.fullscreen.w, ui.fullscreen.h,
+    s.fullscreen ? t("ON", "开启") : t("OFF", "关闭"),
+    isInside(mouseX, mouseY, ui.fullscreen)
+  );
+
+  text(t("Language", "语言切换"), 100, 295);
+  drawMenuButton(
+    ui.language.x, ui.language.y, ui.language.w, ui.language.h,
+    s.language,
+    isInside(mouseX, mouseY, ui.language)
+  );
+
+  drawMenuButton(
+    ui.backBtn.x, ui.backBtn.y, ui.backBtn.w, ui.backBtn.h,
+    t("Back", "返回"),
+    isInside(mouseX, mouseY, ui.backBtn)
+  );
+}
+
 
 //===== gameover screen ======
 function drawGameOverScreen() {
