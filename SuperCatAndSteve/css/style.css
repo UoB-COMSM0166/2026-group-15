@@ -1,3 +1,39 @@
+@font-face {
+    font-family: 'MojangRegular';
+    src: url('../assets/fonts/Mojang-Regular.ttf') format('truetype');
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'MojangBold';
+    src: url('../assets/fonts/Mojang-Bold.ttf') format('truetype');
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'PixelMplus10Regular';
+    src: url('../assets/fonts/PixelMplus10-Regular.ttf') format('truetype');
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'PixelMplus10Bold';
+    src: url('../assets/fonts/PixelMplus10-Bold.ttf') format('truetype');
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'PixelMplus12Regular';
+    src: url('../assets/fonts/PixelMplus12-Regular.ttf') format('truetype');
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'PixelMplus12Bold';
+    src: url('../assets/fonts/PixelMplus12-Bold.ttf') format('truetype');
+    font-display: swap;
+}
+
 * {
     margin: 0;
     padding: 0;
