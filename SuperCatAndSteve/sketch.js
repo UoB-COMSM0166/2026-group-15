@@ -31,6 +31,7 @@ const T = {
 // UI 常量
 const SLOT_SIZE = 24, SLOT_GAP = 8, INV_PADDING = 8;
 const INV_BAR_W = 10 * (SLOT_SIZE + SLOT_GAP) + INV_PADDING * 2 - SLOT_GAP, INV_BAR_H = 40;
+const INVENTORY_PROGRESS_CAT_W = 28, INVENTORY_PROGRESS_CAT_H = 14;
 const MAX_HEARTS = 5, HEART_SIZE = 20;
 /** 相邻心形容器左边缘间距增量（负值表示重叠） */
 const HEART_GAP = 0;
@@ -428,6 +429,8 @@ class Game {
     // --- 新增：统一的得分反馈提示（污染物/救援共用） ---
     this.scoreToastMessage = null;   // 当前显示的得分提示文案
     this.scoreToastUntil = 0;        // 提示显示截止时间戳（millis）
+    this.maxPlayerProgress = 0;      // 本局已到达的最远进度（用于背包上的进度猫）
+    this.displayedCatProgress = 0;   // HUD 中小猫当前显示的进度（带一点缓动）
   }
   
   tryAttack() {
@@ -505,6 +508,8 @@ class Game {
     this.state = "playing";
     this.showGuideMenu = false;
     this.activeGuideTab = 0;
+    this.maxPlayerProgress = 0;
+    this.displayedCatProgress = 0;
     this.resetHintState();
   }
 
@@ -518,6 +523,14 @@ class Game {
   update() {
     this.player.update(this.level.platforms, this.level);
     this.updateCamera();
+
+    const playerCenterX = this.player.x + this.player.w / 2;
+    const playerProgress = constrain(playerCenterX / WORLD_WIDTH, 0, 1);
+    this.maxPlayerProgress = Math.max(this.maxPlayerProgress, playerProgress);
+    this.displayedCatProgress = lerp(this.displayedCatProgress, this.maxPlayerProgress, 0.12);
+    if (Math.abs(this.maxPlayerProgress - this.displayedCatProgress) < 0.001) {
+      this.displayedCatProgress = this.maxPlayerProgress;
+    }
     
     // 更新所有敌人（追踪玩家）
     for (const enemy of this.level.enemies) {
@@ -3301,6 +3314,16 @@ class UIManager {
       // 背包 - 使用背包贴图（10格）
       const invX = (width - INV_BAR_W) / 2, invY = height - INV_BAR_H;
 
+      // 进度猫：显示本局到达过的最远进度，并用轻微缓动追上目标位置
+      const playerProgress = constrain(game?.displayedCatProgress ?? 0, 0, 1);
+      const catTrackWidth = INV_BAR_W - INVENTORY_PROGRESS_CAT_W;
+      const catX = invX + playerProgress * catTrackWidth;
+      const catY = invY - INVENTORY_PROGRESS_CAT_H;
+      const progressCatImg = window.inventoryProgressCat;
+      if (progressCatImg && progressCatImg.width > 0) {
+        image(progressCatImg, catX, catY, INVENTORY_PROGRESS_CAT_W, INVENTORY_PROGRESS_CAT_H);
+      }
+
       // 画背包贴图作为背景
       const invContainerImg = window.invContainer;
       if (invContainerImg && invContainerImg.width > 0) {
@@ -3505,6 +3528,7 @@ function setup() {
   load('assets/pic/ui/trophy_container.png', 'trophyContainer');
   load('assets/pic/ui/trophy_fill.png', 'trophyFill');
   load('assets/pic/ui/inventory_container.png', 'invContainer');
+  load('assets/pic/player_cat/cat_right.png', 'inventoryProgressCat');
   load('assets/pic/ui/menu.png', 'uiMenu');
   load('assets/pic/ui/exit.png', 'uiExit');
 
