@@ -34,7 +34,21 @@ const T = {
 // UI 常量
 const SLOT_SIZE = 24, SLOT_GAP = 8, INV_PADDING = 8;
 const INV_BAR_W = 10 * (SLOT_SIZE + SLOT_GAP) + INV_PADDING * 2 - SLOT_GAP, INV_BAR_H = 40;
-const MAX_HEARTS = 10, HEART_SIZE = 20;
+const MAX_HEARTS = 5, HEART_SIZE = 20;
+/** 相邻心形容器左边缘间距增量（负值表示重叠） */
+const HEART_GAP = 0;
+/** 生命栏相对画布左上内边距 */
+const HEART_UI_INSET = 4;
+/** 得分奖杯栏：槽位数（超过则全部显示为已满） */
+const MAX_TROPHY_SLOTS = 5;
+/** 奖杯图标绘制边长（与心形栏一致便于对齐） */
+const TROPHY_SIZE = HEART_SIZE;
+/** 奖杯栏相对画布上、右内边距（整条栏的顶边与最右格右缘） */
+const TROPHY_UI_INSET = 4;
+/** 退出按钮相对画布左、下边距（左缘、下缘各距屏幕边缘） */
+const EXIT_BTN_SCREEN_INSET = 2;
+/** 菜单按钮下缘与退出按钮上缘的间距 */
+const MENU_EXIT_VERTICAL_GAP = 2;
 
 // 手持武器绘制：大小固定 24×24，偏移量相对玩家贴图（朝右时 +X 向右、+Y 向下；朝左时镜像）
 const WEAPON_DRAW_SIZE = 24;
@@ -1137,7 +1151,7 @@ handleMousePressed(mx, my) {
 getInventorySlotAt(mx, my) {
   // 复用你们 UIManager.drawHUD 里背包的计算方式
   const invX = (width - INV_BAR_W) / 2;
-  const invY = height - INV_BAR_H - 12;
+  const invY = height - INV_BAR_H;
 
   // 点击区域只算背包内部 6 个格子
   const y0 = invY + INV_PADDING;
@@ -3752,21 +3766,25 @@ class HintCat {
 class UIManager {
   getTopRightButtons() {
     const size = HEART_SIZE;
-    const gap = 8;
-    const y = 20;
-    const right = 20;
+    const exitX = EXIT_BTN_SCREEN_INSET;
+    const exitY = height - size - EXIT_BTN_SCREEN_INSET;
+    const menuX = EXIT_BTN_SCREEN_INSET;
+    const menuY = exitY - MENU_EXIT_VERTICAL_GAP - size;
     return {
-      menuRect: { x: width - right - size * 2 - gap, y, w: size, h: size },
-      exitRect: { x: width - right - size, y, w: size, h: size }
+      menuRect: { x: menuX, y: menuY, w: size, h: size },
+      exitRect: { x: exitX, y: exitY, w: size, h: size }
     };
   }
 
   getGuideMenuRect() {
-    const menuRect = this.getTopRightButtons().menuRect;
-    const rightEdge = Math.round(menuRect.x + menuRect.w);
-    const panelW = Math.min(Math.floor(width * 0.48), 360, rightEdge - 8);
+    const { menuRect, exitRect } = this.getTopRightButtons();
+    const margin = 8;
+    const gapFromButtons = 8;
     const panelH = 186;
-    const x = Math.min(width - panelW, Math.round(rightEdge - panelW + 3));
+    const buttonColRight = Math.max(menuRect.x + menuRect.w, exitRect.x + exitRect.w);
+    const x0 = buttonColRight + gapFromButtons;
+    const panelW = Math.min(Math.floor(width * 0.48), 360, Math.max(0, width - x0 - margin));
+    const x = Math.round(constrain(x0, margin, Math.max(margin, width - margin - panelW)));
     const y = constrain(menuRect.y + menuRect.h, 0, height - panelH);
     return { x, y, w: panelW, h: panelH };
   }
@@ -3790,20 +3808,11 @@ class UIManager {
     else { fill(...fallbackColor); rect(rectInfo.x, rectInfo.y, rectInfo.w, rectInfo.h, 3); }
   }
 
-  drawScore(score, x, y) {
-    push();
-    fill(0);
-    textAlign(LEFT, BASELINE);
-    textSize(14);
-    text(`${t("Score", "得分")}: ${score}`, x, y);
-    pop();
-  }
-
   drawHUD(player, showGuideMenu = false, activeGuideTab = 0) {
     // 生命条
-    const heartX = 20, heartY = 20;
+    const heartX = HEART_UI_INSET, heartY = HEART_UI_INSET;
     for (let i = 0; i < MAX_HEARTS; i++) {
-      const x = heartX + i * HEART_SIZE;
+      const x = heartX + i * (HEART_SIZE + HEART_GAP);
       const container = window.heartContainer, fillImg = window.heartFill;
       if (container && container.width > 0) image(container, x, heartY, HEART_SIZE, HEART_SIZE);
       else { fill(80); rect(x, heartY, HEART_SIZE, HEART_SIZE); }
@@ -3813,12 +3822,38 @@ class UIManager {
       }
     }
 
+    // 得分奖杯栏（与生命栏相同：先画容器，再按分数从左到右叠填充；整条右对齐、顶对齐）
+    const trophyY = TROPHY_UI_INSET;
+    const trophyStride = TROPHY_SIZE + HEART_GAP;
+    const trophyContainerImg = window.trophyContainer;
+    const trophyFillImg = window.trophyFill;
+    const filledTrophies = Math.min(Math.max(0, Math.floor(player.score)), MAX_TROPHY_SLOTS);
+    for (let i = 0; i < MAX_TROPHY_SLOTS; i++) {
+      const x = width - TROPHY_UI_INSET - TROPHY_SIZE - (MAX_TROPHY_SLOTS - 1 - i) * trophyStride;
+      if (trophyContainerImg && trophyContainerImg.width > 0) {
+        image(trophyContainerImg, x, trophyY, TROPHY_SIZE, TROPHY_SIZE);
+      } else {
+        fill(55, 55, 65);
+        noStroke();
+        rect(x, trophyY, TROPHY_SIZE, TROPHY_SIZE);
+      }
+      if (i < filledTrophies) {
+        if (trophyFillImg && trophyFillImg.width > 0) {
+          image(trophyFillImg, x, trophyY, TROPHY_SIZE, TROPHY_SIZE);
+        } else {
+          fill(210, 175, 55);
+          noStroke();
+          rect(x + 2, trophyY + 2, TROPHY_SIZE - 4, TROPHY_SIZE - 4);
+        }
+      }
+    }
+
       const topRight = this.getTopRightButtons();
       this.drawTopRightIcon(topRight.menuRect, window.uiMenu, [240, 210, 80]);
       this.drawTopRightIcon(topRight.exitRect, window.uiExit, [240, 120, 90]);
 
       // 背包 - 使用背包贴图（10格）
-      const invX = (width - INV_BAR_W) / 2, invY = height - INV_BAR_H - 12;
+      const invX = (width - INV_BAR_W) / 2, invY = height - INV_BAR_H;
 
       // 画背包贴图作为背景
       const invContainerImg = window.invContainer;
@@ -3859,7 +3894,6 @@ class UIManager {
           }
         }
       }
-    this.drawScore(game.player.score, heartX, heartY + HEART_SIZE + 18);
 
     if (showGuideMenu) this.drawGuideMenu(activeGuideTab);
   }
@@ -4024,6 +4058,8 @@ function setup() {
   // UI 等（心形在 assets 根目录，背包在 assets/pic）
   load('assets/heart_container.png', 'heartContainer');
   load('assets/heart_fill.png', 'heartFill');
+  load('assets/pic/ui/trophy_container.png', 'trophyContainer');
+  load('assets/pic/ui/trophy_fill.png', 'trophyFill');
   load('assets/pic/ui/inventory_container.png', 'invContainer');
   load('assets/pic/ui/menu.png', 'uiMenu');
   load('assets/pic/ui/exit.png', 'uiExit');
