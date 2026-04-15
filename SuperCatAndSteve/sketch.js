@@ -5,9 +5,6 @@ const CANVAS_H = 360;
 const TILE_SIZE = 32;
 const TERRAIN_COLS = Math.ceil(WORLD_WIDTH / TILE_SIZE);
 const INVENTORY_SLOTS = 10;
-const HINT_CAT_DELAY_MS = 500;
-const HINT_CAT_GAP = 8;
-const HINT_POLLUTANT_RANGE = 96;
 const MINE_PRESS_MS = 500;  // 长按多久后破坏方块
 const WIN_SCORE = 12;
 const VICTORY_DELAY_MS = 1500;
@@ -411,7 +408,6 @@ class Game {
     this.level.loadAssets();
     //this.player = new Player(80, 60); 
     this.uiManager = new UIManager();
-    this.playerHistory = [];
     this.cameraX = 0;
     this.mouseDownTime = 0;
     this.lastAttackTime = 0;
@@ -419,10 +415,6 @@ class Game {
     this.victoryAt = 0;
     this.showGuideMenu = false;
     this.activeGuideTab = 0;
-    this.lavaFirstHintShown = false;
-    this.hintPriorityMessage = null;
-    this.hintPriorityHoldUntil = 0;
-    this.baseHintIntroUntil = 0;
     // 游戏状态：start playing gameover victory
     this.state = "start";
 
@@ -518,10 +510,6 @@ class Game {
 
   resetHintState() {
     this.victoryAt = 0;
-    this.lavaFirstHintShown = false;
-    this.hintPriorityMessage = null;
-    this.hintPriorityHoldUntil = 0;
-    this.baseHintIntroUntil = millis() + 3800;
     // 重置得分反馈提示状态（避免关卡切换残留文案）
     this.scoreToastMessage = null;
     this.scoreToastUntil = 0;
@@ -530,7 +518,6 @@ class Game {
   update() {
     this.player.update(this.level.platforms, this.level);
     this.updateCamera();
-    this.updateHintCat();
     
     // 更新所有敌人（追踪玩家）
     for (const enemy of this.level.enemies) {
@@ -688,65 +675,6 @@ class Game {
     else if (this.player.x > WORLD_WIDTH - halfW) this.cameraX = WORLD_WIDTH - CANVAS_W;
     else this.cameraX = this.player.x - halfW;
   }
-  
-updateHintCat() {
-    if (!this.player || !this.level || !this.level.hintCat) return;
-
-    const now = millis();
-
-    // 记录历史
-    this.playerHistory.push({
-      x: this.player.x, y: this.player.y,
-      w: this.player.w, h: this.player.h,
-      facingRight: this.player.facingRight, t: now
-    });
-
-    const cutoff = now - HINT_CAT_DELAY_MS;
-    while (this.playerHistory.length && this.playerHistory[0].t < cutoff) {
-      this.playerHistory.shift();
-    }
-
-    let pastState = this.getDelayedState();
-    
-    // 如果开局还没有 500ms 的历史，就让猫先跟着玩家当前的位置
-    let targetState = pastState ? pastState : this.player;
-
-    // 执行跟随
-    this.level.hintCat.follow(targetState, this.level);
-
-    const liveHint = this.getHintMessage();
-    const isBaseHint =
-      liveHint === "Move: A / D\nCrouch: S\n(Double)Jump: W(x2)" ||
-      liveHint === "Move: A / D\nDive: S\nSwim Up: Hold W";
-
-    if (liveHint && !isBaseHint) {
-      this.hintPriorityMessage = liveHint;
-      this.hintPriorityHoldUntil = now + 1600;
-      this.level.hintCat.setMessage(liveHint);
-      return;
-    }
-
-    if (this.hintPriorityMessage && now < this.hintPriorityHoldUntil) {
-      this.level.hintCat.setMessage(this.hintPriorityMessage);
-      return;
-    }
-
-    this.hintPriorityMessage = null;
-    this.hintPriorityHoldUntil = 0;
-    this.level.hintCat.setMessage(liveHint || null);
-  }
-
-
-  getDelayedState() {
-    const targetT = millis() - HINT_CAT_DELAY_MS;
-    const box = this.player.getCollisionBox();
-    if (!this.playerHistory.length) return { x: box.x, y: box.y, w: box.w, h: box.h, facingRight: this.player.facingRight };
-    let best = this.playerHistory[0];
-    for (let s of this.playerHistory) {
-      if (s.t <= targetT) best = s; else break;
-    }
-    return best;
-  }
 
   /** 玩家当前攻击力：手持武器的伤害，无武器为 1 */
   getAttackDamage() {
@@ -875,53 +803,6 @@ tryRescueBirdWithScissor(slotIndex) {
     return Math.sqrt((px - ix) ** 2 + (py - iy) ** 2);
   }
 
-  getClosestDistance(list, predicate, distanceFn) {
-    let best = Infinity;
-    for (const obj of list) {
-      if (!predicate(obj)) continue;
-      const d = distanceFn.call(this, obj);
-      if (d < best) best = d;
-    }
-    return best;
-  }
-
-  getClosestToolDistance(toolType) {
-    return this.getClosestDistance(
-      this.level.items,
-      (item) => item instanceof Tool && item.toolType === toolType,
-      this.distanceToItem
-    );
-  }
-
-  getClosestItemDistanceByClass(Cls) {
-    return this.getClosestDistance(
-      this.level.items,
-      (item) => item instanceof Cls,
-      this.distanceToItem
-    );
-  }
-
-  getClosestOreDistance() {
-    const box = this.player.getCollisionBox();
-    const px = box.x + box.w / 2;
-    const py = box.y + box.h / 2;
-    let best = Infinity;
-    for (let col = 0; col < TERRAIN_COLS; col++) {
-      const surfaceY = this.level.terrainHeights[col];
-      if (surfaceY === undefined) continue;
-      const rows = this.level.tileMap[col] || [];
-      for (let row = 0; row < rows.length; row++) {
-        const tileType = rows[row];
-        if (!this.isOreTile(tileType)) continue;
-        const tx = col * TILE_SIZE + TILE_SIZE / 2;
-        const ty = surfaceY + row * TILE_SIZE + TILE_SIZE / 2;
-        const d = Math.hypot(px - tx, py - ty);
-        if (d < best) best = d;
-      }
-    }
-    return best;
-  }
-
   getPointedMineableTile(worldX, worldY) {
     const col = Math.floor(worldX / TILE_SIZE);
     if (col < 0 || col >= TERRAIN_COLS) return null;
@@ -973,144 +854,6 @@ tryRescueBirdWithScissor(slotIndex) {
 
   canCollectItem() {
     return this.player.inventory.length < INVENTORY_SLOTS;
-  }
-
-  isOreTile(tileType) {
-    return [
-      T.COPPER, T.DEEP_COPPER, T.DEEP_DIAMOND, T.DEEP_GOLD, T.DEEP_IRON,
-      T.DIAMOND, T.GOLD, T.IRON
-    ].includes(tileType);
-  }
-
-  isNearOre() {
-    return this.getClosestOreDistance() <= HINT_POLLUTANT_RANGE;
-  }
-
-  isNearFloating() {
-    for (const p of this.level.platforms) {
-      if (!p._floating) continue;
-      if (this.isInReachZone(p.x, p.y, p.w, p.h)) return true;
-    }
-    return false;
-  }
-
-  isNearHazard(tileType, range = TILE_SIZE * 1.1) {
-    const box = this.player.getCollisionBox();
-    const bx = box.x;
-    const by = box.y;
-    const bw = box.w;
-    const bh = box.h;
-
-    const colMin = Math.max(0, Math.floor((bx - range) / TILE_SIZE));
-    const colMax = Math.min(TERRAIN_COLS - 1, Math.floor((bx + bw + range) / TILE_SIZE));
-
-    for (let col = colMin; col <= colMax; col++) {
-      const rows = this.level.tileMap[col] || [];
-      for (let row = 0; row < rows.length; row++) {
-        if (rows[row] !== tileType) continue;
-        const rx = col * TILE_SIZE;
-        const ry = 360 - (row + 1) * TILE_SIZE;
-        const rw = TILE_SIZE;
-        const rh = TILE_SIZE;
-
-        const dx = Math.max(rx - (bx + bw), 0, bx - (rx + rw));
-        const dy = Math.max(ry - (by + bh), 0, by - (ry + rh));
-        if (Math.hypot(dx, dy) <= range) return true;
-      }
-    }
-
-    return false;
-  }
-
-  isNearLava() {
-    return this.isNearHazard(T.LAVA);
-  }
-
-  isNearAcid() {
-    return this.isNearHazard(T.ACID);
-  }
-
-  getHintMessage() {
-    // 优先显示短时得分反馈，覆盖普通环境提示
-    if (this.scoreToastMessage && millis() < this.scoreToastUntil) {
-      return this.scoreToastMessage;
-    }
-
-    // 1. 设置基础提示词（作为没有紧急事件时的默认显示）
-    let baseHint = null;
-    if (this.levelType === "water") {
-      baseHint = "Move: A / D\nDive: S\nSwim Up: Hold W";
-    } else if (this.levelType === "forest" || this.levelType === "factory") {
-      baseHint = "Move: A / D\nCrouch: S\n(Double)Jump: W(x2)";
-    }
-
-    // 2. 环境与道具检测（如果下方条件满足，会直接 return，从而覆盖上面的 baseHint）
-    const nearLavaNow = this.isNearLava();
-    const worldX = mouseX + this.cameraX;
-    const worldY = mouseY;
-
-    // 最后一层方块警告
-    const pointedTile = this.getPointedMineableTile(worldX, worldY);
-    if (pointedTile && pointedTile.row === pointedTile.bottomRow) return "Careful! Keep the last tile.";
-
-    // 敌人警告
-    const closestEnemyDist = this.getClosestDistance(
-      this.level.enemies,
-      (enemy) => !enemy.isDead,
-      this.distanceToEnemy
-    );
-    const zombieHintRange = MUTUAL_ATTACK_RANGE * 1.6;
-    if (closestEnemyDist <= zombieHintRange) return "Zombie close! Press F.";
-
-    // TNT 警告
-    const closestTntDist = this.getClosestItemDistanceByClass(TNT);
-    if (closestTntDist <= HINT_POLLUTANT_RANGE) return "❗️TNT nearby. Keep away.";
-
-    // 岩浆与水桶逻辑
-    const hasBucket = this.hasTool('enlarged_water_bucket');
-    if (nearLavaNow) {
-      if (!hasBucket) return "‼️ Near lava:\nneed water to extinguish.";
-      return "‼️ Near lava:\nClick bucket to extinguish.";
-    }
-
-    // 道具/矿石/鸟类提示 (如果靠近这些物体，提示会优先显示)
-    const closestBucketDist = this.getClosestToolDistance('enlarged_water_bucket');
-    if (closestBucketDist <= HINT_POLLUTANT_RANGE && !hasBucket) return "Collect water source.";
-
-    const hasLimestone = this.hasTool('limestone');
-    const closestLimestoneDist = this.getClosestToolDistance('limestone');
-    if (closestLimestoneDist <= HINT_POLLUTANT_RANGE && !hasLimestone) return "Collect limestone.";
-    if (this.isNearAcid()) return "‼️ Near acid pool:\nClick limestone to treat.";
-
-    const closestScissorDist = this.getClosestToolDistance('scissor');
-    if (closestScissorDist <= HINT_POLLUTANT_RANGE && !this.playerHasScissor()) return "Pick up scissors first.";
-
-    const closestBirdDist = this.getClosestDistance(
-      this.level.items,
-      (item) => item instanceof TrappedBird && item.isTrapped(),
-      this.distanceToItem
-    );
-    if (closestBirdDist <= HINT_POLLUTANT_RANGE * 1.7) {
-      if (closestBirdDist <= HINT_POLLUTANT_RANGE * 0.9) return "Click scissors to rescue.";
-      return "Bird needs rescue.";
-    }
-
-    const closestPollutantDist = this.getClosestItemDistanceByClass(Pollutant);
-    if (closestPollutantDist <= HINT_POLLUTANT_RANGE) return "Collect nearby pollutants.";
-
-    const closestOreDist = this.getClosestOreDistance();
-    if (closestOreDist <= HINT_POLLUTANT_RANGE * 1.35) {
-      if (closestOreDist <= HINT_POLLUTANT_RANGE * 0.85) return "Hold mouse to mine ore.";
-      return "Mine ore to upgrade sword.";
-    }
-
-    // 3. 基础提示：仅开局短暂停留，后续仅玩家静止时显示
-    const now = millis();
-    const noMoveInput = !keys['a'] && !keys['d'] && !keys['w'] && !keys['s'];
-    const isPlayerStill = Math.abs(this.player.vx || 0) < 0.06 && Math.abs(this.player.vy || 0) < 0.08;
-    const shouldShowBaseHint = now <= this.baseHintIntroUntil || (noMoveInput && isPlayerStill);
-    if (baseHint && shouldShowBaseHint) return baseHint;
-    return null;
   }
 
 handleMousePressed(mx, my) {
@@ -1343,7 +1086,6 @@ tryUseLimestone() {
     translate(-this.cameraX, 0);
     this.level.draw();
     this.player.draw();
-    this.level.hintCat.draw();
 
     // 如果玩家在水中，叠加一层半透明水贴图在玩家前面
     // if (typeof this.player.isInWater === "function" && this.player.isInWater(this.level)) {
@@ -1381,7 +1123,6 @@ class Level {
     this.platforms = [];
     this.enemies = [];
     this.items = [];
-    this.hintCat = new HintCat(32, 48);
     this.terrainHeights = [];
     this.tileMap = Array.from({ length: TERRAIN_COLS }, () => []);
     this.terrainBlocks = Array.from({ length: TERRAIN_COLS }, () => []);  // [col][row] = Platform
@@ -3467,301 +3208,6 @@ class Weapon extends Item {
   }
 }
 
-// ====== HintCat 类 ======
-class HintCat {
-  constructor(x, y) { Object.assign(this, { x, y, w: 32, h: 16, vy: 0, facingRight: true, messages: ["Move: A / D, Crouch: S", "Double Jump: W x2"], message: null }); }
-
-  getCollisionBox() {
-    return { x: this.x, y: this.y, w: this.w, h: this.h };
-  }
-
-  isSolidTile(tile) {
-    return tile !== undefined && tile !== null && tile !== T.NONE && tile !== T.WATER;
-  }
-
-  getSolidTileRects(level, box) {
-    if (!level || !level.tileMap) return [];
-    const colStart = Math.max(0, Math.floor(box.x / TILE_SIZE));
-    const colEnd = Math.min(TERRAIN_COLS - 1, Math.floor((box.x + box.w - 1) / TILE_SIZE));
-    const rowTop = Math.floor((CANVAS_H - box.y - 1) / TILE_SIZE);
-    const rowBottom = Math.max(0, Math.floor((CANVAS_H - (box.y + box.h) - 1) / TILE_SIZE));
-
-    const rects = [];
-    const seen = new Set();
-    for (let col = colStart; col <= colEnd; col++) {
-      const column = level.tileMap[col];
-      if (!column) continue;
-      const rowMax = Math.min(column.length - 1, rowTop);
-      for (let row = rowBottom; row <= rowMax; row++) {
-        const tile = column[row];
-        if (!this.isSolidTile(tile)) continue;
-        const key = `${col}:${row}`;
-        if (seen.has(key)) continue;
-        const tb = level.terrainBlocks?.[col]?.[row];
-        if (tb) rects.push(tb);
-        else rects.push({ x: col * TILE_SIZE, y: CANVAS_H - (row + 1) * TILE_SIZE, w: TILE_SIZE, h: TILE_SIZE });
-        seen.add(key);
-      }
-    }
-    return rects;
-  }
-
-  getCollisionCandidates(level, box) {
-    const isWaterLevel = level && level.constructor && level.constructor.name === 'WaterLevel';
-    if (!isWaterLevel) {
-      // 森林关：关闭 HintCat 碰撞阻挡，避免被平台/地块卡住
-      return [];
-    }
-    return [
-      ...(level?.platforms || []),
-      ...this.getSolidTileRects(level, box)
-    ];
-  }
-
-  moveWithCollision(level, dx, dy) {
-    const maxStep = 0.5;
-    const steps = Math.max(1, Math.ceil(Math.max(Math.abs(dx), Math.abs(dy)) / maxStep));
-    const stepX = dx / steps;
-    const stepY = dy / steps;
-
-    for (let i = 0; i < steps; i++) {
-      const oldX = this.x, oldY = this.y;
-      this.x += stepX;
-      this.y += stepY;
-
-      const box = this.getCollisionBox();
-      const candidates = this.getCollisionCandidates(level, box);
-      let collided = false;
-      for (const p of candidates) {
-        const rects = getCollisionRectsForCollider(p);
-        for (const r of rects) {
-          if (rectCollision(box.x, box.y, box.w, box.h, r.x, r.y, r.w, r.h)) {
-            collided = true;
-            break;
-          }
-        }
-        if (collided) break;
-      }
-      if (collided) {
-        this.x = oldX;
-        this.y = oldY;
-        break;
-      }
-    }
-  }
-
-  snapDownToGround(level) {
-    const box = this.getCollisionBox();
-    const bottom = box.y + box.h;
-    const maxSnap = TILE_SIZE * 0.95;
-    let bestGap = Infinity;
-    const candidates = this.getCollisionCandidates(level, box);
-    for (const p of candidates) {
-      const rects = getCollisionRectsForCollider(p);
-      for (const r of rects) {
-        if (box.x < r.x + r.w && box.x + box.w > r.x) {
-          const gap = r.y - bottom;
-          if (gap >= 0 && gap <= maxSnap && gap < bestGap) bestGap = gap;
-        }
-      }
-    }
-    if (bestGap !== Infinity) {
-      this.y += bestGap;
-    }
-  }
-
-  setMessage(message) {
-    this.message = message;
-  }
-
-  follow(state, level) {
-    // 1. 基础安全检查：数据不完整直接退出，不执行任何逻辑
-    if (!state || typeof state.x === 'undefined' || !level) return;
-
-    // 2. 水平跟随：紧跟 state (玩家历史位置)
-    const gap = 48;
-    const targetX = state.x + (state.facingRight ? -gap : gap);
-    const dx = lerp(this.x, targetX, 0.15) - this.x;
-    // 先尝试水平移动并做碰撞阻挡
-    this.moveWithCollision(level, dx, 0);
-    this.facingRight = state.facingRight;
-
-    // 3. 垂直逻辑
-    // 水关卡：让猫的 Y 轴直接跟随玩家（或延迟后的玩家状态），实现“在水里一起游”
-    const isWaterLevel = level && level.constructor && level.constructor.name === 'WaterLevel';
-    if (isWaterLevel) {
-      // 水关：Y 轴也要阻挡实心方块
-      const dy = state.y - this.y;
-      this.moveWithCollision(level, 0, dy);
-
-      // 如果与玩家水平距离超过3格，视为被卡，瞬移到玩家身后
-      const catCx = this.x + this.w / 2;
-      const playerCx = state.x + (state.w || this.w) / 2;
-      const horizontalDist = Math.abs(playerCx - catCx);
-      const TELEPORT_DIST = TILE_SIZE * 3; // 超过3格
-      if (horizontalDist > TELEPORT_DIST) {
-        const gap = 48; // 瞬移到玩家身后固定间距
-        this.x = state.x + (state.facingRight ? -gap : gap);
-        this.y = state.y;
-        this.vy = 0;
-        this.x = constrain(this.x, 0, WORLD_WIDTH - this.w);
-      }
-      return;
-    }
-
-    // 非水关：寻找“当前猫 X 轴下且不高于玩家脚底太多的安全表面”（地形列 + 平台），让猫贴着这一层走
-    let groundY = CANVAS_H;
-    const candidates = [];
-    const cxCenter = this.x + this.w / 2; // 只看猫当前位置，不预判玩家
-    const playerFeetY = (state.y || 0) + (state.h || this.h); // 玩家脚底（越大越低）
-
-    // 3.1 收集整列地形的所有非空且非岩浆的格子顶面
-    if (level.tileMap) {
-      const col = Math.floor(cxCenter / TILE_SIZE);
-      if (col >= 0 && col < level.tileMap.length) {
-        const column = level.tileMap[col] || [];
-        for (let row = column.length - 1; row >= 0; row--) {
-          const t = column[row];
-          if (t === undefined || t === T.NONE || t === T.LAVA) continue;
-          const surfaceY = CANVAS_H - (row + 1) * TILE_SIZE;
-          candidates.push(surfaceY);
-          break; // 只要最高一块，避免提前踩更高层
-        }
-      }
-    }
-
-    // 3.2 再看浮空平台：平台顶面也作为候选，X 轴需要覆盖当前猫身
-    if (level.platforms) {
-      for (let p of level.platforms) {
-        if (cxCenter > p.x && cxCenter < p.x + p.w) {
-          candidates.push(p.y);
-        }
-      }
-    }
-
-    // 3.3 约束：不高于玩家脚底（无容差），防止玩家在下层时猫跳到上层；否则取最近
-    if (candidates.length) {
-      const notHigher = candidates.filter(y => y >= playerFeetY); // y 越小越高
-      if (notHigher.length) {
-        groundY = Math.min(...notHigher);
-      } else {
-        const sorted = [...candidates].sort((a, b) => Math.abs(a - playerFeetY) - Math.abs(b - playerFeetY));
-        groundY = sorted[0];
-      }
-    }
-
-    // 4. 先按“贴地”逻辑计算一个原始 Y
-    let targetY = groundY - this.h;
-
-    // 4.1 防穿模：如果目标位置与固体方块重叠，向上推到方块顶
-    if (typeof level.getTileAtWorld === 'function') {
-      const solidTiles = (x, y) => {
-        const t = level.getTileAtWorld(x, y);
-        return t !== undefined && t !== T.NONE && t !== T.LAVA;
-      };
-      const pushOutOfSolid = () => {
-        const left = this.x;
-        const right = this.x + this.w;
-        const bottom = targetY + this.h;
-        // 采样猫的左右脚和中点，若落在固体内则推到方块顶
-        const samples = [
-          { x: left + 2, y: bottom - 1 },
-          { x: (left + right) / 2, y: bottom - 1 },
-          { x: right - 2, y: bottom - 1 }
-        ];
-        for (const s of samples) {
-          if (solidTiles(s.x, s.y)) {
-            const tileTop = Math.floor(s.y / TILE_SIZE) * TILE_SIZE;
-            targetY = tileTop - this.h;
-            return true;
-          }
-        }
-        return false;
-      };
-      // 可能需要多次推，直到不重叠或推不动
-      let guard = 0;
-      while (pushOutOfSolid() && guard++ < 4) {}
-    }
-
-    // 5. 检查脚下是否是岩浆，如果是，就把 groundY 往上抬 1.5 格
-    if (typeof level.getTileAtWorld === 'function') {
-      const cx = this.x + this.w / 2;
-      const feetY = targetY + this.h; // 猫脚底的 Y 坐标
-
-      let lavaNearFeet = false;
-      const offsets = [0, TILE_SIZE]; // 脚底这一格，以及再往下 1 格
-
-      for (const off of offsets) {
-        const sampleY = feetY + off;
-        const tile = level.getTileAtWorld(cx, sampleY);
-        if (tile === T.LAVA) {
-          lavaNearFeet = true;
-          break;
-        }
-      }
-
-      if (lavaNearFeet) {
-        const raiseTiles = 1.5;            // 抬高 1.5 格，可按手感微调
-        groundY -= raiseTiles * TILE_SIZE; 
-        targetY = groundY - this.h;        // 基于新的 groundY 重新计算 Y
-      }
-    }
-
-    // 6. 应用高度并做最终碰撞阻挡（含台阶吸附）
-    const dy = targetY - this.y;
-    this.moveWithCollision(level, 0, dy);
-    this.snapDownToGround(level);
-  }
-
-  
-  draw() {
-    const img = this.facingRight ? window.catSpriteRight : window.catSpriteLeft;
-    if (img && img.width > 0) image(img, this.x, this.y, this.w, this.h);
-    else { fill(255, 200, 0); rect(this.x, this.y, this.w, this.h); }
-    const msg = this.message;
-    if (msg) {
-      push();
-      textSize(9);
-      const paddingX = 5;
-      const paddingY = 4;
-      const maxCharsPerLine = 16;
-      let lines = [];
-      const parts = msg.split("\n");
-      for (const part of parts) {
-        const words = part.split(" ");
-        let current = "";
-        for (const word of words) {
-          const needsSpace = current.length > 0;
-          const next = (needsSpace ? current + " " : current) + word;
-          if (next.length <= maxCharsPerLine) {
-            current = next;
-          } else {
-            if (current.length > 0) lines.push(current);
-            current = word;
-          }
-        }
-        if (current) lines.push(current);
-      }
-      const lineH = 11;
-      const bubbleW = min(132, max(...lines.map(l => textWidth(l))) + paddingX * 2);
-      const bubbleH = lines.length * lineH + paddingY * 2;
-      const bubbleX = this.x + this.w / 2 - bubbleW / 2;
-      const bubbleY = max(6, this.y - bubbleH - 6);
-      noStroke();
-      fill(255, 210);
-      rect(bubbleX, bubbleY, bubbleW, bubbleH, 4);
-      fill(130);
-      textAlign(CENTER, CENTER);
-      for (let i = 0; i < lines.length; i++) {
-        const y = bubbleY + paddingY + lineH / 2 + i * lineH;
-        text(lines[i], bubbleX + bubbleW / 2, y);
-      }
-      pop();
-    }
-  }
-}
-
-
 // ====== UIManager 类 ======
 class UIManager {
   getTopRightButtons() {
@@ -4034,11 +3480,9 @@ function setup() {
   load('assets/pic/animals/bird_flip.png', 'bird_flip');
   load('assets/pic/animals/web_back.png', 'web_back');
   load('assets/pic/animals/web_front.png', 'web_front');
-  // 玩家与猫（assets/pic/player_cat）
+  // 玩家（assets/pic/player_cat）
   load('assets/pic/player_cat/Alex_left.png', 'alexSpriteLeft');
   load('assets/pic/player_cat/Alex_right.png', 'alexSpriteRight');
-  load('assets/pic/player_cat/cat_left.png', 'catSpriteLeft');
-  load('assets/pic/player_cat/cat_right.png', 'catSpriteRight');
 
   // 敌人（assets/pic/enemy）
   load('assets/pic/enemy/zombie_left.png', 'zombieSpriteLeft');
