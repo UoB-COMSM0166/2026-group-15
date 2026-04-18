@@ -1,7 +1,6 @@
 <div align="center">
 
-# University of Bristol  
-## Software Engineering - Group 15 (2026)
+# University of Bristol<br>Software Engineering - Group 15 (2026)
 
 </div>
 
