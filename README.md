@@ -26,7 +26,6 @@
   - [Case Diagram](#case-diagram)
   - [User Stories](#user-stories)
   - [Early Stage Design](#early-stage-design)
-    - [Table: Game ideas and discussion results](#table-game-ideas-and-discussion-results)
   - [Ideation Process](#ideation-process)
     - [Two Game Ideas](#two-game-ideas)
     - [Stakeholders](#stakeholders)
@@ -90,7 +89,7 @@ Yitong Zheng, Li Shen, Xianwen Hu, Jingyu Xiao, Sirui Zhong, Linjing Zhang
 
 ### Early Stage Design
 </div>
-<p align="center">Table: Game ideas and discussion results</p>
+<p align="center">Game Ideas and Discussion results</p>
 </div>
 
 | Game Type | Game Prototype | Game Description | Added Idea Points | Possible Challenges |
