@@ -89,8 +89,10 @@ Yitong Zheng, Li Shen, Xianwen Hu, Jingyu Xiao, Sirui Zhong, Linjing Zhang
 | **As** the network supervision departments,  **I want** the the game to be educational and positive while encouraging children to learn about environmental protection, **so that** the props in the game should relate to real world and contains that are unsuitable for children should be excluded. | **Given** the game is an environmental protection game designed for children aged 6–12,  **when** a child plays the game continuously for more than 30 minutes,   **then** a clear warning message about the risks of excessive gaming is displayed on screen for at least 10 second.<br>**Given** the game is ready for public release,  **when** it is reviewed by a supervision team consisting of at least 3 educational or child-development experts,  **then** the game must achieve a content safety approval rating of 100% compliance with child protection guidelines. |
 
 ### Early Stage Design
+</div>
+<p align="center">Table: Game ideas and discussion results</p>
+</div>
 
-#### Table: Game ideas and discussion results
 | Game Type | Game Prototype | Game Description | Added Idea Points | Possible Challenges |
 |----------|----------------|------------------|-------------------|---------------------|
 | Platform Adventure / Roguelike / Mystery Gacha | Super Mario (platforming), Risk of Rain (RNG & risk/reward) | Players control Mario through platforming levels, jumping on enemies, collecting coins, and reaching the end flag. | (1) End-Level Box: 50/50 chance each level (Princess = bonuses, Dragon = player gets weaker but survives).<br>(2) Optional Boxes: Random power-ups in dangerous areas.<br>(3) Time Loop: Restart level, player keeps items/coins, loses health.<br>(4) Princess Blessings: Stack blessings for better rewards and higher Princess rates. | (1) RNG fairness & seed control<br>(2) Dynamic health bar & animation<br>(3) Sprite scaling & collision accuracy<br>(4) State persistence for time loop<br>(5) Particle systems (fireworks)<br>(6) Item effect stacking & timers<br>(7) Box placement & level balance<br>(8) Dynamic probability & pity system |
