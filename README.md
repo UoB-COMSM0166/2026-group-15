@@ -89,7 +89,7 @@ Yitong Zheng, Li Shen, Xianwen Hu, Jingyu Xiao, Sirui Zhong, Linjing Zhang
 
 ### Early Stage Design
 </div>
-<p align="center">Game Ideas and Discussion results</p>
+<p align="center"><strong>Game Ideas and Discussion Results</strong></p>
 </div>
 
 | Game Type | Game Prototype | Game Description | Added Idea Points | Possible Challenges |
