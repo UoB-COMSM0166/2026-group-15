@@ -27,6 +27,7 @@
   - [User Stories](#user-stories)
   - [Early Stage Design](#early-stage-design)
     - [Table: Game ideas and discussion results](#table-game-ideas-and-discussion-results)
+  - [Ideation Process](#ideation-process)
     - [Two Game Ideas](#two-game-ideas)
     - [Stakeholders](#stakeholders)
     - [Team Reflection on Requirements Workshop](#team-reflection-on-requirements-workshop)
@@ -60,13 +61,9 @@ Yitong Zheng, Li Shen, Xianwen Hu, Jingyu Xiao, Sirui Zhong, Linjing Zhang
 - Group member 5, name, email, role  
 - Group member 6, name, email, role  
 
----
-
 ## Introduction
 - 5% ~250 words 
 - Describe your game, what is based on, what makes it novel? (what's the "twist"?)
-
----
 
 ## Requirements
 - 15% ~750 words
