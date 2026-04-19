@@ -50,7 +50,7 @@
 
 ## Team
 Yitong Zheng, Li Shen, Xianwen Hu, Jingyu Xiao, Sirui Zhong, Linjing Zhang  
-![Team Photo](./docs/images/team-photo.jpg)
+![Team Photo](./docs/images/team-photo-with-name.jpg)
 
 - Group member 1, name, email, role  
 - Group member 2, name, email, role  
