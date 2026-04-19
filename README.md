@@ -21,25 +21,25 @@
 - [1. Team](#1-team)
 - [2. Introduction](#2-introduction)
 - [3. Requirements](#3-requirements)
-  - [3.1 Case Diagram](#3-1-case-diagram)
-  - [3.2 User Stories](#3-2-user-stories)
-  - [3.3 Early Stage Design](#3-3-early-stage-design)
-  - [3.4 Ideation Process](#3-4-ideation-process)
+  - [3.1 Case Diagram](#31-case-diagram)
+  - [3.2 User Stories](#32-user-stories)
+  - [3.3 Early Stage Design](#33-early-stage-design)
+  - [3.4 Ideation Process](#34-ideation-process)
     - [Two Game Ideas](#two-game-ideas)
     - [Stakeholders](#stakeholders)
     - [Team Reflection on Requirements Workshop](#team-reflection-on-requirements-workshop)
 - [4. Design](#4-design)
-  - [4.1 Class Diagram](#4-1-class-diagram)
-  - [4.2 Communication Diagram](#4-2-communication-diagram)
-  - [4.3 Design Conclusion](#4-3-design-conclusion)
+  - [4.1 Class Diagram](#41-class-diagram)
+  - [4.2 Communication Diagram](#42-communication-diagram)
+  - [4.3 Design Conclusion](#43-design-conclusion)
 - [5. Implementation](#5-implementation)
   - [Camera Movement](#camera-movement)
   - [Physics Engine](#physics-engine)
   - [Gameplay Additions](#gameplay-additions)
 - [6. Evaluation](#6-evaluation)
-  - [6.1 Qualitative Analysis - Think Aloud Evaluation](#6-1-qualitative-analysis---think-aloud-evaluation)
-  - [6.2 Quantitative Analysis](#6-2-quantitative-analysis)
-  - [6.3 JUnit Testing](#6-3-junit-testing)
+  - [6.1 Qualitative Analysis - Think Aloud Evaluation](#61-qualitative-analysis---think-aloud-evaluation)
+  - [6.2 Quantitative Analysis](#62-quantitative-analysis)
+  - [6.3 JUnit Testing](#63-junit-testing)
 - [7. Process](#7-process)
 - [8. Conclusion](#8-conclusion)
 - [9. Individual Contribution](#9-individual-contribution)
@@ -84,10 +84,8 @@
 | **As** a game reviewer, **I want** to experience and evaluate the gameplay, graphics, and overall fun of the game, **so that** I can provide an objective review and inform potential players about the game’s quality.<br>                                                                             | **Given** that the game is publicly available or provided for review, **when** I play through the game and analyze user experience, **then** I should be able to write a comprehensive review that highlights the game’s strengths and weaknesses.                                                                                                                                                                                                                                                                                                                               |
 | **As** the network supervision departments,  **I want** the the game to be educational and positive while encouraging children to learn about environmental protection, **so that** the props in the game should relate to real world and contains that are unsuitable for children should be excluded. | **Given** the game is an environmental protection game designed for children aged 6–12,  **when** a child plays the game continuously for more than 30 minutes,   **then** a clear warning message about the risks of excessive gaming is displayed on screen for at least 10 second.<br>**Given** the game is ready for public release,  **when** it is reviewed by a supervision team consisting of at least 3 educational or child-development experts,  **then** the game must achieve a content safety approval rating of 100% compliance with child protection guidelines. |
 
-### Early Stage Design
-</div>
+### 3.3 Early Stage Design
 <p align="center"><strong>Game Ideas and Discussion Results</strong></p>
-</div>
 
 | Game Type | Game Prototype | Game Description | Added Idea Points | Possible Challenges |
 |----------|----------------|------------------|-------------------|---------------------|
@@ -99,7 +97,7 @@
 | Tower Defense | Kingdom Rush, Plants vs. Zombies | Players place defensive structures to stop waves of enemies from reaching their base. | Add collectible temporary buffs dropped by monsters to increase strategic depth. | Balancing randomness with strategy, avoiding interruption and visual clutter |
 | Puzzle Game / Match-3 | Candy Crush Saga | Players swap tiles to match three or more items to meet level objectives within limited moves. | Add obstacles (chocolate, ice, chains) requiring multiple matches to clear. | Ensuring solvable boards & non-repetitive patterns; smooth animations & particle effects |
 
-### 3.3 Ideation Process
+### 3.4 Ideation Process
 
 #### Two Game Ideas
 
