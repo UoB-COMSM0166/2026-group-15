@@ -20,7 +20,11 @@
 
 - [1. Team](#1-team)
 - [2. Introduction](#2-introduction)
+
 - [3. Requirements](#3-requirements)
+  <details>
+    <summary>Subsections</summary>
+
   - [3.1 Case Diagram](#31-case-diagram)
   - [3.2 User Stories](#32-user-stories)
   - [3.3 Early Stage Design](#33-early-stage-design)
@@ -28,18 +32,39 @@
     - [Two Game Ideas](#two-game-ideas)
     - [Stakeholders](#stakeholders)
     - [Team Reflection on Requirements Workshop](#team-reflection-on-requirements-workshop)
+
+  </details>
+
 - [4. Design](#4-design)
+  <details>
+    <summary>Subsections</summary>
+
   - [4.1 Class Diagram](#41-class-diagram)
   - [4.2 Communication Diagram](#42-communication-diagram)
   - [4.3 Design Conclusion](#43-design-conclusion)
+
+  </details>
+
 - [5. Implementation](#5-implementation)
+  <details>
+    <summary>Subsections</summary>
+
   - [Camera Movement](#camera-movement)
   - [Physics Engine](#physics-engine)
   - [Gameplay Additions](#gameplay-additions)
+
+  </details>
+
 - [6. Evaluation](#6-evaluation)
+  <details>
+    <summary>Subsections</summary>
+
   - [6.1 Qualitative Analysis - Think Aloud Evaluation](#61-qualitative-analysis---think-aloud-evaluation)
   - [6.2 Quantitative Analysis](#62-quantitative-analysis)
   - [6.3 JUnit Testing](#63-junit-testing)
+
+  </details>
+
 - [7. Process](#7-process)
 - [8. Conclusion](#8-conclusion)
 - [9. Individual Contribution](#9-individual-contribution)
