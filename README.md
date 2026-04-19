@@ -49,15 +49,15 @@
 ---
 
 ## Team
-Yitong Zheng, Li Shen, Xianwen Hu, Jingyu Xiao, Sirui Zhong, Linjing Zhang  
+
 ![Team Photo](./docs/images/team-photo-with-name.jpg)
 
-- Group member 1, name, email, role  
-- Group member 2, name, email, role  
-- Group member 3, name, email, role  
-- Group member 4, name, email, role  
-- Group member 5, name, email, role  
-- Group member 6, name, email, role  
+- Group member 1, Helen - Yitong Zheng 
+- Group member 2, Li - Li Shen 
+- Group member 3, Alice - Xianwen Hu
+- Group member 4, Murphy - Jingyu Xiao
+- Group member 5, Anna - Sirui Zhong
+- Group member 6, Bella - Linjing Zhang
 
 ## Introduction
 - 5% ~250 words 
