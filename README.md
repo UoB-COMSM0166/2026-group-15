@@ -8,12 +8,14 @@
   <img src="./SuperCatAndSteve/assets/pic/bg/startscreen.png" alt="SuperCat and Steve Start Screen" width="100%">
 </p>
 
-<div align="center">
-
-<a href="https://github.com/uob-comsm0166/2026-group-15/tree/main#evaluation" target="_blank">Click here to watch our video</a><br>
-<a href="https://uob-comsm0166.github.io/2026-group-15/SuperCatAndSteve/" target="_blank">Click here to play our game</a>
-
-</div>
+<p align="center">
+  <a href="#" target="_blank">
+    <img src="https://img.shields.io/badge/Watch%20Our%20Video-F28C28?style=for-the-badge&logo=youtube&logoColor=white" alt="Watch Our Video">
+  </a>
+  <a href="https://uob-comsm0166.github.io/2026-group-15/SuperCatAndSteve/" target="_blank">
+    <img src="https://img.shields.io/badge/Play%20Our%20Game-63C74D?style=for-the-badge&logo=githubpages&logoColor=white" alt="Play Our Game">
+  </a>
+</p>
 
 ---
 
