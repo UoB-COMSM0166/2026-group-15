@@ -50,7 +50,7 @@
 
 ## Team
 Yitong Zheng, Li Shen, Xianwen Hu, Jingyu Xiao, Sirui Zhong, Linjing Zhang  
-![56c06f5ec6637c886f714ad5747c9ef1](https://github.com/user-attachments/assets/912356cb-d3f9-4d59-86cc-0887810f2660)
+![Team Photo](./docs/images/Team Photo.jpg)
 
 - Group member 1, name, email, role  
 - Group member 2, name, email, role  
