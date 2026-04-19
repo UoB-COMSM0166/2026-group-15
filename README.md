@@ -18,36 +18,35 @@
 
 ## Table of Contents
 
-- [Team](#team)
-- [Introduction](#introduction)
-- [Requirements](#requirements)
-  - [Case Diagram](#case-diagram)
-  - [User Stories](#user-stories)
-  - [Early Stage Design](#early-stage-design)
-  - [Ideation Process](#ideation-process)
+- [1. Team](#team)
+- [2. Introduction](#introduction)
+- [3. Requirements](#requirements)
+  - [3.1 Case Diagram](#case-diagram)
+  - [3.2 User Stories](#user-stories)
+  - [3.3 Early Stage Design](#early-stage-design)
+  - [3.4 Ideation Process](#ideation-process)
     - [Two Game Ideas](#two-game-ideas)
     - [Stakeholders](#stakeholders)
     - [Team Reflection on Requirements Workshop](#team-reflection-on-requirements-workshop)
-- [Design](#design)
-  - [Class Diagram](#class-diagram)
-  - [Communication Diagram](#communication-diagram)
-  - [Design Conclusion](#design-conclusion)
-- [Implementation](#implementation)
+- [4. Design](#design)
+  - [4.1 Class Diagram](#class-diagram)
+  - [4.2 Communication Diagram](#communication-diagram)
+  - [4.3 Design Conclusion](#design-conclusion)
+- [5. Implementation](#implementation)
   - [Camera Movement](#camera-movement)
   - [Physics Engine](#physics-engine)
   - [Gameplay Additions](#gameplay-additions)
-- [Evaluation](#evaluation)
-  - [Qualitative Analysis - Think Aloud Evaluation](#qualitative-analysis---think-aloud-evaluation)
-  - [Quantitative Analysis](#quantitative-analysis)
-  - [Unit Testing](#unit-testing)
-- [Process](#process)
-- [Conclusion](#conclusion)
-- [Individual Contribution](#individual-contribution)
-- [Additional Marks](#additional-marks)
+- [6. Evaluation](#evaluation)
+  - [6.1 Qualitative Analysis - Think Aloud Evaluation](#qualitative-analysis---think-aloud-evaluation)
+  - [6.2 Quantitative Analysis](#quantitative-analysis)
+  - [6.3 JUnit Testing](#junit-testing)
+- [7. Process](#process)
+- [8. Conclusion](#conclusion)
+- [9. Individual Contribution](#individual-contribution)
 
 ---
 
-## Team
+## 1. Team
 
 ![Team Photo](./docs/images/team-photo-with-name.jpg)
 
@@ -58,17 +57,17 @@
 - Group member 5, Anna - Sirui Zhong
 - Group member 6, Bella - Linjing Zhang
 
-## Introduction
+## 2. Introduction
 - 5% ~250 words 
 - Describe your game, what is based on, what makes it novel? (what's the "twist"?)
 
-## Requirements
+## 3. Requirements
 - 15% ~750 words
 - Early stages design. Ideation process. How did you decide as a team what to develop? Use case diagrams, user stories.
 
-### Case Diagram
+### 3.1 Case Diagram
 
-### User Stories
+### 3.2 User Stories
 | User Story / Epic                                                                                                                                                                                                                                                                                       | Acceptance Criteria                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
 | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **As** a development team, **I want** players with different skill levels to also get perfect feedback, **so that** I code easy and difficult game levels.                                                                                                                                              | **Given** a player who is new to the game, **when** they choose the easy difficulty setting, **then** they should receive immediate feedback, such as earning points or completing an achievement.                                                                                                                                                                                                                                                                                                                                                                               |
@@ -100,7 +99,7 @@
 | Tower Defense | Kingdom Rush, Plants vs. Zombies | Players place defensive structures to stop waves of enemies from reaching their base. | Add collectible temporary buffs dropped by monsters to increase strategic depth. | Balancing randomness with strategy, avoiding interruption and visual clutter |
 | Puzzle Game / Match-3 | Candy Crush Saga | Players swap tiles to match three or more items to meet level objectives within limited moves. | Add obstacles (chocolate, ice, chains) requiring multiple matches to clear. | Ensuring solvable boards & non-repetitive patterns; smooth animations & particle effects |
 
-### Ideation Process
+### 3.3 Ideation Process
 
 #### Two Game Ideas
 
@@ -144,7 +143,7 @@ We then wrote acceptance criteria in the Given–When–Then format to turn thos
 
 ​Applying these techniques to our game solidified the connection between requirements and the product's core context. It helped us align technical tasks (e.g., efficient asset loading) with business goals (portability) and user values (environmental education), ensuring that every feature we plan serves a clear purpose for both the project and its users.
 
-## Design
+## 4. Design
 - 15% ~750 words 
 - System architecture. Class diagrams, behavioural diagrams.
 
@@ -152,17 +151,19 @@ We then wrote acceptance criteria in the Given–When–Then format to turn thos
 
 ---
 
-### Class Diagram
+### 4.1 Class Diagram
 Write here.
 
-### Communication Diagram
+### 4.2 Communication Diagram
 Write here.
 
-### Design Conclusion
+### 4.3 Design Conclusion
 Write here.
 
-## Implementation
-Write here.
+## 5. Implementation
+- 15% ~750 words
+
+- Describe implementation of your game, in particular highlighting the TWO areas of *technical challenge* in developing your game. 
 
 ### Camera Movement
 Write here.
@@ -173,15 +174,10 @@ Write here.
 ### Gameplay Additions
 Write here.
 
-## Implementation
+## 6. Evaluation
 - 15% ~750 words
 
-- Describe implementation of your game, in particular highlighting the TWO areas of *technical challenge* in developing your game. 
-
-## Evaluation
-- 15% ~750 words
-
-### Qualitative Analysis - Think Aloud Evaluation: 
+### 6.1 Qualitative Analysis - Think Aloud Evaluation: 
 - **UI/UX:** The gray hint boxes are not prominent enough and are easy to miss.
 - **Combat & Mechanics:** 
 	- **Enemy Interaction:** Enemy behaviors or hit reactions are needed. Enemies may need a life bar to indicate how many hits are needed before defeating them. 
@@ -197,15 +193,15 @@ Write here.
 - **Collision:** Rocks are impossible to jump onto because their **collision boxes** are too large.
 - **Inventory:** The slots for tools and pollutants are too narrow/short.
 
-### Quantitative Analysis
+### 6.2 Quantitative Analysis
 We conducted a structured usability and workload evaluation with 10 participants. Each user played the game at two difficulty levels: **Level 1 (Easy)** and **Level 2 (Hard)**.
 
-#### 1. Methodology
+#### 6.2.1 Methodology
 * **System Usability Scale (SUS):** A 10-item questionnaire to measure perceived usability.
 * **NASA Task Load Index (TLX):** Measured across 6 dimensions to assess mental and physical workload.
 * **Statistical Test:** Wilcoxon Signed-Rank Test (Paired, Two-tailed, $\alpha = 0.05$).
 
-#### 2. Data Summary & Statistical Results
+#### 6.2.2 Data Summary & Statistical Results
 1.1.1 raw data
 
 <img width="612" height="255" alt="SUS_raw" src="https://github.com/user-attachments/assets/26061f49-1f60-474f-87bb-11c12a449000" />
@@ -222,7 +218,7 @@ Data Summary:
 | **NASA TLX** | 27.6 | 21.9 | $W = 8.5$ | $p > 0.05$ | **No** |
 
 
-#### 3. Key Findings
+#### 6.2.3 Key Findings
 
 ##### System Usability Scale (SUS)
 The SUS score dropped significantly from **86.0 (Grade A - Excellent)** to **55.0 (Grade F - Poor)**. 
@@ -232,23 +228,23 @@ The SUS score dropped significantly from **86.0 (Grade A - Excellent)** to **55.
 Interestingly, the workload did not show a statistically significant difference ($p > 0.05$). 
 * **Interpretation:** While players felt the game was "less usable" (via SUS), their overall perceived workload (mental/physical effort) remained relatively stable. This might be due to a small effective sample size ($n=6$ after ties) or players reaching a "ceiling" of effort early on.
 
-### Unit Testing
+### 6.3 JUnit Testing
 - Description of how code was tested.
 
-## Process
+## 7. Process
 - 15% ~750 words
 
 - Teamwork. How did you work together, what tools and methods did you use? Did you define team roles? Reflection on how you worked together. Be honest, we want to hear about what didn't work as well as what did work, and importantly how your team adapted throughout the project.
 
-## Conclusion
+## 8. Conclusion
 - 10% ~500 words
 
 - Reflect on the project as a whole. Lessons learnt. Reflect on challenges. Future work, describe both immediate next steps for your current game and also what you would potentially do if you had chance to develop a sequel.
 
-## Individual Contribution
+## 9. Individual Contribution
 - Provide a table of everyone's contribution, which *may* be used to weight individual grades. We expect that the contribution will be split evenly across team-members in most cases. Please let us know as soon as possible if there are any issues with teamwork as soon as they are apparent and we will do our best to help your team work harmoniously together.
 
-## Additional Marks
+### Additional Marks
 
 You can delete this section in your own repo, it's just here for information. in addition to the marks above, we will be marking you on the following two points:
 
