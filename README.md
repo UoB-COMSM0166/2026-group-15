@@ -5,7 +5,7 @@
 </div>
 
 <p align="center">
-  <img src="./SuperCatAndSteve/assets/pic/bg/startscreen.png" alt="SuperCat and Steve Start Screen" width="60%">
+  <img src="./SuperCatAndSteve/assets/pic/bg/startscreen.png" alt="SuperCat and Steve Start Screen" width="100%">
 </p>
 
 <div align="center">
