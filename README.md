@@ -57,9 +57,13 @@
 - Group member 5, Anna - Sirui Zhong
 - Group member 6, Bella - Linjing Zhang
 
+---
+
 ## 2. Introduction
 - 5% ~250 words 
 - Describe your game, what is based on, what makes it novel? (what's the "twist"?)
+
+---
 
 ## 3. Requirements
 - 15% ~750 words
@@ -141,13 +145,13 @@ We then wrote acceptance criteria in the Given–When–Then format to turn thos
 
 ​Applying these techniques to our game solidified the connection between requirements and the product's core context. It helped us align technical tasks (e.g., efficient asset loading) with business goals (portability) and user values (environmental education), ensuring that every feature we plan serves a clear purpose for both the project and its users.
 
+---
+
 ## 4. Design
 - 15% ~750 words 
 - System architecture. Class diagrams, behavioural diagrams.
 
 - <img width="1590" height="700" alt="3339b730d5d336317972099c83ecc550" src="https://github.com/user-attachments/assets/b58ce78b-cf50-478e-ae06-c9fbae35e6a1" />
-
----
 
 ### 4.1 Class Diagram
 Write here.
@@ -157,6 +161,8 @@ Write here.
 
 ### 4.3 Design Conclusion
 Write here.
+
+---
 
 ## 5. Implementation
 - 15% ~750 words
@@ -171,6 +177,8 @@ Write here.
 
 ### Gameplay Additions
 Write here.
+
+---
 
 ## 6. Evaluation
 - 15% ~750 words
@@ -229,15 +237,21 @@ Interestingly, the workload did not show a statistically significant difference 
 ### 6.3 JUnit Testing
 - Description of how code was tested.
 
+---
+
 ## 7. Process
 - 15% ~750 words
 
 - Teamwork. How did you work together, what tools and methods did you use? Did you define team roles? Reflection on how you worked together. Be honest, we want to hear about what didn't work as well as what did work, and importantly how your team adapted throughout the project.
 
+---
+
 ## 8. Conclusion
 - 10% ~500 words
 
 - Reflect on the project as a whole. Lessons learnt. Reflect on challenges. Future work, describe both immediate next steps for your current game and also what you would potentially do if you had chance to develop a sequel.
+
+---
 
 ## 9. Individual Contribution
 - Provide a table of everyone's contribution, which *may* be used to weight individual grades. We expect that the contribution will be split evenly across team-members in most cases. Please let us know as soon as possible if there are any issues with teamwork as soon as they are apparent and we will do our best to help your team work harmoniously together.
