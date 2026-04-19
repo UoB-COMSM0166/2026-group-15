@@ -23,7 +23,7 @@
 
 - [3. Requirements](#3-requirements)
   <details>
-    <summary>▶</summary>
+    <summary>&nbsp;</summary>
 
   - [3.1 Case Diagram](#31-case-diagram)
   - [3.2 User Stories](#32-user-stories)
@@ -37,7 +37,7 @@
 
 - [4. Design](#4-design)
   <details>
-    <summary>▶</summary>
+    <summary>&nbsp;</summary>
 
   - [4.1 Class Diagram](#41-class-diagram)
   - [4.2 Communication Diagram](#42-communication-diagram)
@@ -47,7 +47,7 @@
 
 - [5. Implementation](#5-implementation)
   <details>
-    <summary>▶</summary>
+    <summary>&nbsp;</summary>
 
   - [Camera Movement](#camera-movement)
   - [Physics Engine](#physics-engine)
@@ -57,7 +57,7 @@
 
 - [6. Evaluation](#6-evaluation)
   <details>
-    <summary>▶</summary>
+    <summary>&nbsp;</summary>
 
   - [6.1 Qualitative Analysis - Think Aloud Evaluation](#61-qualitative-analysis---think-aloud-evaluation)
   - [6.2 Quantitative Analysis](#62-quantitative-analysis)
