@@ -5,12 +5,11 @@
 </div>
 
 <p align="center">
-  <img src="./SuperCatAndSteve/assets/pic/bg/startscreen.png" alt="SuperCat and Steve Start Screen" width="100%">
-</p>
-
-<p align="center">
-  <a href="#" target="_blank"><img src="https://img.shields.io/static/v1?label=%20&message=%20&color=F28C28&style=for-the-badge&logo=youtube&logoColor=white" alt="Video icon"><img src="https://img.shields.io/badge/Watch%20Our%20Video-F28C28?style=for-the-badge" alt="Watch Our Video"></a>&nbsp;
-  <a href="https://uob-comsm0166.github.io/2026-group-15/SuperCatAndSteve/" target="_blank"><img src="./SuperCatAndSteve/assets/pic/player_cat/Alex_right.png" alt="Alex right" height="24"><img src="https://img.shields.io/badge/Play%20Our%20Game-63C74D?style=for-the-badge" alt="Play Our Game"></a>
+  <a href="#" target="_blank"><img src="https://img.shields.io/badge/-%20-F28C28?style=for-the-badge&logo=youtube&logoColor=white" alt="Video icon"></a>
+  <a href="#" target="_blank"><img src="https://img.shields.io/badge/Watch%20Our%20Video-F28C28?style=for-the-badge" alt="Watch Our Video"></a>
+  &nbsp;&nbsp;
+  <a href="https://uob-comsm0166.github.io/2026-group-15/SuperCatAndSteve/" target="_blank"><img src="./SuperCatAndSteve/assets/pic/player_cat/Alex_right.png" alt="Alex right" height="24"></a>
+  <a href="https://uob-comsm0166.github.io/2026-group-15/SuperCatAndSteve/" target="_blank"><img src="https://img.shields.io/badge/Play%20Our%20Game-63C74D?style=for-the-badge" alt="Play Our Game"></a>
 </p>
 
 ---
