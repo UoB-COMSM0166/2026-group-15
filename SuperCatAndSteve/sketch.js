@@ -149,7 +149,12 @@ const I18N_BY_EN = {
   'Treat with limestone': { FR: 'Traiter avec calcaire', RU: 'Обработайте известняком', JA: '石灰石で中和', KO: '석회암으로 처리' },
   'Click scissors to rescue': { FR: 'Cliquez les ciseaux pour sauver', RU: 'Нажмите ножницы, чтобы спасти', JA: 'はさみをクリックして救出', KO: '가위를 클릭해 구조' },
   'Press F to attack': { FR: 'Appuyez sur F pour attaquer', RU: 'Нажмите F для атаки', JA: 'Fキーで攻撃', KO: 'F키로 공격' },
-  'Keep away': { FR: 'Restez à distance', RU: 'Держитесь подальше', JA: '近づかないで', KO: '가까이 가지 마세요' }
+  'Keep away': { FR: 'Restez à distance', RU: 'Держитесь подальше', JA: '近づかないで', KO: '가까이 가지 마세요' },
+  'Vine Seed': { FR: 'Graine de vigne', RU: 'Семя лозы', JA: 'つるの種', KO: '덩굴 씨앗' },
+  'Grow a ladder to climb': { FR: 'Fait pousser une échelle', RU: 'Выращивает лестницу', JA: 'つるのはしごを作る', KO: '덩굴 사다리를 만든다' },
+  'Vine ladder grown': {FR: 'Échelle de liane créée',RU: 'Лестница из лозы создана',JA: 'つるのはしごを作った',KO: '덩굴 사다리가 생성되었습니다'},
+  'Cannot plant vine here': {FR: 'Impossible de planter ici',RU: 'Здесь нельзя посадить лозу',JA: 'ここには植えられない',KO: '여기에는 심을 수 없습니다'},
+  'Vine seed must be planted on nearby ground': {FR: 'La graine doit être plantée sur un sol proche',RU: 'Семя лозы можно сажать только на ближайшей земле',JA: '近くの地面にしか植えられない',KO: '가까운地面にのみ植えられます'}
 };
 let activeFont;
 
@@ -542,12 +547,15 @@ class Game {
     // 更新所有带 update 方法的物体（比如 TNT）
     const now = millis();
     for (const item of this.level.items) {
-  if (item instanceof TNT) {
-    item.update(now, this.player);
-  } else if (item instanceof Item) {
-    item.update(this.level.platforms);
-  }
-}
+      if (item instanceof TNT) {
+        item.update(now, this.player);
+      } else if (item instanceof Ladder) {
+        // 梯子是放置物，不受重力影响
+        continue;
+      } else if (item instanceof Item) {
+        item.update(this.level.platforms);
+      }
+    }
     this.checkCollisions();
     this.updateMining();
 
@@ -743,6 +751,9 @@ class Game {
         break;
       case 'limestone':
         this.tryUseLimestone();
+        break;
+      case 'vine_seed':
+        this.tryPlantVineSeed(slotIndex);
         break;
     }
   }
@@ -1020,6 +1031,57 @@ tryUseLimestone() {
   return false;
 }
 
+tryPlantVineSeed(slotIndex) {
+  if (!(this.level instanceof ForestLevel)) {
+    return false;
+  }
+
+  const box = this.player.getCollisionBox();
+  const playerFeetX = this.player.x + this.player.w / 2;
+  const playerCol = Math.floor(playerFeetX / TILE_SIZE);
+
+  const ladderH = TILE_SIZE * 4;
+  const ladderX = playerCol * TILE_SIZE;
+  const ladderY = this.player.y + this.player.h - ladderH;
+
+  // 已有梯子，禁止重复生成
+  const overlap = this.level.items.some(it =>
+    it instanceof Ladder &&
+    Math.abs(it.x - ladderX) < TILE_SIZE &&
+    Math.abs(it.y - ladderY) < TILE_SIZE
+  );
+  if (overlap) {
+    return false;
+  }
+
+  // 检查梯子所在这一列，是否有实体方块挡住梯子生长空间
+  const column = this.level.tileMap[playerCol] || [];
+  for (let row = 0; row < column.length; row++) {
+    const tileType = column[row];
+    if (typeof tileType !== "number") continue;
+
+    const tileTop = 360 - (row + 1) * TILE_SIZE;
+    const tileBottom = tileTop + TILE_SIZE;
+
+  const playerFeetY = this.player.y + this.player.h;
+
+  // 忽略脚下及以下的方块（允许从地面长出来）
+  if (tileBottom <= playerFeetY) continue;
+
+  const intersects = ladderY < tileBottom && ladderY + ladderH > tileTop;
+  if (intersects) {
+    return false;
+  }
+  }
+
+  // 成功生成后才消耗种子
+  this.level.items.push(new Ladder(ladderX, ladderY, ladderH));
+  this.player.inventory.splice(slotIndex, 1);
+  this.player.selectedSlot = -1;
+
+  return true;
+}
+
  checkCollisions() {
   const now = millis();
   // 敌人伤害判定：距离小于1.3格时可以攻击玩家
@@ -1070,6 +1132,10 @@ tryUseLimestone() {
     }
 
     if (item instanceof TrappedBird) {
+      continue;
+    }
+
+    if (item instanceof Ladder) {
       continue;
     }
 
@@ -1241,9 +1307,9 @@ class ForestLevel extends Level {
       [20,9,[S,S,D,G,N,'leaves','leaves','leaves','leaves']], 
       [21,9,[S,S,D,G,'log','log','log','leaves','leaves']], 
       [22,9,[S,S,D,G,N,'leaves','leaves','leaves','leaves']], 
-      [23,7,[S,S,G,N,N,'leaves','leaves']], 
-      [24,3,[S,S,G]],
-      [25,3,[S,S,G]], 
+      [23,4,[S,S,D,G]],
+      [24,8,[S,S,S,S,D,G,G,G]],
+      [25,8,[S,S,S,S,D,G,G,G]], 
       [26,3,[X,S,S]], 
       [27,3,[X,S,S]], 
       [28,5,[X,X,S,S,S]],
@@ -1416,6 +1482,10 @@ class ForestLevel extends Level {
     this.items.push(new Tool(103 * TILE_SIZE + toolOffset, groundY(103) - 24, 24, 24, 'enlarged_water_bucket'));
     // 石灰石
     // this.items.push(new Tool(14 * TILE_SIZE + toolOffset, groundY(14) - 24, 24, 24, 'limestone'));
+    // 藤蔓种子（放在前两屏）
+    this.items.push(new Tool(21 * TILE_SIZE + toolOffset, groundY(21) - 24, 24, 24, 'vine_seed'));
+    // 高台奖励
+    this.items.push(new Food(24 * TILE_SIZE + 4, groundY(24) - 24, 24, 24, 'apple'));
 
     // ===== 结束：敌人和物品生成 =====
   }
@@ -2307,6 +2377,10 @@ class Player {
     this.jumpsRemaining = this.maxJumps;
     this.swimUpHeld = false;  // 水中是否按住上浮键（空格）
 
+    this.onLadder = false;      //与梯子交互
+    this.activeLadder = null;
+    this.climbSpeed = 2.1;
+
   }
   
   // 获取碰撞箱的实际坐标
@@ -2332,6 +2406,30 @@ class Player {
       { x: b.x + b.w / 2, y: b.y + b.h - 2 }
     ];
     return pts.some(p => level.isWaterAtWorld(p.x, p.y));
+  }
+  
+  findTouchingLadder(level) {
+    if (!level) return null;
+    const box = this.getCollisionBox();
+
+    for (const item of level.items) {
+      if (!(item instanceof Ladder)) continue;
+
+      const probeX = item.x + 4;
+      const probeW = item.w - 8;
+
+      if (rectCollision(box.x, box.y, box.w, box.h, probeX, item.y, probeW, item.h)) {
+        return item;
+      }
+    }
+    return null;
+}
+
+  updateLadderState(level) {
+    const ladder = this.findTouchingLadder(level);
+    this.activeLadder = ladder;
+    this.onLadder = !!ladder;
+    return ladder;
   }
 
   update(platforms, level) {
@@ -2369,6 +2467,65 @@ class Player {
     }
     
     if (this.vx !== 0) this.facingRight = this.vx > 0;
+
+    const ladder = this.updateLadderState(level);
+    const climbUp = !!(keys['w'] || keys['arrowup']);
+    const climbDown = !!(keys['s'] || keys['arrowdown']);
+
+    if (ladder) {
+    const ladderCenterX = ladder.x + ladder.w / 2;
+    const playerCenterOffset = this.collisionOffsetX + this.collisionW / 2;
+
+    const box = this.getCollisionBox();
+    const playerFeetY = box.y + box.h;
+    const ladderTopY = ladder.y;
+    const ladderBottomY = ladder.y + ladder.h;
+
+    // 人物脚底距离“梯子顶端”的容差
+    const topSnapTolerance = 6;
+    const nearLadderTop = Math.abs(playerFeetY - ladderTopY) <= topSnapTolerance;
+
+    // 只有角色脚底明显高于梯子底部时，才允许继续往下爬
+    const canClimbDown = climbDown && playerFeetY < ladderBottomY - 2;
+
+    // 只要人在梯子上，就把 X 吸附到梯子中线
+    this.x = ladderCenterX - playerCenterOffset;
+
+    // 正在爬梯
+    if (climbUp || canClimbDown) {
+      this.vx = 0;
+      this.vy = 0;
+      this.onGround = false;
+
+      if (climbUp) this.y -= this.climbSpeed;
+      if (canClimbDown) this.y += this.climbSpeed;
+
+      if (keys['a'] || keys['arrowleft']) {
+        this.x -= this.speed * 0.45;
+        this.facingRight = false;
+      }
+      if (keys['d'] || keys['arrowright']) {
+        this.x += this.speed * 0.45;
+        this.facingRight = true;
+      }
+
+      if (this.y < 0) this.y = 0;
+      const maxY = CANVAS_H - this.h;
+      if (this.y > maxY) this.y = maxY;
+
+      return;
+    }
+
+    // 没有继续按爬梯，但已经到达梯子顶端附近：
+    // 让人物停在梯子顶，不再掉落
+    if (nearLadderTop) {
+      this.y = ladderTopY - this.collisionH - this.collisionOffsetY;
+      this.vx = 0;
+      this.vy = 0;
+      this.onGround = true;
+      return;
+    }
+    }
 
     const inWater = this.isInWater(level);
     if (inWater) {
@@ -2541,6 +2698,14 @@ class Player {
   }
 
   jump() {
+    //在梯子上的跳跃动作
+    if (this.onLadder) {
+      this.onLadder = false;
+      this.activeLadder = null;
+      this.vy = this.jumpForce * 0.9;
+      return;
+    }
+
     if (this.jumpsRemaining <= 0) return;
     const isSecondJump = this.jumpsRemaining === 1;
     const boost = isSecondJump ? 1.35 : 1;
@@ -2548,6 +2713,7 @@ class Player {
     this.onGround = false;
     this.jumpsRemaining -= 1;
   }
+
   collidesWith(obj) { 
     const box = this.getCollisionBox();
     return rectCollision(box.x, box.y, box.w, box.h, obj.x, obj.y, obj.w, obj.h); 
@@ -3190,6 +3356,50 @@ class Tool extends Item {
   }
 }
 
+//藤蔓种子的梯子
+class Ladder extends Item {
+  constructor(x, y, h = TILE_SIZE * 4) {
+    super(x, y, TILE_SIZE, h, null);
+    this.displayName = '藤蔓梯子';
+    this.isPlacedLadder = true;
+  }
+
+  update() {
+    // 梯子不受重力影响
+  }
+
+draw() {
+  const img = window.tool_vine_ladder;
+  if (img && img.width > 0) {
+    const drawW = TILE_SIZE * 1.6;   // 梯子显示宽度
+    const drawX = this.x - (drawW - this.w) / 2;
+
+    // 贴图下半部分被抠掉了，所以视觉上往上补一点高度
+    // 不改 this.y / this.h，只改绘制范围，保证实际可爬高度不变
+    const visualExtraTop = 14;  // 可按效果微调：10~18 比较合适
+
+    image(img, drawX, this.y - visualExtraTop, drawW, this.h + visualExtraTop);
+    return;
+  }
+
+  // 贴图缺失时的回退绘制
+  push();
+  stroke(46, 120, 54);
+  strokeWeight(4);
+  const leftX = this.x + 9;
+  const rightX = this.x + this.w - 9;
+  line(leftX, this.y, leftX, this.y + this.h);
+  line(rightX, this.y, rightX, this.y + this.h);
+
+  stroke(112, 170, 86);
+  strokeWeight(3);
+  for (let yy = this.y + 10; yy < this.y + this.h - 4; yy += 12) {
+    line(leftX, yy, rightX, yy);
+  }
+  pop();
+}
+}
+
 // 武器威力与对应矿石（贴图名 assets/pic/weapon 与 assets/pic/ground）
 const WEAPON_CONFIG = {
   wooden_sword:  { damage: 2, oreTiles: [] },
@@ -3428,7 +3638,8 @@ class UIManager {
       [
         [window.tool_scissor, t("Scissors", "剪刀"), t("Cut webs to rescue", "剪开蛛网进行救援")],
         [window.tool_enlarged_water_bucket, t("Bucket", "水桶"), t("Use near lava", "在岩浆附近使用")],
-        [window.tool_limestone, t("Limestone", "石灰石"), t("Use near acid", "在酸液附近使用")]
+        [window.tool_limestone, t("Limestone", "石灰石"), t("Use near acid", "在酸液附近使用")],
+        [window.tool_vine_seed, t("Vine Seed", "藤蔓种子"), t("Grow a ladder to climb", "生成藤蔓梯子爬到高处")]
       ],
       [
         [window.cigarette, t("Cigarette", "香烟"), t("Collect", "收集")],
@@ -3515,6 +3726,8 @@ function setup() {
 
   // 工具（assets/pic/tool 中全部，新增图片时在此数组加入文件名不含 .png）
   ['scissor', 'limestone', 'enlarged_water_bucket'].forEach(name =>load(`assets/pic/tool/${name}.png`, `tool_${name}`));
+  load('assets/pic/tool/vine_seed.png', 'tool_vine_seed');
+  load('assets/pic/tool/vine_ladder.png', 'tool_vine_ladder');
   // 武器（assets/pic/weapon，威力从低到高：wooden / stone / iron / diamond）
   ['wooden_sword', 'stone_sword', 'iron_sword', 'diamond_sword'].forEach(name => load(`assets/pic/weapon/${name}.png`, `weapon_${name}`));
 
