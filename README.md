@@ -37,7 +37,7 @@
   - [Physics Engine](#physics-engine)
   - [Gameplay Additions](#gameplay-additions)
 - [6. Evaluation](#6-evaluation)
-  - [6.1 Qualitative Analysis - Think Aloud Evaluation](#61-qualitative-analysis---think-aloud-evaluation)
+  - [6.1 Qualitative Analysis](#61-qualitative-analysis)
   - [6.2 Quantitative Analysis](#62-quantitative-analysis)
   - [6.3 JUnit Testing](#63-junit-testing)
 - [7. Process](#7-process)
@@ -183,8 +183,34 @@ Write here.
 ## 6. Evaluation
 - 15% ~750 words
 
-### 6.1 Qualitative Analysis - Think Aloud Evaluation: 
-- **UI/UX:** The gray hint boxes are not prominent enough and are easy to miss.
+### 6.1 Qualitative Analysis
+
+We conducted a **Think Aloud evaluation** on the **first forest level** and the **partially implemented second ocean level** to identify usability issues during gameplay.
+
+#### Key Findings
+
+- **Guidance and information**
+  - Grey hint boxes were often overlooked until players were stuck, which suggests that their visibility is not sufficient, especially for younger players.
+
+- **Combat and controls**
+  - Enemies showed little reaction when hit and there were no clear health indicators, so players could not easily tell whether their attacks were successful or how many hits were required.
+  - Some players instinctively tried **Left Click** to attack and mentioned that the attack animation did not match the actual hit range.
+
+- **Items and environment behaviour**
+  - Some tools stayed in the inventory after use while others disappeared, leaving players unsure whether tools were meant to be reusable or single‑use.
+  - Lava could only be cleaned from one side, forcing players to backtrack, and cleaned acid pools looked unchanged, so it was hard to see whether an area was finished.
+
+- **Movement and interface**
+  - Rock collision boxes felt too large, making some jumps effectively impossible because of invisible boundaries.
+  - Inventory slots were narrow, which made it difficult to collect and quickly review all tools and pollutants.
+
+#### Follow-up Changes
+
+In later iterations, we increased hint visibility, improved combat feedback and hitbox alignment, made tool and environment behaviour more consistent, and adjusted collision boxes and the inventory layout to make the game easier to play and understand.
+
+================================================================================
+原：
+（- **UI/UX:** The gray hint boxes are not prominent enough and are easy to miss.
 - **Combat & Mechanics:** 
 	- **Enemy Interaction:** Enemy behaviors or hit reactions are needed. Enemies may need a life bar to indicate how many hits are needed before defeating them. 
     - **Controls:** Consider mapping the **Left Click** for attacks.
@@ -197,7 +223,8 @@ Write here.
         
 - **Level Design:** 
 - **Collision:** Rocks are impossible to jump onto because their **collision boxes** are too large.
-- **Inventory:** The slots for tools and pollutants are too narrow/short.
+- **Inventory:** The slots for tools and pollutants are too narrow/short.）
+================================================================================
 
 ### 6.2 Quantitative Analysis
 We conducted a structured usability and workload evaluation with 10 participants. Each user played the game at two difficulty levels: **Level 1 (Easy)** and **Level 2 (Hard)**.
