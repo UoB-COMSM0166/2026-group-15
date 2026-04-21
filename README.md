@@ -243,30 +243,68 @@ Write here.
 ---
 
 ## 6. Evaluation
-- 15% ~750 words
 
 ### 6.1 Qualitative Analysis
 
+To evaluate the usability and overall experience of **our game, Super Cat & Steve**, we used a qualitative approach that combined a **Think Aloud evaluation** with a **heuristic analysis** based on Nielsen’s usability guidelines. These methods helped us understand how players actually played the game, where they became confused, and which usability issues should be prioritised in later iterations.
+
+---
+
+#### 6.1.1 Think Aloud Evaluation
+
 We conducted a **Think Aloud evaluation** on the **first forest level** and the **partially implemented second ocean level** to identify usability issues during gameplay.
 
-#### Key Findings
+##### Key Findings
 
-- **Guidance and information**
+- **Guidance and information**  
   - Grey hint boxes were often overlooked until players were stuck, which suggests that their visibility is not sufficient, especially for younger players.
 
-- **Combat and controls**
-  - Enemies showed little reaction when hit and there were no clear health indicators, so players could not easily tell whether their attacks were successful or how many hits were required.
+- **Combat and controls**  
+  - Enemies showed little reaction when hit and there were no clear health indicators, so players could not easily tell whether their attacks were successful or how many hits were required.  
   - Some players instinctively tried **Left Click** to attack and mentioned that the attack animation did not match the actual hit range.
 
-- **Items and environment behaviour**
-  - Some tools stayed in the inventory after use while others disappeared, leaving players unsure whether tools were meant to be reusable or single‑use.
+- **Items and environment behaviour**  
+  - Some tools stayed in the inventory after use while others disappeared, leaving players unsure whether tools were meant to be reusable or single‑use.  
   - Lava could only be cleaned from one side, forcing players to backtrack, and cleaned acid pools looked unchanged, so it was hard to see whether an area was finished.
 
-- **Movement and interface**
-  - Rock collision boxes felt too large, making some jumps effectively impossible because of invisible boundaries.
+- **Movement and interface**  
+  - Rock collision boxes felt too large, making some jumps effectively impossible because of invisible boundaries.  
   - Inventory slots were narrow, which made it difficult to collect and quickly review all tools and pollutants.
 
-#### Follow-up Changes
+---
+
+#### 6.1.2 Heuristic Analysis
+
+##### Method
+
+To complement the Think Aloud evaluation, we conducted a **heuristic analysis** of the same two levels in our game. Each usability issue was rated on **frequency**, **impact**, and **persistence** on a 0–4 scale, and a **severity score** was calculated as the average of these three values.
+
+##### Issues and Severity
+
+| **No.** | **Issue**                                                                                                 | **Heuristics Violated**                        | **Frequency (0–4)** | **Impact (0–4)** | **Persistence (0–4)** | **Severity** |
+|--------:|-----------------------------------------------------------------------------------------------------------|-----------------------------------------------|---------------------:|-----------------:|-----------------------:|------------:|
+| **1**   | Grey hint boxes are easy to miss; players often only notice hints after getting stuck.                    | Visibility of system status; Help & documentation | 4                   | 3               | 4                     | **3.7**     |
+| **2**   | Enemies show weak hit feedback and there are no clear health indicators.                                  | Visibility of system status; Error prevention | 3                   | 4               | 3                     | **3.3**     |
+| **3**   | Attack controls and hitboxes are unclear; some players try Left Click and feel the hit range is inconsistent. | Match between system and real world; Consistency & standards | 3                   | 3               | 3                     | **3.0**     |
+| **4**   | Tool behaviour is inconsistent; some tools disappear after use while others remain.                       | Consistency & standards; Recognition rather than recall | 3                   | 3               | 3                     | **3.0**     |
+| **5**   | Cleaning lava/acid does not always give clear visual feedback; acid pools look unchanged when cleaned.    | Visibility of system status; Error prevention | 2                   | 3               | 3                     | **2.7**     |
+| **6**   | Rock collision boxes feel larger than sprites, making some jumps effectively impossible.                  | Match between system and real world; Aesthetic & minimalist design | 3                   | 3               | 3                     | **3.0**     |
+| **7**   | Inventory layout is narrow, making it hard to see and manage all tools and pollutants.                    | Aesthetic & minimalist design; Recognition rather than recall | 2                   | 2               | 3                     | **2.3**     |
+
+> **Severity = (Frequency + Impact + Persistence) / 3**
+
+##### Interpretation
+
+The heuristic analysis reflects and structures the issues observed in the Think Aloud evaluation:
+
+- **Guidance and information** – Issue 1 confirms that hint visibility is too low, matching player reports that they only noticed grey hint boxes after getting stuck.  
+- **Combat and controls** – Issues 2 and 3 relate to weak combat feedback and unclear attack controls, consistent with players not knowing whether hits were registered or which input to use.  
+- **Items and environment behaviour** – Issues 4 and 5 capture inconsistent tool behaviour and unclear environmental changes, making it harder for players to understand how cleaning mechanics work and when an area is complete.  
+- **Movement and interface** – Issues 6 and 7 align with feedback about oversized collision boxes and a cramped inventory, which affects both movement fairness and the readability of collected items.
+
+---
+
+### Follow-up Changes
 
 In later iterations, we increased hint visibility, improved combat feedback and hitbox alignment, made tool and environment behaviour more consistent, and adjusted collision boxes and the inventory layout to make the game easier to play and understand.
 
