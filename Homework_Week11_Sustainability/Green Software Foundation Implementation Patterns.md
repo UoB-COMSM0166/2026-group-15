@@ -1,0 +1,22 @@
+
+We reviewed the Green Software Foundation implementation patterns for web systems and selected the ones that were most relevant to a browser-based p5.js game. Since our project runs entirely on the client side and depends heavily on image assets, rendering, and repeated updates in the game loop, the most useful patterns were the ones related to **image size**, **request count**, **unnecessary data collection**, and **runtime work in the browser**. The catalogue describes these patterns as practical ways to reduce bandwidth, storage, and device-side processing, which made them relevant to our project even at a small scale.
+
+### 1. Optimize image size
+
+One pattern we clearly used was **Optimize image size**. The Green Software Foundation recommends storing images at dimensions close to the size at which they are actually displayed, so that bandwidth and processing are not wasted on oversized assets. In our game, this was especially important because most of the visuals are pixel art rather than large painted backgrounds. We deliberately kept the pixel assets small, and our art workflow also controlled sprite dimensions to avoid loading problems. In the code, this design is reflected in the fixed low-resolution canvas (`640 × 360`), the standard `32 × 32` tile system, and several small UI or weapon sprite sizes. This helped keep the game visually consistent while also reducing unnecessary asset size.
+
+### 2. Keep request counts low
+
+A second relevant pattern was **Keep request counts low**. The catalogue explains that fewer files and requests reduce the energy needed to display a page. Our game does not generate a separate image for every terrain block. Instead, it reuses a limited set of tile textures and draws them repeatedly through a tile mapping system. The same approach is used for decorative objects, sprites, and UI icons: resources are loaded once, stored under shared keys, and then reused in different parts of the game. This is visible in the central image-loading logic and in helper functions such as `getTextures()` and `drawTile()`. In practice, this meant we could build long levels and multiple environments without a huge number of unique asset files.
+
+### 3. Avoid tracking unnecessary data
+
+Another pattern we followed, at least by design, was **Avoid tracking unnecessary data**. The Green Software Foundation points out that user tracking and extra data collection add environmental cost through additional scripts, processing, storage, and network traffic. Our game is a local browser game and, in the current code we reviewed, there is no evidence of analytics, advertising scripts, or external tracking requests. This means the game avoids a common source of unnecessary overhead in modern web applications. For a student project, this was not only simpler to implement, but also aligned well with the idea of keeping the system lightweight.
+
+### 4. Minimize main thread work
+
+The fourth pattern, **Minimize main thread work**, was only partly addressed, but it is still relevant to our implementation. Browser games run much of their logic on the main thread, so unnecessary updates can quickly affect performance. In our code, some choices already move in this direction. For example, enemies are not fully active from the start; they are first activated only when the player enters a defined detection range. Decorative elements such as trees, coral, kelp, and water are also separated from full collision platforms, which reduces the amount of collision work the system needs to perform. Cooldown values and delayed attack checks are also used to stop certain actions from being processed every possible frame. These decisions do not eliminate main-thread pressure, but they do show an effort to keep repeated computations under control.
+
+### Reflection
+
+Looking back, the most clearly implemented green patterns in our project were **Optimize image size**, **Keep request counts low**, and **Avoid tracking unnecessary data**. These were the easiest to apply because they matched the structure of a pixel-art browser game and did not require extra infrastructure. **Minimize main thread work** was relevant too, but in our case it was only applied in a limited way rather than as a fully planned optimisation strategy. If we continued the project, the next step would be to make this part more systematic by reducing unnecessary per-frame checks further and reviewing whether some assets could be loaded more selectively instead of all at once.
