@@ -246,7 +246,7 @@ Write here.
 
 ### 6.1 Qualitative Analysis
 
-To evaluate the usability and overall experience of our game, **Super Cat & Steve**, we used a qualitative approach that combined a **Think Aloud evaluation** with a **heuristic analysis** based on Nielsen’s usability guidelines. These methods helped us understand how players actually played the game, where they became confused, and which usability issues should be prioritised in later iterations.
+To evaluate the usability and overall experience of our game, we used a qualitative approach that combined a **Think Aloud evaluation** with a **heuristic analysis** based on Nielsen’s usability guidelines. These methods helped us understand how players actually played the game, where they became confused, and which usability issues should be prioritised in later iterations.
 
 ---
 
@@ -311,39 +311,63 @@ In later iterations, we increased hint visibility, improved combat feedback and 
 ---
 
 ### 6.2 Quantitative Analysis
-We conducted a structured usability and workload evaluation with 10 participants. Each user played the game at two difficulty levels: **Level 1 (Easy)** and **Level 2 (Hard)**.
 
-#### 6.2.1 Methodology
-* **System Usability Scale (SUS):** A 10-item questionnaire to measure perceived usability.
-* **NASA Task Load Index (TLX):** Measured across 6 dimensions to assess mental and physical workload.
-* **Statistical Test:** Wilcoxon Signed-Rank Test (Paired, Two-tailed, $\alpha = 0.05$).
+We conducted a structured usability and workload evaluation with **10 participants**. Each participant played the game at two difficulty levels: **Level 1 (Easy)** and **Level 2 (Hard)**.
 
-#### 6.2.2 Data Summary & Statistical Results
-1.1.1 raw data
+--- 
 
-<img width="612" height="255" alt="SUS_raw" src="https://github.com/user-attachments/assets/26061f49-1f60-474f-87bb-11c12a449000" />
+#### 6.2.1 Method
 
-statistical analysis of SUS data:
-<img width="1200" height="487" alt="SUS_analysis2" src="https://github.com/user-attachments/assets/19cfad5d-0a8b-49d1-b7a2-d41d8137339a" />
+- **System Usability Scale (SUS):** 10‑item questionnaire to measure perceived usability.
+- **NASA Task Load Index (NASA‑TLX):** Six subscales to assess mental and physical workload.
+- **Statistical test:** Wilcoxon signed‑rank test (paired, two‑tailed, $\alpha = 0.05$).
 
-<img width="833" height="570" alt="TLX_raw" src="https://github.com/user-attachments/assets/b504fd59-07d3-47c9-90cd-2e7c486ff82d" />
+---
 
-Data Summary:
-| Metric | Level 1 Mean (SD) | Level 2 Mean (SD) | Wilcoxon Statistic | P-value | Significant? |
-| :--- | :--- | :--- | :--- | :--- | :--- |
-| **SUS Score** | 86.0 | 55.0 | $W = 0$ | $p < 0.01$ | **Yes** |
-| **NASA TLX** | 27.6 | 21.9 | $W = 8.5$ | $p > 0.05$ | **No** |
+#### 6.2.2 Data Summary and Statistical Results
 
+Raw SUS and NASA‑TLX scores for both difficulty levels are shown in the figures below.
+
+<p align="center">
+  <img width="612" height="255" alt="SUS_raw" src="https://github.com/user-attachments/assets/26061f49-1f60-474f-87bb-11c12a449000" />
+</p>
+
+<p align="center">
+  <img width="1200" height="487" alt="SUS_analysis2" src="https://github.com/user-attachments/assets/19cfad5d-0a8b-49d1-b7a2-d41d8137339a" />
+</p>
+
+<p align="center">
+  <img width="833" height="570" alt="TLX_raw" src="https://github.com/user-attachments/assets/b504fd59-07d3-47c9-90cd-2e7c486ff82d" />
+</p>
+
+**Data summary**
+
+<p align="center">
+
+| Metric         | Level 1 Mean (SD) | Level 2 Mean (SD) | Wilcoxon Statistic | P‑value   | Significant? |
+| :------------- | :---------------- | :---------------- | :----------------- | :-------- | :----------- |
+| **SUS score**  | 86.0              | 55.0              | $W = 0$            | $p < 0.01$| **Yes**      |
+| **NASA‑TLX**   | 27.6              | 21.9              | $W = 8.5$          | $p > 0.05$| **No**       |
+
+</p>
+
+---
 
 #### 6.2.3 Key Findings
 
 ##### System Usability Scale (SUS)
-The SUS score dropped significantly from **86.0 (Grade A - Excellent)** to **55.0 (Grade F - Poor)**. 
-* **Interpretation:** The drastic drop suggests that as difficulty increases, the game's mechanics or UI become significantly more frustrating to use. The current "Hard" mode may be compromising the player's sense of control.
 
-##### NASA Task Load Index (TLX)
-Interestingly, the workload did not show a statistically significant difference ($p > 0.05$). 
-* **Interpretation:** While players felt the game was "less usable" (via SUS), their overall perceived workload (mental/physical effort) remained relatively stable. This might be due to a small effective sample size ($n=6$ after ties) or players reaching a "ceiling" of effort early on.
+The SUS score decreased from **86.0** (Grade A – excellent usability) at Level 1 to **55.0** (Grade F – poor usability) at Level 2, and this difference was statistically significant ($p < 0.01$).
+
+- **Interpretation:** As difficulty increases, players perceive the game as noticeably less usable. This suggests that elements of the mechanics or interface in the Hard mode reduce the sense of control or clarity, and should be reviewed in future iterations.
+
+##### NASA Task Load Index (NASA‑TLX)
+
+NASA‑TLX scores did **not** show a statistically significant difference between Level 1 and Level 2 ($p > 0.05$).
+
+- **Interpretation:** Although players rated the Hard mode as less usable in SUS, their overall perceived workload (mental and physical effort) remained at a similar level. This may be influenced by the small effective sample size (ties reduced the number of usable pairs to $n = 6$) and by players reaching a stable effort level early in the task rather than increasing effort further in the Hard condition.
+
+---
 
 ### 6.3 Testing
 - Description of how code was tested.
