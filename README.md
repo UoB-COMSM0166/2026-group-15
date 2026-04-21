@@ -351,6 +351,39 @@ Raw SUS and NASA‑TLX scores for both difficulty levels are shown in the figure
 
 </p>
 
+<p align="center">
+  <table>
+    <thead>
+      <tr>
+        <th>Metric</th>
+        <th>Level 1 Mean (SD)</th>
+        <th>Level 2 Mean (SD)</th>
+        <th>Wilcoxon Statistic</th>
+        <th>P‑value</th>
+        <th>Significant?</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>SUS score</strong></td>
+        <td>86.0</td>
+        <td>55.0</td>
+        <td><em>W = 0</em></td>
+        <td><em>p &lt; 0.01</em></td>
+        <td><strong>Yes</strong></td>
+      </tr>
+      <tr>
+        <td><strong>NASA‑TLX</strong></td>
+        <td>27.6</td>
+        <td>21.9</td>
+        <td><em>W = 8.5</em></td>
+        <td><em>p &gt; 0.05</em></td>
+        <td><strong>No</strong></td>
+      </tr>
+    </tbody>
+  </table>
+</p>
+
 ---
 
 #### 6.2.3 Key Findings
