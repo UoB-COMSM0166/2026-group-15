@@ -211,10 +211,6 @@ Write here.
 
 To evaluate the usability and overall experience of our game, we used a qualitative approach that combined a **Think Aloud evaluation** with a **heuristic analysis** based on Nielsen’s usability guidelines. These methods helped us understand how players actually played the game, where they became confused, and which usability issues should be prioritised in later iterations.
 
-- - -
-***
-### ————————————————————
-
 #### 6.1.1 Think Aloud Evaluation
 
 We conducted a **Think Aloud evaluation** on the **first forest level** and the **partially implemented second ocean level** to identify usability issues during gameplay.
@@ -235,8 +231,6 @@ We conducted a **Think Aloud evaluation** on the **first forest level** and the 
 - **Movement and interface**  
   - Rock collision boxes felt too large, making some jumps effectively impossible because of invisible boundaries.  
   - Inventory slots were narrow, which made it difficult to collect and quickly review all tools and pollutants.
-
----
 
 #### 6.1.2 Heuristic Analysis
 
@@ -267,27 +261,21 @@ The heuristic analysis reflects and structures the issues observed in the Think 
 - **Items and environment behaviour** – Issues 4 and 5 capture inconsistent tool behaviour and unclear environmental changes, making it harder for players to understand how cleaning mechanics work and when an area is complete.  
 - **Movement and interface** – Issues 6 and 7 align with feedback about oversized collision boxes and a cramped inventory, which affects both movement fairness and the readability of collected items.
 
----
-
 #### 6.1.3 Follow-up Changes
 
 In later iterations, we increased hint visibility, improved combat feedback and hitbox alignment, made tool and environment behaviour more consistent, and adjusted collision boxes and the inventory layout to make the game easier to play and understand.
 
----
+***
 
 ### 6.2 Quantitative Analysis
 
 We conducted a structured usability and workload evaluation with **10 participants**. Each participant played the game at two difficulty levels: **Level 1 (Easy)** and **Level 2 (Hard)**.
-
---- 
 
 #### 6.2.1 Method
 
 - **System Usability Scale (SUS):** 10‑item questionnaire to measure perceived usability.
 - **NASA Task Load Index (NASA‑TLX):** Six subscales to assess mental and physical workload.
 - **Statistical test:** Wilcoxon signed‑rank test (paired, two‑tailed, $\alpha = 0.05$).
-
----
 
 #### 6.2.2 Data Summary and Statistical Results
 
@@ -316,8 +304,6 @@ Raw SUS and NASA‑TLX scores for both difficulty levels are shown in the figure
 
 </p>
 
----
-
 #### 6.2.3 Key Findings
 
 ##### System Usability Scale (SUS)
@@ -332,7 +318,7 @@ NASA‑TLX scores did **not** show a statistically significant difference betwee
 
 - **Interpretation:** Although players rated the Hard mode as less usable in SUS, their overall perceived workload (mental and physical effort) remained at a similar level. This may be influenced by the small effective sample size (ties reduced the number of usable pairs to $n = 6$) and by players reaching a stable effort level early in the task rather than increasing effort further in the Hard condition.
 
----
+***
 
 ### 6.3 Testing
 - Description of how code was tested.
