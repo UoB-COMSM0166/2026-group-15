@@ -276,6 +276,7 @@ We conducted a **Think Aloud evaluation** on the **first forest level** and the 
 #### 6.1.2 Heuristic Analysis
 
 **Method**  
+
 To complement the Think Aloud evaluation, we conducted a heuristic analysis of the same two levels. The main issues identified in the Think Aloud sessions were mapped to Nielsen’s usability heuristics and rated on **frequency**, **impact**, and **persistence** on a 0–4 scale. A **severity score** was then calculated as the average of these three values to help us prioritise the issues more systematically in later iterations.
 
 **Issues and Severity**
