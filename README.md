@@ -241,7 +241,6 @@ Write here.
 Write here.
 
 ---
----
 
 ## 6. Evaluation
 
