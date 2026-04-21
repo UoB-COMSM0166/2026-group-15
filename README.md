@@ -61,9 +61,9 @@
 
 ## 1. Team
 
-<div align="center">
+<div style="max-width: 900px; margin: 0 auto;">
 
-<table width="80%">
+<table style="width: 100%;">
   <tr>
     <th>Role</th>
     <th>Name</th>
@@ -101,9 +101,9 @@
   </tr>
 </table>
 
-<br>
-
-<img src="./docs/images/team-photo-with-name.jpg" alt="Team Photo" width="80%">
+<img src="./docs/images/team-photo-with-name.jpg"
+     alt="Team Photo"
+     style="width: 100%; display: block; margin-top: 12px;" />
 
 </div>
 
