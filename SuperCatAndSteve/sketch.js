@@ -14,9 +14,10 @@ const ENEMY_CONTACT_DAMAGE_PER_SEC = 1;
 const ENEMY_ATTACK_START_DELAY_MS = 1000;  // 敌人进入攻击范围后延迟才开始造成伤害（毫秒）
 const PLAYER_ATTACK_RANGE = 2.2 * TILE_SIZE; // 玩家挥剑攻击范围：70.4 px
 
-// 水中物理（可按需调参）
-const WATER_SINK_VY = 0.8;   // 在水中不按空格：匀速下沉
-const WATER_RISE_VY = -0.9;  // 在水中按住W：匀速上浮
+// 水中物理（统一参数，应用于水关卡中的实体）
+const WATER_GRAVITY = 0.1;   // 基础重力
+const WATER_BUOYANCY = 0.08; // 浮力（抵消部分重力）
+const WATER_DRAG = 0.8;     // 水中阻力系数
 
 // 贴图类型（地面/平台可选 assets/pic/ground 中任意图片）
 const T = {
@@ -199,6 +200,21 @@ function getCollisionRectsForCollider(collider) {
     return collider.collisionRects;
   }
   return [{ x: collider.x, y: collider.y, w: collider.w, h: collider.h }];
+}
+
+function isEntityInWater(entity, level) {
+  if (!entity || !level || typeof level.isWaterAtWorld !== 'function') return false;
+  const getBox = typeof entity.getCollisionBox === 'function'
+    ? () => entity.getCollisionBox()
+    : () => ({ x: entity.x, y: entity.y, w: entity.w, h: entity.h });
+  const b = getBox();
+  const pts = [
+    { x: b.x + b.w / 2, y: b.y + b.h / 2 },
+    { x: b.x + 2, y: b.y + b.h / 2 },
+    { x: b.x + b.w - 2, y: b.y + b.h / 2 },
+    { x: b.x + b.w / 2, y: b.y + b.h - 2 }
+  ];
+  return pts.some(p => level.isWaterAtWorld(p.x, p.y));
 }
 
 const PIPE_WALL_THICKNESS = 5;
@@ -462,8 +478,16 @@ class Game {
 
     // 4. 遍历并寻找最近的敌人
     if (this.level && this.level.enemies) {
+      const playerBox = this.player.getCollisionBox();
+      const playerCenterX = playerBox.x + playerBox.w / 2;
       for (const enemy of this.level.enemies) {
         if (enemy.isDead) continue;
+        const enemyBox = enemy.getCollisionBox();
+        const enemyCenterX = enemyBox.x + enemyBox.w / 2;
+        const enemyIsInFront = this.player.facingRight
+          ? enemyCenterX >= playerCenterX
+          : enemyCenterX <= playerCenterX;
+        if (!enemyIsInFront) continue;
         
         const d = this.distanceToEnemyBoxGap(enemy);
         
@@ -485,8 +509,16 @@ class Game {
   }
 
   setup() { 
-    const groundY = this.level.terrainHeights[0];
-    this.player = new Player(80, groundY - 64);
+    if (this.level instanceof WaterLevel) {
+      const spawnCol = 2;
+      const spawnSurfaceY = this.level.getSolidSurfaceY(spawnCol);
+      const fallbackY = this.level.terrainHeights[0];
+      const startY = (spawnSurfaceY !== null ? spawnSurfaceY : fallbackY) - 64;
+      this.player = new Player(80, startY);
+    } else {
+      const groundY = this.level.terrainHeights[0];
+      this.player = new Player(80, groundY - 64);
+    }
    }
 
   resetGameToState(state) {
@@ -550,12 +582,12 @@ class Game {
     const now = millis();
     for (const item of this.level.items) {
       if (item instanceof TNT) {
-        item.update(now, this.player);
+        item.update(now, this.player, this.level.platforms, this.level);
       } else if (item instanceof Ladder) {
         // 梯子是放置物，不受重力影响
         continue;
       } else if (item instanceof Item) {
-        item.update(this.level.platforms);
+        item.update(this.level.platforms, this.level);
       }
     }
     this.checkCollisions();
@@ -835,7 +867,8 @@ tryRescueBirdWithScissor(slotIndex) {
     const allowedOverlap = 8;
     for (const enemy of this.level.enemies) {
       if (enemy.isDead) continue;
-      if (!(enemy instanceof Zombie) && !(enemy instanceof Drowned)) continue;
+      const useZombieStylePush = enemy instanceof Zombie || enemy instanceof Drowned || enemy instanceof Shark;
+      if (!useZombieStylePush) continue;
       const box = enemy.getCollisionBox();
       const overlapX = Math.min(playerBox.x + playerBox.w, box.x + box.w) - Math.max(playerBox.x, box.x);
       const overlapY = Math.min(playerBox.y + playerBox.h, box.y + box.h) - Math.max(playerBox.y, box.y);
@@ -850,7 +883,8 @@ tryRescueBirdWithScissor(slotIndex) {
       const enemyCx = box.x + box.w / 2;
       const enemyCy = box.y + box.h / 2;
 
-      if (excessY <= 0 || (excessX > 0 && excessX <= excessY)) {
+      const forceHorizontalSeparation = useZombieStylePush;
+      if (forceHorizontalSeparation || excessY <= 0 || (excessX > 0 && excessX <= excessY)) {
         const dirX = enemyCx >= playerCx ? 1 : -1;
         enemy.x += dirX * excessX;
       } else {
@@ -1462,7 +1496,7 @@ class ForestLevel extends Level {
 
       for (let row = 0; row < column.length; row++) {
         const t = column[row];
-        if (t === T.NONE || t === undefined) {
+        if (t === T.NONE || t === undefined || t === T.WATER) {
           // 已经过了一段连续地面，再遇到空格说明“底层地面”结束
           if (lastSolidRow !== -1) break;
           continue;
@@ -1950,6 +1984,55 @@ class FactoryLevel extends ForestLevel {
 
 // 关卡2
 class WaterLevel extends Level {
+  getSolidSurfaceY(col) {
+    if (col < 0 || col >= TERRAIN_COLS) return null;
+    const column = this.tileMap[col] || [];
+    let topSolidRow = -1;
+    for (let row = 0; row < column.length; row++) {
+      const tile = column[row];
+      if (tile === T.NONE || tile === undefined || tile === T.WATER) continue;
+      topSolidRow = Math.max(topSolidRow, row);
+    }
+    if (topSolidRow < 0) return null;
+    return 360 - (topSolidRow + 1) * TILE_SIZE;
+  }
+
+  getBaseSolidSurfaceY(col) {
+    if (col < 0 || col >= TERRAIN_COLS) return null;
+    const column = this.tileMap[col] || [];
+    let lastSolidRow = -1;
+    for (let row = 0; row < column.length; row++) {
+      const tile = column[row];
+      if (tile === T.NONE || tile === undefined || tile === T.WATER) {
+        if (lastSolidRow !== -1) break;
+        continue;
+      }
+      lastSolidRow = row;
+    }
+    if (lastSolidRow < 0) return null;
+    return 360 - (lastSolidRow + 1) * TILE_SIZE;
+  }
+
+  setSnapMode(entity, mode, col = null) {
+    if (!entity) return entity;
+    entity._snapSurfaceMode = mode; // 'top' | 'base'
+    if (col !== null && col !== undefined) entity._snapCol = col;
+    return entity;
+  }
+
+  snapEntityToSolidSurface(entity) {
+    if (!entity) return;
+    const centerX = entity.x + entity.w / 2;
+    const colFromPos = constrain(Math.floor(centerX / TILE_SIZE), 0, TERRAIN_COLS - 1);
+    const col = Number.isInteger(entity._snapCol) ? entity._snapCol : colFromPos;
+    const mode = entity._snapSurfaceMode === 'base' ? 'base' : 'top';
+    const surfaceY = mode === 'base' ? this.getBaseSolidSurfaceY(col) : this.getSolidSurfaceY(col);
+    if (surfaceY === null) return;
+    entity.y = surfaceY - entity.h;
+    if ('vy' in entity) entity.vy = 0;
+    if ('onGround' in entity) entity.onGround = true;
+  }
+
   loadAssets() {
     // 贴图简写（pic/ground 中全部可用）: G草 D土 S石 X深板岩 | COPPER铜 DIAMOND钻石 GOLD金 IRON铁 | DEEP_COPPER/GOLD/IRON/DIAMOND 深板岩矿
     const G = T.GRASS, D = T.DIRT, S = T.STONE, X = T.DEEP;
@@ -2122,13 +2205,15 @@ class WaterLevel extends Level {
     };
 
     // ===== 敌人和物品生成（基于当前地形）=====
-    // 溺尸：至少 4 个，这里放 6 个，确保整张海洋图都有遭遇战
-    this.enemies.push(new Drowned(14 * TILE_SIZE, 176, 64, 64, 4));
-    this.enemies.push(new Drowned(32 * TILE_SIZE, 214, 64, 64, 4));
-    this.enemies.push(new Drowned(50 * TILE_SIZE, 188, 64, 64, 4));
-    this.enemies.push(new Drowned(68 * TILE_SIZE, 232, 64, 64, 4));
-    this.enemies.push(new Drowned(88 * TILE_SIZE, 196, 64, 64, 4));
-    this.enemies.push(new Drowned(108 * TILE_SIZE, 220, 64, 64, 4));
+    this.enemies.push(new Drowned(6 * TILE_SIZE, baseGroundY(6) - 64, 64, 64));
+    // shark 使用绝对坐标生成，避免贴地对齐后被非水方块“吸附”
+    const sharkSpawnX = 33 * TILE_SIZE;
+    const sharkSpawnY = 170;
+    this.enemies.push(new Shark(15 * TILE_SIZE, 150, 84, 68));
+    this.enemies.push(new Shark(33 * TILE_SIZE, 140, 84, 68));
+    this.enemies.push(new Shark(60 * TILE_SIZE, 125, 84, 68));
+    this.enemies.push(new Shark(91 * TILE_SIZE, 125, 84, 68));
+    this.enemies.push(new Shark(115 * TILE_SIZE, 110, 84, 68));
 
     // 污染物
    this.items.push(new Pollutant(40 * TILE_SIZE + 4, groundY(40) - 18, 24, 18, "plastic_bottle"));
@@ -2318,12 +2403,9 @@ class WaterLevel extends Level {
     }
   }
 
-  // 在水关中，整个屏幕都是水中环境。
-  // 只要玩家所在格子不是 SAND 或 GRAVEL，一律视为水中。
-  // （T.NONE = 空气格子就是水；装饰字符串不进 tileMap，也是水）
+  // 在水关中，整个屏幕都采用水中物理；
+  // 地形方块仅承担碰撞/阻挡，不影响是否处于水中。
   isWaterAtWorld(wx, wy) {
-    const tile = this.getTileAtWorld(wx, wy);
-    if (tile === T.SAND || tile === T.GRAVEL) return false;
     return true;
   }
 
@@ -2435,18 +2517,7 @@ class Player {
   }
 
   isInWater(level) {
-    if (!level) return false;
-    const b = this.getCollisionBox();
-    const pts = [
-      // 中心
-      { x: b.x + b.w / 2, y: b.y + b.h / 2 },
-      // 左右中部
-      { x: b.x + 2, y: b.y + b.h / 2 },
-      { x: b.x + b.w - 2, y: b.y + b.h / 2 },
-      // 脚部附近
-      { x: b.x + b.w / 2, y: b.y + b.h - 2 }
-    ];
-    return pts.some(p => level.isWaterAtWorld(p.x, p.y));
+    return isEntityInWater(this, level);
   }
   
   findTouchingLadder(level) {
@@ -2502,8 +2573,8 @@ class Player {
     }
     // 如果在空中且没有按键，保持原有的 vx 但会逐渐减速
     
-    // 空中控制加成：在空中时水平移动速度提升 20%
-    if (!this.onGround && this.vx !== 0 && (leftHeld || rightHeld)) {
+    // 空中控制加成：在空中时水平移动速度提升 20%（水关禁用）
+    if (!(level instanceof WaterLevel) && !this.onGround && this.vx !== 0 && (leftHeld || rightHeld)) {
       this.vx *= 1.2;
     }
     
@@ -2570,11 +2641,14 @@ class Player {
 
     const inWater = this.isInWater(level);
     if (inWater) {
-      // 水中左右移动速度减小
-      this.vx *= 0.3;
-      // 水中：不走正常重力/跳跃，改为匀速下沉；按住空格匀速上浮
-      const swimUp = this.swimUpHeld;
-      this.vy = swimUp ? WATER_RISE_VY : (crouchHeld ? WATER_SINK_VY * 1.35 : WATER_SINK_VY);
+      // 统一水中物理：重力 + 浮力 + 阻力
+      this.vy += WATER_GRAVITY - WATER_BUOYANCY;
+      this.vx *= WATER_DRAG;
+      this.vy *= WATER_DRAG;
+      // 玩家输入额外影响垂直速度（保留上浮/下潜手感）
+      if (this.swimUpHeld) this.vy -= 0.22;
+      if (crouchHeld) this.vy += 0.14;
+      this.vy = constrain(this.vy, -1.8, 1.8);
     } else {
       this.vy += this.gravity;
     }
@@ -2588,8 +2662,10 @@ class Player {
     this.moveWithCollision(platforms, 0, this.vy, false);
     
     // 即使没有垂直移动，也要检测脚下是否有地面
-    if (!this.onGround && Math.abs(this.vy) < 0.1) {
-      this.checkGroundStatus(platforms);
+    const isWaterStage = level instanceof WaterLevel;
+    const groundSnapVyThreshold = isWaterStage ? 0.03 : 0.1;
+    if (!this.onGround && Math.abs(this.vy) < groundSnapVyThreshold) {
+      this.checkGroundStatus(platforms, level);
     }
 
     // 世界下边界：防止掉出画布（即使底部全是水/无碰撞）
@@ -2656,16 +2732,18 @@ class Player {
   }
 
   // 检测脚下是否有地面（用于静止时更新 onGround 状态）
-  checkGroundStatus(platforms) {
+  checkGroundStatus(platforms, level = null) {
     const box = this.getCollisionBox();
     // 检测脚下 1 像素处是否有平台
     const testY = box.y + box.h + 1;
+    const isWaterStage = level instanceof WaterLevel;
+    const groundProbeTolerance = isWaterStage ? 0.6 : 2;
     
     for (let p of platforms) {
       const rects = getCollisionRectsForCollider(p);
       for (const r of rects) {
         if (box.x < r.x + r.w && box.x + box.w > r.x) {
-          if (Math.abs(testY - r.y) <= 2) {
+          if (Math.abs(testY - r.y) <= groundProbeTolerance) {
             this.onGround = true;
             this.jumpsRemaining = this.maxJumps;
             this.vy = 0;
@@ -2845,6 +2923,10 @@ class Enemy {
   canDamagePlayer() {
     return !this.isDead;
   }
+
+  isInWater(level) {
+    return isEntityInWater(this, level);
+  }
   
   get isDead() { return this.health <= 0; }
   
@@ -2876,8 +2958,15 @@ class Enemy {
         this.vx = 0;
       }
       
-      // 应用重力
-      this.vy += this.gravity;
+      const inWater = this.isInWater(level);
+      if (inWater) {
+        this.vy += WATER_GRAVITY - WATER_BUOYANCY;
+        this.vx *= WATER_DRAG;
+        this.vy *= WATER_DRAG;
+      } else {
+        // 应用重力
+        this.vy += this.gravity;
+      }
       
       // 水平移动
       this.x += this.vx;
@@ -2934,6 +3023,234 @@ class Zombie extends Enemy {
     const img = this.facingRight ? window.zombieSpriteRight : window.zombieSpriteLeft;
     if (img && img.width > 0) image(img, this.x, this.y, this.w, this.h);
     else super.draw();
+  }
+}
+
+
+class Drowned extends Enemy {
+  constructor(x, y, w = 64, h = 64, health = ENEMY_DEFAULT_HEALTH) {
+    super(x, y, w, h, health);
+    // 保持独立配置：24x64 碰撞箱，底对齐、水平居中
+    this.collisionW = 24;
+    this.collisionH = 64;
+    this.collisionOffsetX = (this.w - this.collisionW) / 2;
+    this.collisionOffsetY = this.h - this.collisionH;
+  }
+
+  isInWater(level) {
+    return isEntityInWater(this, level);
+  }
+
+  update(player, platforms, level = null) {
+    if (this.isDead) return;
+
+    const px = player.x + player.w / 2;
+    const py = player.y + player.h / 2;
+    const ex = this.x + this.w / 2;
+    const ey = this.y + this.h / 2;
+    const distance = Math.hypot(px - ex, py - ey);
+
+    if (!this.activated && distance <= ENEMY_DETECT_RANGE) {
+      this.activated = true;
+    }
+
+    if (this.activated) {
+      if (px < ex - 5) {
+        this.vx = -ENEMY_SPEED;
+        this.facingRight = false;
+      } else if (px > ex + 5) {
+        this.vx = ENEMY_SPEED;
+        this.facingRight = true;
+      } else {
+        this.vx = 0;
+      }
+    } else {
+      this.vx *= 0.92;
+    }
+
+    const inWater = this.isInWater(level);
+    if (inWater) {
+      // 统一水中物理：重力 + 浮力 + 阻力
+      this.vy += WATER_GRAVITY - WATER_BUOYANCY;
+      this.vx *= WATER_DRAG;
+      this.vy *= WATER_DRAG;
+
+      // 轻微漂浮波动
+      const floatWave = Math.sin(millis() * 0.004 + this.x * 0.03) * 0.03;
+      this.vy += floatWave;
+
+      // 追踪时轻微跟随玩家高度，形成“漂浮追击”
+      if (this.activated) {
+        const dyToPlayer = py - ey;
+        this.vy += constrain(dyToPlayer * 0.008, -0.06, 0.06);
+      }
+
+      // 水中速度上限（阻力）
+      this.vy = constrain(this.vy, -1.2, 1.2);
+    } else {
+      this.vy += this.gravity;
+    }
+
+    this.x += this.vx;
+    this.resolveCollision(platforms, true);
+
+    this.y += this.vy;
+    this.onGround = false;
+    this.resolveCollision(platforms, false);
+
+    // 活动高度限制：不允许超过屏幕顶端
+    if (this.y < 0) {
+      this.y = 0;
+      if (this.vy < 0) this.vy = 0;
+    }
+
+    const maxY = CANVAS_H - this.h;
+    if (this.y > maxY) {
+      this.y = maxY;
+      this.vy = 0;
+      this.onGround = true;
+    }
+  }
+
+  draw() {
+    const img = window.drownedSprite;
+    if (img && img.width > 0) {
+      push();
+      imageMode(CENTER);
+      translate(this.x + this.w / 2, this.y + this.h / 2);
+      scale(this.facingRight ? -1 : 1, 1);
+      image(img, 0, 0, this.w, this.h);
+      pop();
+    } else {
+      super.draw();
+    }
+  }
+}
+
+
+class Shark extends Enemy {
+  constructor(x, y, w = 84, h = 68, health = ENEMY_DEFAULT_HEALTH) {
+    super(x, y, w, h, health);
+    this.patrolOriginX = x;
+    this.patrolRange = 4 * TILE_SIZE; // 总巡逻范围：4格（左右各2格）
+    this.patrolDir = -1; // 贴图默认朝左，初始向左巡逻
+    this.facingRight = false;
+    this.collisionW = 44;
+    this.collisionH = 32;
+    this.refreshCollisionAnchor();
+  }
+
+  refreshCollisionAnchor() {
+    // 默认朝左贴图时，碰撞箱紧贴左缘；翻转朝右时，镜像到右缘
+    this.collisionOffsetX = this.facingRight ? (this.w - this.collisionW) : 0;
+    // 上下相对于贴图居中
+    this.collisionOffsetY = (this.h - this.collisionH) / 2;
+  }
+
+  isInWater(level) {
+    return isEntityInWater(this, level);
+  }
+
+  update(player, platforms, level = null) {
+    if (this.isDead) return;
+
+    const px = player.x + player.w / 2;
+    const py = player.y + player.h / 2;
+    const ex = this.x + this.w / 2;
+    const ey = this.y + this.h / 2;
+    const distance = Math.hypot(px - ex, py - ey);
+
+    if (!this.activated && distance <= ENEMY_DETECT_RANGE) {
+      this.activated = true;
+    }
+
+    if (this.activated) {
+      // 检测到玩家后，行为与 drowned 一致：朝玩家追踪
+      if (px < ex - 5) {
+        this.vx = -ENEMY_SPEED;
+        this.facingRight = false;
+      } else if (px > ex + 5) {
+        this.vx = ENEMY_SPEED;
+        this.facingRight = true;
+      } else {
+        this.vx = 0;
+      }
+    } else {
+      // 未激活时在固定范围内水平往返巡逻
+      const minX = this.patrolOriginX - this.patrolRange / 2;
+      const maxX = this.patrolOriginX + this.patrolRange / 2;
+      const patrolSpeed = ENEMY_SPEED * 0.85;
+      this.vx = patrolSpeed * this.patrolDir;
+
+      if (this.x <= minX) {
+        this.x = minX;
+        this.patrolDir = 1;
+      } else if (this.x >= maxX) {
+        this.x = maxX;
+        this.patrolDir = -1;
+      }
+      this.facingRight = this.patrolDir > 0;
+    }
+    this.refreshCollisionAnchor();
+
+    const inWater = this.isInWater(level);
+    if (inWater) {
+      // shark 在水中不受重力/浮力，仅受阻力影响
+      this.vx *= WATER_DRAG;
+      this.vy *= WATER_DRAG;
+
+      const floatWave = Math.sin(millis() * 0.004 + this.x * 0.03) * 0.03;
+      this.vy += floatWave;
+
+      if (this.activated) {
+        const dyToPlayer = py - ey;
+        this.vy += constrain(dyToPlayer * 0.008, -0.06, 0.06);
+      }
+      this.vy = constrain(this.vy, -1.2, 1.2);
+    } else {
+      this.vy += this.gravity;
+    }
+
+    this.x += this.vx;
+    this.resolveCollision(platforms, true);
+
+    this.y += this.vy;
+    this.onGround = false;
+    this.resolveCollision(platforms, false);
+
+    if (this.y < 0) {
+      this.y = 0;
+      if (this.vy < 0) this.vy = 0;
+    }
+
+    const maxY = CANVAS_H - this.h;
+    if (this.y > maxY) {
+      this.y = maxY;
+      this.vy = 0;
+      this.onGround = true;
+    }
+  }
+
+  draw() {
+    const frames = [
+      window.sharkSpriteStill,
+      window.sharkSpriteUp,
+      window.sharkSpriteStill,
+      window.sharkSpriteDown
+    ];
+    const frameDurationMs = 160;
+    const frame = frames[Math.floor(millis() / frameDurationMs) % frames.length];
+    if (frame && frame.width > 0) {
+      push();
+      imageMode(CENTER);
+      translate(this.x + this.w / 2, this.y + this.h / 2);
+      // shark 贴图默认朝左；当需要朝右时做水平翻转
+      scale(this.facingRight ? -1 : 1, 1);
+      image(frame, 0, 0, this.w, this.h);
+      pop();
+    } else {
+      super.draw();
+    }
   }
 }
 
@@ -3013,7 +3330,14 @@ class Slime extends Enemy {
       this.vx *= 0.88;
     }
 
-    this.vy += this.gravity;
+    const inWater = this.isInWater(level);
+    if (inWater) {
+      this.vy += WATER_GRAVITY - WATER_BUOYANCY;
+      this.vx *= WATER_DRAG;
+      this.vy *= WATER_DRAG;
+    } else {
+      this.vy += this.gravity;
+    }
     this.x += this.vx;
     this.resolveCollision(platforms, true);
     this.y += this.vy;
@@ -3075,179 +3399,6 @@ class Slime extends Enemy {
 }
 
 
-class Drowned extends Enemy {
-  constructor(x, y, w, h, health) {
-    super(x, y, w, h, health);
-    // 水中敌人不受重力影响，并采用更贴合体型的碰撞箱
-    this.gravity = 0;
-    this.collisionW = min(24, this.w - 8);
-    this.collisionH = 64;
-    this.collisionOffsetX = (this.w - this.collisionW) / 2;
-    this.collisionOffsetY = this.h - this.collisionH;
-
-    // 漂浮相位与时间偏移（避免同频抖动）
-    this.floatPhase = random(TWO_PI);
-    this.floatOffset = random(TWO_PI);
-    this.avoidDirY = random() < 0.5 ? -1 : 1;
-    this.avoidUntilMs = 0;
-    this.renderScaleX = 1;
-  }
-  draw() {
-    const img = window.drownedLeft;
-    const drawW = this.w * this.renderScaleX;
-    const drawX = this.x - (drawW - this.w) / 2;
-    if (img && img.width > 0) {
-      if (this.facingRight) {
-        push();
-        translate(drawX + drawW, this.y);
-        scale(-1, 1);
-        image(img, 0, 0, drawW, this.h);
-        pop();
-      } else {
-        image(img, drawX, this.y, drawW, this.h);
-      }
-    } else {
-      fill(80, 120, 200);
-      rect(this.x, this.y, this.w, this.h);
-    }
-  }
-
-  intersectsAnyPlatform(box, platforms) {
-    for (let i = 0; i < platforms.length; i++) {
-      const p = platforms[i];
-      if (rectCollision(box.x, box.y, box.w, box.h, p.x, p.y, p.w, p.h)) return true;
-    }
-    return false;
-  }
-
-  isBoxInSeaWater(box, level) {
-    if (!level || typeof level.isWaterAtWorld !== "function") return true;
-    const pts = [
-      { x: box.x + 2, y: box.y + 2 },
-      { x: box.x + box.w - 2, y: box.y + 2 },
-      { x: box.x + 2, y: box.y + box.h - 2 },
-      { x: box.x + box.w - 2, y: box.y + box.h - 2 },
-      { x: box.x + box.w * 0.5, y: box.y + box.h * 0.5 }
-    ];
-    for (let i = 0; i < pts.length; i++) {
-      if (!level.isWaterAtWorld(pts[i].x, pts[i].y)) return false;
-    }
-    return true;
-  }
-
-  canMoveTo(dx, dy, platforms, level) {
-    const nextBox = this.getCollisionBox();
-    nextBox.x += dx;
-    nextBox.y += dy;
-    if (this.intersectsAnyPlatform(nextBox, platforms)) return false;
-    if (!this.isBoxInSeaWater(nextBox, level)) return false;
-    return true;
-  }
-
-  update(player, platforms, level = null) {
-    if (this.isDead) return;
-
-    const px = player.x + player.w / 2;
-    const py = player.y + player.h / 2;
-    const ex = this.x + this.w / 2;
-    const ey = this.y + this.h / 2;
-    const distance = Math.hypot(px - ex, py - ey);
-    const xDistance = Math.abs(px - ex);
-
-    this.floatOffset += 0.05;
-    this.y += Math.sin(this.floatOffset) * 0.3;
-
-    // X 轴接近即激活（更符合海洋追击预期）
-    const DROWNED_X_AGGRO_RANGE = 10 * TILE_SIZE;
-    if (!this.activated && (distance <= ENEMY_DETECT_RANGE || xDistance <= DROWNED_X_AGGRO_RANGE)) {
-      this.activated = true;
-    }
-
-    if (this.activated) {
-      const DROWNED_SPEED_X = ENEMY_SPEED * 0.9;
-      const DROWNED_SPEED_Y = ENEMY_SPEED * 0.65;
-      const dirX = px >= ex ? 1 : -1;
-
-      // 左右追踪
-      if (px < ex - 5) {
-        this.vx = -DROWNED_SPEED_X;
-        this.facingRight = false;
-      } else if (px > ex + 5) {
-        this.vx = DROWNED_SPEED_X;
-        this.facingRight = true;
-      } else {
-        this.vx = 0;
-      }
-
-      // 上下追踪
-      if (py < ey - 5) {
-        this.vy = -DROWNED_SPEED_Y;
-      } else if (py > ey + 5) {
-        this.vy = DROWNED_SPEED_Y;
-      } else {
-        this.vy = 0;
-      }
-
-      // 前方有障碍时，优先上下绕行，而不是贴墙抖动
-      const box = this.getCollisionBox();
-      const lookAhead = {
-        x: box.x + dirX * 8,
-        y: box.y,
-        w: box.w,
-        h: box.h
-      };
-      const blockedAhead = this.intersectsAnyPlatform(lookAhead, platforms);
-      if (blockedAhead) {
-        this.avoidUntilMs = millis() + 260;
-        const upProbe = { x: lookAhead.x, y: lookAhead.y - TILE_SIZE * 0.9, w: lookAhead.w, h: lookAhead.h };
-        const downProbe = { x: lookAhead.x, y: lookAhead.y + TILE_SIZE * 0.9, w: lookAhead.w, h: lookAhead.h };
-        const upFree = !this.intersectsAnyPlatform(upProbe, platforms);
-        const downFree = !this.intersectsAnyPlatform(downProbe, platforms);
-
-        if (upFree && (!downFree || py < ey)) this.avoidDirY = -1;
-        else if (downFree) this.avoidDirY = 1;
-        else this.avoidDirY *= -1;
-      }
-
-      if (millis() < this.avoidUntilMs) {
-        this.vy = this.avoidDirY * DROWNED_SPEED_Y * 1.35;
-        this.vx *= 0.7;
-      }
-
-      // 漂浮效果（叠加）
-      this.vy += sin(frameCount * 0.05 + this.floatPhase) * 0.3;
-
-      // 移动必须保持在“纯海水”区域内，不能穿入沙砾/地形块
-      if (this.canMoveTo(this.vx, this.vy, platforms, level)) {
-        this.x += this.vx;
-        this.y += this.vy;
-      } else {
-        const vAbs = max(Math.abs(this.vy), DROWNED_SPEED_Y * 1.2);
-        const candidates = [
-          { dx: 0, dy: this.avoidDirY * vAbs },
-          { dx: 0, dy: -this.avoidDirY * vAbs },
-          { dx: this.vx * 0.4, dy: 0 },
-          { dx: 0, dy: 0 }
-        ];
-
-        for (let i = 0; i < candidates.length; i++) {
-          const c = candidates[i];
-          if (!this.canMoveTo(c.dx, c.dy, platforms, level)) continue;
-          this.x += c.dx;
-          this.y += c.dy;
-          break;
-        }
-      }
-
-      // 世界边界钳制，避免溺尸漂出可见区域
-      this.x = constrain(this.x, 0, WORLD_WIDTH - this.w);
-      this.y = constrain(this.y, 20, CANVAS_H - this.h - 4);
-    }
-  }
-}
-
-
-
 class Item {
   constructor(x, y, w, h, sprite) {
     Object.assign(this, { x, y, w, h, sprite });
@@ -3255,8 +3406,13 @@ class Item {
     this.gravity = 0.5;
   }
 
-  update(platforms) {
-    this.vy += this.gravity;
+  update(platforms, level = null) {
+    if (isEntityInWater(this, level)) {
+      this.vy += WATER_GRAVITY - WATER_BUOYANCY;
+      this.vy *= WATER_DRAG;
+    } else {
+      this.vy += this.gravity;
+    }
     this.y += this.vy;
 
     for (let p of platforms) {
@@ -3333,7 +3489,9 @@ class TNT extends Pollutant {
   }
 
   // 每帧更新：到点爆炸
-  update(now, player) {
+  update(now, player, platforms = null, level = null) {
+    // TNT 也遵循统一重力/浮力/阻力规则
+    if (platforms) super.update(platforms, level);
     if (!this.armed || this.exploded) return;
     if (now - this.armTime >= this.fuseMs) {
       this.explode(now, player);
@@ -3401,9 +3559,9 @@ class TrappedBird extends Item {
     this.facingRight = targetX > this.x;
     this.vy = 0;
   }
-  update(platforms) {
+  update(platforms, level = null) {
     if (this.state === 'trapped') {
-      super.update(platforms);
+      super.update(platforms, level);
       return;
     }
     if (this.state !== 'flying') return;
@@ -3866,8 +4024,10 @@ function setup() {
   // 敌人（assets/pic/enemy）
   load('assets/pic/enemy/zombie_left.png', 'zombieSpriteLeft');
   load('assets/pic/enemy/zombie_right.png', 'zombieSpriteRight');
-  // 水下敌人（assets/pic/enemy/drowned）
-  load("assets/pic/enemy/drowned_left.png", 'drownedLeft');
+  load('assets/pic/enemy/drowned.png', 'drownedSprite');
+  load('assets/pic/enemy/shark_still.png', 'sharkSpriteStill');
+  load('assets/pic/enemy/shark_up.png', 'sharkSpriteUp');
+  load('assets/pic/enemy/shark_down.png', 'sharkSpriteDown');
   // 史莱姆
   load("assets/pic/enemy/slime.png", "slimeSprite");
 
