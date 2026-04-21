@@ -1360,13 +1360,13 @@ class ForestLevel extends Level {
       [2,10,[X,X,S,D,G,'log','log','log','leaves','leaves']], 
       [3,10,[X,S,S,G,N,N,'leaves','leaves','leaves','leaves']], 
       [4,8,[X,S,D,G,N,N,'leaves','leaves']],
-      [5,4,[X,S,D,G]], 
-      [6,3,[X,S,S]], 
-      [7,6,[X,S,S,N,N,G]], 
-      [8,7,[X,S,N,N,N,D,G]], 
-      [9,7,[X,T.LAVA,N,N,N,S,G]], 
-      [10,7,[X,T.LAVA,N,N,N,S,G]],
-      [11,8,[X,T.LAVA,N,N,N,N,N,N]],
+      [5,4,[X,S,D,G]],  
+      [6,7,[X,S,S,N,N,D,G]], 
+      [7,6,[X,T.LAVA,N,N,N,G]], 
+      [8,2,[X,T.LAVA]],
+      [9,2,[X,T.LAVA]], 
+      [10,2,[X,T.LAVA]],
+      [11,2,[X,T.LAVA]],
       [12,2,[X,T.LAVA]],
       [13,2,[X,T.LAVA]],
       [14,6,[X,S,S,N,'leaves','leaves']],
@@ -1551,7 +1551,7 @@ class ForestLevel extends Level {
     this.items.push(new Tool(28 * TILE_SIZE + toolOffset, groundY(28) - 24, 24, 24, 'scissor'));
     this.items.push(new Tool(92 * TILE_SIZE + toolOffset, baseGroundY(92) - 24, 24, 24, 'scissor'));
     // 水桶
-    this.items.push(new Tool(8 * TILE_SIZE + toolOffset, groundY(8) - 24, 24, 24, 'enlarged_water_bucket'));
+    this.items.push(new Tool(7 * TILE_SIZE + toolOffset, groundY(7) - 24, 24, 24, 'enlarged_water_bucket'));
     this.items.push(new Tool(23 * TILE_SIZE + toolOffset, groundY(23) - 24, 24, 24, 'enlarged_water_bucket'));
     this.items.push(new Tool(29 * TILE_SIZE + toolOffset, groundY(29) - 24, 24, 24, 'enlarged_water_bucket'));
     this.items.push(new Tool(103 * TILE_SIZE + toolOffset, groundY(103) - 24, 24, 24, 'enlarged_water_bucket'));
