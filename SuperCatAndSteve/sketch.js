@@ -1293,10 +1293,10 @@ class ForestLevel extends Level {
       [7,6,[X,S,S,N,N,G]], 
       [8,7,[X,S,N,N,N,D,G]], 
       [9,7,[X,T.LAVA,N,N,N,S,G]], 
-      [10,8,[X,T.LAVA,N,N,N,S,D,G]],
-      [11,8,[X,T.LAVA,N,N,N,N,D,G]],
+      [10,7,[X,T.LAVA,N,N,N,S,G]],
+      [11,8,[X,T.LAVA,N,N,N,N,N,N]],
       [12,2,[X,T.LAVA]],
-      [13,3,[X,S,S]],
+      [13,2,[X,T.LAVA]],
       [14,6,[X,S,S,N,'leaves','leaves']],
       [15,8,[X,S,G,N,'leaves','leaves','leaves','leaves']], 
       [16,8,[X,S,G,'log','log','log','leaves','leaves']], 
@@ -1307,7 +1307,7 @@ class ForestLevel extends Level {
       [20,9,[S,S,D,G,N,'leaves','leaves','leaves','leaves']], 
       [21,9,[S,S,D,G,'log','log','log','leaves','leaves']], 
       [22,9,[S,S,D,G,N,'leaves','leaves','leaves','leaves']], 
-      [23,4,[S,S,D,G]],
+      [23,7,[S,S,D,G,N,'leaves','leaves']],
       [24,8,[S,S,S,S,D,G,G,G]],
       [25,8,[S,S,S,S,D,G,G,G]], 
       [26,3,[X,S,S]], 
@@ -1450,6 +1450,7 @@ class ForestLevel extends Level {
 
     // ===== 敌人和物品生成（基于当前地形）=====
     // 敌人
+    this.enemies.push(new Enemy(21 * TILE_SIZE, groundY(21) - 64, 64, 64));
     this.enemies.push(new Enemy(54 * TILE_SIZE, groundY(54) - 64, 64, 64));
     this.enemies.push(new Enemy(104 * TILE_SIZE, baseGroundY(104) - 64, 64, 64));
 
@@ -2725,94 +2726,43 @@ class Player {
     this.isAttacking = true;
     this.attackAnimStart = millis();
   }
-
-  startAttackAnimation() {
-    this.isAttacking = true;
-    this.attackAnimStart = millis();
-  }
   draw() {
-    const img = this.facingRight ? window.alexSpriteRight : window.alexSpriteLeft;
-    const crouchScale = this.isCrouching ? 0.78 : 1;
-    const drawH = this.h * crouchScale;
-    const drawY = this.y + (this.h - drawH);
-    if (img && img.width > 0) image(img, this.x, drawY, this.w, drawH);
-    else { fill(50, 100, 255); rect(this.x, drawY, this.w, drawH); }
-    // 手持武器：24×24，位置由 WEAPON_OFFSET_X/Y 相对玩家贴图微调
-// 手持武器：固定在左手，并支持挥剑动画
-    if (this.equippedWeaponType) {
-      const weaponImg = window['weapon_' + this.equippedWeaponType];
-      const S = WEAPON_DRAW_SIZE;
-
-      // 左手基准位置
-      const handX = this.x + 4;
-      const handY = this.y + this.h * 0.45;
-
-      // 朝左时额外往左一点
-      const facingLeftExtraOffset = this.facingRight ? 0 : -8;
-
-      const weaponX = handX + WEAPON_OFFSET_X + facingLeftExtraOffset;
-      const weaponY = handY + WEAPON_OFFSET_Y;
-
-      // 计算挥剑角度
-      let attackAngle = 0;
-      if (this.isAttacking) {
-        const elapsed = millis() - this.attackAnimStart;
-        const t = elapsed / this.attackAnimDuration;
-
-        if (t >= 1) {
-          this.isAttacking = false;
-        } else {
-          attackAngle = radians(-50 + 90 * t);
+    const elapsed = millis() - this.attackAnimStart;
+    const inAttackFrame = this.isAttacking && elapsed < this.attackAnimDuration;
+    if (this.isAttacking && !inAttackFrame) this.isAttacking = false;
+    const spriteKeyByWeapon = inAttackFrame
+      ? {
+          wooden_sword: 'alexSpriteWoodenSwordAttack',
+          stone_sword: 'alexSpriteStoneSwordAttack',
+          iron_sword: 'alexSpriteIronSwordAttack',
+          diamond_sword: 'alexSpriteDiamondSwordAttack'
         }
-      }
-
-        push();
-
-        // 以剑柄附近为旋转中心
-        translate(weaponX + S * 0.25, weaponY + S * 0.8);
-
-        // 根据人物朝向决定剑和挥砍方向
-        const faceDir = this.facingRight ? 1 : -1;
-        scale(faceDir, 1);
-        rotate(faceDir * attackAngle);
-
-        // ===== 挥剑时的剑风线条 =====
-        if (this.isAttacking) {
-          const elapsed = millis() - this.attackAnimStart;
-          const t = elapsed / this.attackAnimDuration;
-
-          // 让剑风在挥动中段最明显
-          const windAlpha = 1 - abs(0.5 - t) * 2;
-
-          push();
-          noFill();
-          strokeWeight(3);
-
-          // 第一条短剑风
-          stroke(255, 255, 255, 140 * windAlpha);
-          arc(0, 0, 36, 36, radians(-95), radians(-35));
-
-          // 第二条中剑风
-          stroke(180, 240, 255, 120 * windAlpha);
-          arc(0, 0, 52, 52, radians(-100), radians(-28));
-
-          // 第三条长剑风（接近实际攻击范围方向）
-          stroke(120, 220, 255, 90 * windAlpha);
-          arc(0, 0, 90, 90, radians(-105), radians(-20));
-
-          pop();
-        }
-
-        // ===== 再画剑本体 =====
-        if (weaponImg && weaponImg.width > 0) {
-          image(weaponImg, -S * 0.25, -S * 0.8, S, S);
-        } else {
-          fill(180, 120, 80);
-          rect(-S * 0.25, -S * 0.8, S, S);
-        }
-
-        pop();
+      : {
+          wooden_sword: 'alexSpriteWoodenSword',
+          stone_sword: 'alexSpriteStoneSword',
+          iron_sword: 'alexSpriteIronSword',
+          diamond_sword: 'alexSpriteDiamondSword'
+        };
+    const spriteKey = spriteKeyByWeapon[this.equippedWeaponType] || (inAttackFrame ? 'alexSpriteWoodenSwordAttack' : 'alexSpriteWoodenSword');
+    const img = window[spriteKey];
+    const drawW = 128;
+    const drawH = 64;
+    const box = this.getCollisionBox();
+    const drawCenterX = box.x + box.w / 2;
+    const drawBottomY = box.y + box.h;
+    const drawY = drawBottomY - drawH;
+    if (img && img.width > 0) {
+      push();
+      imageMode(CENTER);
+      translate(drawCenterX, drawY + drawH / 2);
+      scale(this.facingRight ? 1 : -1, 1);
+      image(img, 0, 0, drawW, drawH);
+      pop();
+    } else {
+      fill(50, 100, 255);
+      rect(drawCenterX - drawW / 2, drawY, drawW, drawH);
     }
+    // 攻击表现改为切换玩家立绘，不再单独绘制 sword
   }
 }
 
@@ -3714,9 +3664,15 @@ function setup() {
   load('assets/pic/animals/bird_flip.png', 'bird_flip');
   load('assets/pic/animals/web_back.png', 'web_back');
   load('assets/pic/animals/web_front.png', 'web_front');
-  // 玩家（assets/pic/player_cat）
-  load('assets/pic/player_cat/Alex_left.png', 'alexSpriteLeft');
-  load('assets/pic/player_cat/Alex_right.png', 'alexSpriteRight');
+  // 玩家：根据武器等级与攻击状态切换对应立绘（朝向用水平翻转）
+  load('assets/pic/player_cat/Alex_wooden_sword_0.png', 'alexSpriteWoodenSword');
+  load('assets/pic/player_cat/Alex_stone_sword_0.png', 'alexSpriteStoneSword');
+  load('assets/pic/player_cat/Alex_iron_sword_0.png', 'alexSpriteIronSword');
+  load('assets/pic/player_cat/Alex_diamond_sword_0.png', 'alexSpriteDiamondSword');
+  load('assets/pic/player_cat/Alex_wooden_sword_1.png', 'alexSpriteWoodenSwordAttack');
+  load('assets/pic/player_cat/Alex_stone_sword_1.png', 'alexSpriteStoneSwordAttack');
+  load('assets/pic/player_cat/Alex_iron_sword_1.png', 'alexSpriteIronSwordAttack');
+  load('assets/pic/player_cat/Alex_diamond_sword_1.png', 'alexSpriteDiamondSwordAttack');
 
   // 敌人（assets/pic/enemy）
   load('assets/pic/enemy/zombie_left.png', 'zombieSpriteLeft');
