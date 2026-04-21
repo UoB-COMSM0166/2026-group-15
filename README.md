@@ -290,7 +290,7 @@ To complement the Think Aloud evaluation, we conducted a heuristic analysis of t
 | Movement         | Rock collision boxes feel larger than sprites, making some jumps effectively impossible.                  | H2 – Match between system and real world; H8 – Aesthetic & minimalist design |         2           |        4         |           2           |   **2.7**   |
 | UI / Inventory   | Inventory layout is narrow, making it hard to see and manage all tools and pollutants.                    | H8 – Aesthetic & minimalist design; H6 – Recognition rather than recall |         1           |        2         |           2           |   **1.7**   |
 
-**Severity = (Frequency + Impact + Persistence) / 3**
+> Severity = (Frequency + Impact + Persistence) / 3
 
 **Interpretation**
 
