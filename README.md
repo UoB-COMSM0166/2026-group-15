@@ -244,17 +244,17 @@ Write here.
 
 ## 6. Evaluation
 
-### 6.1 Qualitative Analysis
+## 6.1 Qualitative Analysis
 
 To evaluate the usability and overall experience of **our game, Super Cat & Steve**, we used a qualitative approach that combined a **Think Aloud evaluation** with a **heuristic analysis** based on Nielsen’s usability guidelines. These methods helped us understand how players actually played the game, where they became confused, and which usability issues should be prioritised in later iterations.
 
 ---
 
-#### 6.1.1 Think Aloud Evaluation
+### 6.1.1 Think Aloud Evaluation
 
 We conducted a **Think Aloud evaluation** on the **first forest level** and the **partially implemented second ocean level** to identify usability issues during gameplay.
 
-##### Key Findings
+#### Key Findings
 
 - **Guidance and information**  
   - Grey hint boxes were often overlooked until players were stuck, which suggests that their visibility is not sufficient, especially for younger players.
@@ -273,13 +273,13 @@ We conducted a **Think Aloud evaluation** on the **first forest level** and the 
 
 ---
 
-#### 6.1.2 Heuristic Analysis
+### 6.1.2 Heuristic Analysis
 
-##### Method
+#### Method
 
 To complement the Think Aloud evaluation, we conducted a **heuristic analysis** of the same two levels in our game. Each usability issue was rated on **frequency**, **impact**, and **persistence** on a 0–4 scale, and a **severity score** was calculated as the average of these three values.
 
-##### Issues and Severity
+#### Issues and Severity
 
 | **No.** | **Issue**                                                                                                 | **Heuristics Violated**                        | **Frequency (0–4)** | **Impact (0–4)** | **Persistence (0–4)** | **Severity** |
 |--------:|-----------------------------------------------------------------------------------------------------------|-----------------------------------------------|---------------------:|-----------------:|-----------------------:|------------:|
@@ -293,7 +293,7 @@ To complement the Think Aloud evaluation, we conducted a **heuristic analysis** 
 
 > **Severity = (Frequency + Impact + Persistence) / 3**
 
-##### Interpretation
+#### Interpretation
 
 The heuristic analysis reflects and structures the issues observed in the Think Aloud evaluation:
 
@@ -304,9 +304,11 @@ The heuristic analysis reflects and structures the issues observed in the Think 
 
 ---
 
-### Follow-up Changes
+### 6.1.3 Follow-up Changes
 
 In later iterations, we increased hint visibility, improved combat feedback and hitbox alignment, made tool and environment behaviour more consistent, and adjusted collision boxes and the inventory layout to make the game easier to play and understand.
+
+---
 
 ### 6.2 Quantitative Analysis
 We conducted a structured usability and workload evaluation with 10 participants. Each user played the game at two difficulty levels: **Level 1 (Easy)** and **Level 2 (Hard)**.
