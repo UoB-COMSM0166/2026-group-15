@@ -211,7 +211,9 @@ Write here.
 
 To evaluate the usability and overall experience of our game, we used a qualitative approach that combined a **Think Aloud evaluation** with a **heuristic analysis** based on Nielsen’s usability guidelines. These methods helped us understand how players actually played the game, where they became confused, and which usability issues should be prioritised in later iterations.
 
----
+- - -
+***
+### ————————————————————
 
 #### 6.1.1 Think Aloud Evaluation
 
