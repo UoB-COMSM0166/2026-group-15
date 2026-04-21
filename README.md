@@ -45,6 +45,19 @@
 - [9. Individual Contribution](#9-individual-contribution)
 
 ---
+## Weekly Lab
+## Weekly Labs
+
+| Week | Title                                                         | Documentation |
+|------|---------------------------------------------------------------|---------------|
+| 01   | Lab 1: Game Ideas                                       | [README](https://github.com/UoB-COMSM0166/2026-group-15/tree/main/Homework_Week1_GameIdeas) |
+| 02   | Lab 2: Spray Fun and Brainstorm                       | [README](https://github.com/UoB-COMSM0166/2026-group-15/tree/main/Homework_Week2_SprayFun) |
+| 03   | Lab 3: Prototype & Game Selection                               | [README] (https://github.com/UoB-COMSM0166/2026-group-15/tree/main/Homework_Week3_Prototypes) |
+| 04   | Lab 4: User Stories & Requirements Engineering                 | [README](link_to_readme_04) |
+| 05   | Lab 5: Object-Oriented Design & Agile Estimation               | [README](link_to_readme_05) |
+| 07   | Lab 7: Think Aloud Study & Heuristic Evaluation                | [README](link_to_readme_07) |
+| 08   | Lab 8: HCI Evaluation — NASA-TLX & SUS                          | [README](link_to_readme_08) |
+| 09   | Lab 9: Quality Assurance — Black-Box & White-Box Testing       | [README](link_to_readme_09) |
 
 ## 1. Team
 
