@@ -39,7 +39,7 @@
 - [6. Evaluation](#6-evaluation)
   - [6.1 Qualitative Analysis](#61-qualitative-analysis)
   - [6.2 Quantitative Analysis](#62-quantitative-analysis)
-  - [6.3 JUnit Testing](#63-junit-testing)
+  - [6.3 Testing](#63-testing)
 - [7. Process](#7-process)
 - [8. Conclusion](#8-conclusion)
 - [9. Individual Contribution](#9-individual-contribution)
@@ -241,12 +241,13 @@ Write here.
 Write here.
 
 ---
+---
 
 ## 6. Evaluation
 
 ### 6.1 Qualitative Analysis
 
-To evaluate the usability and overall experience of **our game, Super Cat & Steve**, we used a qualitative approach that combined a **Think Aloud evaluation** with a **heuristic analysis** based on Nielsen’s usability guidelines. These methods helped us understand how players actually played the game, where they became confused, and which usability issues should be prioritised in later iterations.
+To evaluate the usability and overall experience of our game, **Super Cat & Steve**, we used a qualitative approach that combined a **Think Aloud evaluation** with a **heuristic analysis** based on Nielsen’s usability guidelines. These methods helped us understand how players actually played the game, where they became confused, and which usability issues should be prioritised in later iterations.
 
 ---
 
@@ -275,14 +276,12 @@ We conducted a **Think Aloud evaluation** on the **first forest level** and the 
 
 #### 6.1.2 Heuristic Analysis
 
-**Method**
-
+**Method**  
 To complement the Think Aloud evaluation, we conducted a heuristic analysis of the same two levels. The main issues identified in the Think Aloud sessions were mapped to Nielsen’s usability heuristics and rated on **frequency**, **impact**, and **persistence** on a 0–4 scale. A **severity score** was then calculated as the average of these three values to help us prioritise the issues more systematically in later iterations.
 
 **Issues and Severity**
 
-#### Heuristic Evaluation – Issues and Severity
-
+```markdown
 | **Interface**    | **Issue**                                                                                                 | **Heuristic(s)**                                             | **Frequency (0–4)** | **Impact (0–4)** | **Persistence (0–4)** | **Severity** |
 |------------------|-----------------------------------------------------------------------------------------------------------|-------------------------------------------------------------|:-------------------:|:----------------:|:---------------------:|:-----------:|
 | Hints            | Grey hint boxes are easy to miss; players often only notice hints after getting stuck.                    | H1 – Visibility of system status; H10 – Help & documentation |         3           |        4         |           3           |   **3.3**   |
@@ -292,6 +291,7 @@ To complement the Think Aloud evaluation, we conducted a heuristic analysis of t
 | Inventory        | Tool behaviour is inconsistent; some tools disappear after use while others remain.                       | H4 – Consistency & standards; H6 – Recognition rather than recall |         2           |        3         |           2           |   **2.3**   |
 | Movement         | Rock collision boxes feel larger than sprites, making some jumps effectively impossible.                  | H2 – Match between system and real world; H8 – Aesthetic & minimalist design |         2           |        4         |           2           |   **2.7**   |
 | UI / Inventory   | Inventory layout is narrow, making it hard to see and manage all tools and pollutants.                    | H8 – Aesthetic & minimalist design; H6 – Recognition rather than recall |         1           |        2         |           2           |   **1.7**   |
+```
 
 > **Severity = (Frequency + Impact + Persistence) / 3**
 
@@ -299,10 +299,10 @@ To complement the Think Aloud evaluation, we conducted a heuristic analysis of t
 
 The heuristic analysis reflects and structures the issues observed in the Think Aloud evaluation:
 
-- **Guidance and information** – Issue 1 confirms that hint visibility is too low, matching player reports that they only noticed grey hint boxes after getting stuck.  
-- **Combat and controls** – Issues 2 and 3 relate to weak combat feedback and unclear attack controls, consistent with players not knowing whether hits were registered or which input to use.  
-- **Items and environment behaviour** – Issues 4 and 5 capture inconsistent tool behaviour and unclear environmental changes, making it harder for players to understand how cleaning mechanics work and when an area is complete.  
-- **Movement and interface** – Issues 6 and 7 align with feedback about oversized collision boxes and a cramped inventory, which affects both movement fairness and the readability of collected items.
+- **Guidance and information** – The first issue confirms that hint visibility is too low, matching player reports that they only noticed grey hint boxes after getting stuck.  
+- **Combat and controls** – The second and fourth issues relate to weak combat feedback and unclear attack controls, consistent with players not knowing whether hits were registered or which input to use.  
+- **Items and environment behaviour** – The third and fifth issues capture inconsistent tool behaviour and unclear environmental changes, making it harder for players to understand how cleaning mechanics work and when an area is complete.  
+- **Movement and interface** – The sixth and seventh issues align with feedback about oversized collision boxes and a cramped inventory, which affects both movement fairness and the readability of collected items.
 
 ---
 
@@ -347,7 +347,7 @@ The SUS score dropped significantly from **86.0 (Grade A - Excellent)** to **55.
 Interestingly, the workload did not show a statistically significant difference ($p > 0.05$). 
 * **Interpretation:** While players felt the game was "less usable" (via SUS), their overall perceived workload (mental/physical effort) remained relatively stable. This might be due to a small effective sample size ($n=6$ after ties) or players reaching a "ceiling" of effort early on.
 
-### 6.3 JUnit Testing
+### 6.3 Testing
 - Description of how code was tested.
 
 ---
