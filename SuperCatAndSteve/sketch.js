@@ -348,13 +348,14 @@ function getTextures() {
     [T.DIRT]: window.tile_dirt,
     [T.STONE]: window.tile_stone,
     [T.DEEP]: window.tile_deepslate,
-    [T.COPPER]: window.tile_copper_ore,
-    [T.DEEP_COPPER]: window.tile_deepslate_copper_ore,
+    // 兼容：项目当前未提供 copper/gold 对应贴图，先复用现有矿石贴图避免回退色块
+    [T.COPPER]: window.tile_iron_ore,
+    [T.DEEP_COPPER]: window.tile_deepslate_iron_ore,
     [T.DEEP_DIAMOND]: window.tile_deepslate_diamond_ore,
-    [T.DEEP_GOLD]: window.tile_deepslate_gold_ore,
+    [T.DEEP_GOLD]: window.tile_deepslate_diamond_ore,
     [T.DEEP_IRON]: window.tile_deepslate_iron_ore,
     [T.DIAMOND]: window.tile_diamond_ore,
-    [T.GOLD]: window.tile_gold_ore,
+    [T.GOLD]: window.tile_diamond_ore,
     [T.IRON]: window.tile_iron_ore,
     [T.LAVA]: window.tile_lava,
     [T.ACID]: window.tile_acid,
@@ -767,14 +768,14 @@ class Game {
     if (s < 0 || s >= this.player.inventory.length) return false;
     const item = this.player.inventory[s];
     if (!(item instanceof Tool) || item.toolType !== toolType) return false;
-    this.player.inventory.splice(s, 1);
+    this.player.inventory.splice(s, 1);apple
     this.player.selectedSlot = -1;
     return true;
   }
 
-  getFoodHealAmount(foodType) {
-    if (foodType === 'apple') return 1;
-    if (foodType === 'enlarged_golden_apple') return 3;
+  getHpHealAmount(hpType) {
+    if (hpType === 'apple') return 1;
+    if (hpType === 'golden_apple') return 3;
     return 0;
   }
 
@@ -1234,8 +1235,8 @@ tryPlantVineSeed(slotIndex) {
       this.scoreToastUntil = millis() + 1400;
     }
 
-    if (item instanceof Food) {
-      const heal = this.getFoodHealAmount(item.foodType);
+    if (item instanceof Hp) {
+      const heal = this.getHpHealAmount(item.hpType);
       if (heal > 0) this.player.health = Math.min(this.player.maxHealth, this.player.health + heal);
       this.level.items.splice(i, 1);
       continue;
@@ -1610,8 +1611,8 @@ class ForestLevel extends Level {
     this.items.push(new TNT(97 * TILE_SIZE, groundY(97) - TILE_SIZE, TILE_SIZE, TILE_SIZE));
 
     // 食物（地面上，吃了回血，不进背包）
-    this.items.push(new Food(70 * TILE_SIZE + 4, groundY(70) - 24, 24, 24, 'apple'));
-    this.items.push(new Food(107 * TILE_SIZE + 4, groundY(107) - 24, 24, 24, 'enlarged_golden_apple'));
+    this.items.push(new Hp(70 * TILE_SIZE + 4, groundY(70) - 24, 24, 24, 'apple'));
+    this.items.push(new Hp(107 * TILE_SIZE + 4, groundY(107) - 24, 24, 24, 'golden_apple'));
 
     // 被困小鸟（网 48x36，鸟 24x30）
     const birdOffset = (TILE_SIZE - 48) / 2;
@@ -1619,7 +1620,7 @@ class ForestLevel extends Level {
     this.items.push(new TrappedBird(92 * TILE_SIZE + birdOffset, groundY(92) - 36, 48, 36));
 
     // 工具（平台上 + 地面上，居中放置）Tool(x, y, w, h, toolType)
-    // toolType 为 pic/tool 下文件名不含 .png，如 'scissor' 'bucket'
+    // toolType 为 pic/item/tool 下文件名不含 .png，如 'scissor' 'bucket'
     const toolOffset = (TILE_SIZE - 24) / 2;
     // 剪刀
     this.items.push(new Tool(28 * TILE_SIZE + toolOffset, groundY(28) - 24, 24, 24, 'scissor'));
@@ -1634,7 +1635,7 @@ class ForestLevel extends Level {
     // 藤蔓种子（放在前两屏）
     this.items.push(new Tool(21 * TILE_SIZE + toolOffset, groundY(21) - 24, 24, 24, 'vine_seed'));
     // 高台奖励
-    this.items.push(new Food(24 * TILE_SIZE + 4, groundY(24) - 24, 24, 24, 'apple'));
+    this.items.push(new Hp(24 * TILE_SIZE + 4, groundY(24) - 24, 24, 24, 'apple'));
 
     // ===== 结束：敌人和物品生成 =====
   }
@@ -2313,8 +2314,8 @@ class WaterLevel extends Level {
     // this.items.push(new TNT(97 * TILE_SIZE, groundY(97) - TILE_SIZE, TILE_SIZE, TILE_SIZE));
 
     // 食物（地面上，吃了回血，不进背包）
-    // this.items.push(new Food(70 * TILE_SIZE + 4, groundY(70) - 24, 24, 24, 'apple'));
-    //this.items.push(new Food(107 * TILE_SIZE + 4, groundY(107) - 24, 24, 24, 'enlarged_golden_apple'));
+    // this.items.push(new Hp(70 * TILE_SIZE + 4, groundY(70) - 24, 24, 24, 'apple'));
+    // this.items.push(new Hp(107 * TILE_SIZE + 4, groundY(107) - 24, 24, 24, 'golden_apple'));
 
     // 被困小鸟（网 32x24，鸟 16x20）
     // const birdOffset = (TILE_SIZE - 32) / 2;
@@ -2322,7 +2323,7 @@ class WaterLevel extends Level {
     // this.items.push(new TrappedBird(92 * TILE_SIZE + birdOffset, groundY(92) - 24, 32, 24));
 
     // 工具（平台上 + 地面上，居中放置）Tool(x, y, w, h, toolType)
-    // toolType 为 pic/tool 下文件名不含 .png，如 'scissor' 'bucket'
+    // toolType 为 pic/item/tool 下文件名不含 .png，如 'scissor' 'bucket'
     const toolOffset = (TILE_SIZE - 24) / 2;
     // 剪刀
     // this.items.push(new Tool(28 * TILE_SIZE + toolOffset, groundY(28) - 24, 24, 24, 'scissor'));
@@ -3726,15 +3727,15 @@ class LittleBird extends Item {
   }
 }
 
-class Food extends Item {
-  // foodType: 'apple' | 'enlarged_golden_apple'
-  constructor(x, y, w = 24, h = 24, foodType = 'apple') {
+class Hp extends Item {
+  // hpType: 'apple' | 'golden_apple'
+  constructor(x, y, w = 24, h = 24, hpType = 'apple') {
     super(x, y, w, h, null);
-    this.foodType = foodType;
+    this.hpType = hpType;
   }
 
   draw() {
-    const img = window['food_' + this.foodType];
+    const img = window['food_' + this.hpType];
     if (img && img.width > 0) image(img, this.x, this.y, this.w, this.h);
     else { fill(255, 200, 0); rect(this.x, this.y, this.w, this.h); }
   }
@@ -3744,7 +3745,7 @@ class Tool extends Item {
   constructor(x, y, w = 24, h = 24, toolType = 'scissor') {
     super(x, y, w, h, null);
     this.displayName = '工具';
-    this.toolType = toolType;  // 对应 pic/tool 下文件名（不含 .png）
+    this.toolType = toolType;  // 对应 pic/item/tool 下文件名（不含 .png）
   }
   draw() {
     const img = window['tool_' + this.toolType];
@@ -4103,10 +4104,10 @@ function setup() {
   const load = (path, key) => loadImage(path, img => window[key] = img, () => console.warn(`${path} 加载失败`));
 
   // 新增：污染物及被困小动物
-  // load('assets/pic/pollutant/cigarette.png', 'cigarette');
-  load('assets/pic/pollutant/plastic_bottle.png', 'plastic_bottle');
-  load('assets/pic/pollutant/plastic_bag.png', 'plastic_bag');
-  load('assets/pic/pollutant/tnt_side.png', 'tnt');
+  // load('assets/pic/item/pollutant/cigarette.png', 'cigarette');
+  load('assets/pic/item/pollutant/plastic_bottle.png', 'plastic_bottle');
+  load('assets/pic/item/pollutant/plastic_bag.png', 'plastic_bag');
+  load('assets/pic/item/pollutant/tnt_side.png', 'tnt');
   load('assets/pic/animals/bird.png', 'bird');
   load('assets/pic/animals/bird_flip.png', 'bird_flip');
   load('assets/pic/animals/web_back.png', 'web_back');
@@ -4128,23 +4129,22 @@ function setup() {
   load('assets/pic/enemy/shark_still.png', 'sharkSpriteStill');
   load('assets/pic/enemy/shark_up.png', 'sharkSpriteUp');
   load('assets/pic/enemy/shark_down.png', 'sharkSpriteDown');
-  // 史莱姆
   load("assets/pic/enemy/slime.png", "slimeSprite");
 
-  // 工具（assets/pic/tool 中全部，新增图片时在此数组加入文件名不含 .png）
-  ['scissor', 'limestone', 'enlarged_water_bucket'].forEach(name =>load(`assets/pic/tool/${name}.png`, `tool_${name}`));
-  load('assets/pic/tool/vine_seed.png', 'tool_vine_seed');
-  load('assets/pic/tool/vine_ladder.png', 'tool_vine_ladder');
+  // 工具（assets/pic/item/tool 中全部，新增图片时在此数组加入文件名不含 .png）
+  ['scissor', 'limestone', 'enlarged_water_bucket'].forEach(name =>load(`assets/pic/item/tool/${name}.png`, `tool_${name}`));
+  load('assets/pic/item/tool/vine_seed.png', 'tool_vine_seed');
+  load('assets/pic/item/tool/vine_ladder.png', 'tool_vine_ladder');
   // 武器（assets/pic/weapon，威力从低到高：wooden / stone / iron / diamond）
   ['wooden_sword', 'stone_sword', 'iron_sword', 'diamond_sword'].forEach(name => load(`assets/pic/weapon/${name}.png`, `weapon_${name}`));
 
-  // 食物（assets/pic/food）
-  load('assets/pic/food/apple.png', 'food_apple');
-  load('assets/pic/food/enlarged_golden_apple.png', 'food_enlarged_golden_apple');
+  // HP 物品（assets/pic/item/hp）- 与 Hp.draw() 的键名保持一致：food_<hpType>
+  load('assets/pic/item/hp/apple.png', 'food_apple');
+  load('assets/pic/item/hp/golden_apple.png', 'food_golden_apple');
 
-  // UI 等（心形在 assets 根目录，背包在 assets/pic）
-  load('assets/heart_container.png', 'heartContainer');
-  load('assets/heart_fill.png', 'heartFill');
+  // UI
+  load('assets/pic/ui/heart_container.png', 'heartContainer');
+  load('assets/pic/ui/heart_fill.png', 'heartFill');
   load('assets/pic/ui/trophy_container.png', 'trophyContainer');
   load('assets/pic/ui/trophy_fill.png', 'trophyFill');
   load('assets/pic/ui/inventory_container.png', 'invContainer');
@@ -4158,8 +4158,8 @@ function setup() {
   // 地面/平台贴图（assets/pic/ground 中全部）
   const groundTiles = [
     'grass_block_side', 'dirt', 'stone', 'deepslate',
-    'copper_ore', 'deepslate_copper_ore', 'deepslate_diamond_ore', 'deepslate_gold_ore', 'deepslate_iron_ore',
-    'diamond_ore', 'gold_ore', 'iron_ore','lava', 'acid', 'water', 'sand', 'gravel',
+    'deepslate_diamond_ore', 'deepslate_iron_ore',
+    'diamond_ore', 'iron_ore', 'lava', 'acid', 'water', 'sand', 'gravel',
     'bricks', 'pipe_narrow', 'deepslate_bricks', 'pipe_wide', 'pipe_wide_inner_corner', 'pipe_wide_outer_corner', 'pipe_narrow_corner', 'pipe_narrow_to_wide', 'pipe_narrow_to_narrow',
     // 树（仅作为背景装饰使用）
     'oak_leaves', 'oak_log',
