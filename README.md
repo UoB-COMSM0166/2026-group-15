@@ -59,6 +59,8 @@
 | 08   | Lab 8: HCI Evaluation — NASA-TLX & SUS                          | [README](link_to_readme_08) |
 | 09   | Lab 9: Quality Assurance — Black-Box & White-Box Testing       | [README](link_to_readme_09) |
 
+---
+
 ## 1. Team
 
 <div align="center">
@@ -107,7 +109,7 @@
 
 <br>
 
-<img src="./docs/images/team-photo-with-name.jpg" alt="Team Photo" width="80%">
+<img src="./docs/images/team-photo-with-name.jpg" alt="Team Photo" width="90%">
 
 </div>
 
