@@ -699,14 +699,17 @@ class Game {
     const worldY = mouseY;
     const pointedTile = this.getPointedMineableTile(worldX, worldY);
     if (pointedTile) {
-      if (pointedTile.row === pointedTile.bottomRow) {
+      if (pointedTile.kind === 'terrain' && pointedTile.row === pointedTile.bottomRow) {
         this.state = "gameover";
         this.mouseDownTime = 0;
         return;
       }
-      const tileType = this.level.tileMap[pointedTile.col][pointedTile.row];
-      this.level.removeTerrainBlock(pointedTile.col, pointedTile.row);
-      this.tryWeaponUpgrade(tileType);
+      if (pointedTile.kind === 'terrain') {
+        this.level.removeTerrainBlock(pointedTile.col, pointedTile.row);
+        this.tryWeaponUpgrade(pointedTile.tileType);
+      } else if (pointedTile.kind === 'background') {
+        this.level.removeBackgroundDecorationBlock(pointedTile.col, pointedTile.row);
+      }
       this.mouseDownTime = 0;
       return;
     }
@@ -908,7 +911,8 @@ tryRescueBirdWithScissor(slotIndex) {
     if (col < 0 || col >= TERRAIN_COLS) return null;
 
     const column = this.level.tileMap[col];
-    if (!column || column.length === 0) return null;
+    const bgColumn = this.level.treeColumns?.[col] || [];
+    if ((!column || column.length === 0) && bgColumn.length === 0) return null;
 
     // 从上往下找：优先命中视觉上靠上的那一格
     let targetRow = -1;
@@ -931,21 +935,33 @@ tryRescueBirdWithScissor(slotIndex) {
       break;
     }
 
-    if (targetRow === -1) return null;
-
-    // 计算这一列中“最底下的实心方块行号”（用于最后一层判定）
-    // 注意：row=0 是最底部，从下往上找第一个非空格子
-    let bottomRow = -1;
-    for (let row = 0; row < column.length; row++) {
-      const tileType = column[row];
-      if (tileType === T.NONE || tileType === undefined) continue;
-      bottomRow = row;
-      break;
+    if (targetRow !== -1) {
+      // 计算这一列中“最底下的实心方块行号”（用于最后一层判定）
+      // 注意：row=0 是最底部，从下往上找第一个非空格子
+      let bottomRow = -1;
+      for (let row = 0; row < column.length; row++) {
+        const tileType = column[row];
+        if (tileType === T.NONE || tileType === undefined) continue;
+        bottomRow = row;
+        break;
+      }
+      if (bottomRow === -1) return null;
+      return { col, row: targetRow, bottomRow, kind: 'terrain', tileType: column[targetRow] };
     }
 
-    if (bottomRow === -1) return null;
+    // 地形未命中时，允许直接长按破坏背景装饰方块（treeColumns）
+    for (let row = bgColumn.length - 1; row >= 0; row--) {
+      const tileType = bgColumn[row];
+      if (!this.level.isBackgroundDecorationTile(tileType)) continue;
 
-    return { col, row: targetRow, bottomRow };
+      const tx = col * TILE_SIZE;
+      const ty = 360 - (row + 1) * TILE_SIZE;
+      if (!(worldX >= tx && worldX < tx + TILE_SIZE && worldY >= ty && worldY < ty + TILE_SIZE)) continue;
+      if (!this.isInReachZone(tx, ty, TILE_SIZE, TILE_SIZE)) continue;
+
+      return { col, row, kind: 'background', tileType };
+    }
+    return null;
   }
 
   playerHasScissor() {
@@ -1298,7 +1314,11 @@ class Level {
     const column = this.treeColumns[col];
     if (!column) return;
     for (let r = 0; r < column.length; r++) {
-      if (this.isBackgroundDecorationTile(column[r])) {
+      if (
+        this.isBackgroundDecorationTile(column[r]) &&
+        column[r] !== 'log' &&
+        column[r] !== 'leaves'
+      ) {
         column[r] = undefined;
       }
     }
@@ -1312,6 +1332,13 @@ class Level {
         column[r] = undefined;
       }
     }
+  }
+  removeBackgroundDecorationBlock(col, row) {
+    if (!this.treeColumns || col < 0 || col >= TERRAIN_COLS || row < 0) return false;
+    const tile = this.treeColumns[col]?.[row];
+    if (!this.isBackgroundDecorationTile(tile)) return false;
+    this.treeColumns[col][row] = undefined;
+    return true;
   }
   loadAssets() {}
   draw() {}
