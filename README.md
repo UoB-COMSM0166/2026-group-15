@@ -270,24 +270,6 @@ We conducted a **Think Aloud evaluation** on the **first forest level** and the 
 
 In later iterations, we increased hint visibility, improved combat feedback and hitbox alignment, made tool and environment behaviour more consistent, and adjusted collision boxes and the inventory layout to make the game easier to play and understand.
 
-================================================================================
-原：
-（- **UI/UX:** The gray hint boxes are not prominent enough and are easy to miss.
-- **Combat & Mechanics:** 
-	- **Enemy Interaction:** Enemy behaviors or hit reactions are needed. Enemies may need a life bar to indicate how many hits are needed before defeating them. 
-    - **Controls:** Consider mapping the **Left Click** for attacks.
-    - **Hitbox/Range:** The attack animation and the actual attack range need refinement.
-        
-- **Bugs & Logic:**
-    - **Item Persistence:** Tools should not disappear from the inventory after being used.
-    - **Lava**: Water cannot be used on the right side of the lava.
-    - **Acid pool :** The acid pool should turn entirely blue (to signal a state change).
-        
-- **Level Design:** 
-- **Collision:** Rocks are impossible to jump onto because their **collision boxes** are too large.
-- **Inventory:** The slots for tools and pollutants are too narrow/short.）
-================================================================================
-
 ### 6.2 Quantitative Analysis
 We conducted a structured usability and workload evaluation with 10 participants. Each user played the game at two difficulty levels: **Level 1 (Easy)** and **Level 2 (Hard)**.
 
