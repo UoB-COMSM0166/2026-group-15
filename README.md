@@ -61,14 +61,51 @@
 
 ## 1. Team
 
-![Team Photo](./docs/images/team-photo-with-name.jpg)
+<div align="center">
 
-- Group member 1, Helen - Yitong Zheng 
-- Group member 2, Li - Li Shen 
-- Group member 3, Alice - Xianwen Hu
-- Group member 4, Murphy - Jingyu Xiao
-- Group member 5, Anna - Sirui Zhong
-- Group member 6, Bella - Linjing Zhang
+<table width="80%">
+  <tr>
+    <th>Role</th>
+    <th>Name</th>
+    <th>Email</th>
+  </tr>
+  <tr>
+    <td>Developer, UI Designer, Level Designer, Video Editor</td>
+    <td>Helen - Yitong Zheng</td>
+    <td><a href="mailto:ul25116@bristol.ac.uk">ul25116@bristol.ac.uk</a></td>
+  </tr>
+  <tr>
+    <td>Developer, Level Designer, UX Designer, Repository Management</td>
+    <td>Li - Li Shen</td>
+    <td><a href="mailto:cm25322@bristol.ac.uk">cm25322@bristol.ac.uk</a></td>
+  </tr>
+  <tr>
+    <td>Developer, UI Designer, UX Designer, Video Editor</td>
+    <td>Alice - Xianwen Hu</td>
+    <td><a href="mailto:ss25944@bristol.ac.uk">ss25944@bristol.ac.uk</a></td>
+  </tr>
+  <tr>
+    <td>Developer, UX Designer, Level Designer, Audio Designer</td>
+    <td>Murphy - Jingyu Xiao</td>
+    <td><a href="mailto:zz25762@bristol.ac.uk">zz25762@bristol.ac.uk</a></td>
+  </tr>
+  <tr>
+    <td>Lead Developer, UI Designer, Level Designer, Audio Designer</td>
+    <td>Anna - Sirui Zhong</td>
+    <td><a href="mailto:vc25336@bristol.ac.uk">vc25336@bristol.ac.uk</a></td>
+  </tr>
+  <tr>
+    <td>Developer, UX Designer, Level Designer, Repository Management</td>
+    <td>Bella - Linjing Zhang</td>
+    <td><a href="mailto:sn25366@bristol.ac.uk">sn25366@bristol.ac.uk</a></td>
+  </tr>
+</table>
+
+<br>
+
+<img src="./docs/images/team-photo-with-name.jpg" alt="Team Photo" width="80%">
+
+</div>
 
 ---
 
