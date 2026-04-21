@@ -63,55 +63,24 @@
 
 ## 1. Team
 
-<div align="center">
+### Team
 
-<div width="80%">
+**Team Members**
 
-<table>
-  <tr>
-    <th>Role</th>
-    <th>Name</th>
-    <th>Email</th>
-  </tr>
-  <tr>
-    <td>Developer, UI Designer, Level Designer, Video Editor</td>
-    <td>Helen - Yitong Zheng</td>
-    <td><a href="mailto:ul25116@bristol.ac.uk">ul25116@bristol.ac.uk</a></td>
-  </tr>
-  <tr>
-    <td>Developer, Level Designer, UX Designer, Repository Management</td>
-    <td>Li - Li Shen</td>
-    <td><a href="mailto:cm25322@bristol.ac.uk">cm25322@bristol.ac.uk</a></td>
-  </tr>
-  <tr>
-    <td>Developer, UI Designer, UX Designer, Video Editor</td>
-    <td>Alice - Xianwen Hu</td>
-    <td><a href="mailto:ss25944@bristol.ac.uk">ss25944@bristol.ac.uk</a></td>
-  </tr>
-  <tr>
-    <td>Developer, UX Designer, Level Designer, Audio Designer</td>
-    <td>Murphy - Jingyu Xiao</td>
-    <td><a href="mailto:zz25762@bristol.ac.uk">zz25762@bristol.ac.uk</a></td>
-  </tr>
-  <tr>
-    <td>Lead Developer, UI Designer, Level Designer, Audio Designer</td>
-    <td>Anna - Sirui Zhong</td>
-    <td><a href="mailto:vc25336@bristol.ac.uk">vc25336@bristol.ac.uk</a></td>
-  </tr>
-  <tr>
-    <td>Developer, UX Designer, Level Designer, Repository Management</td>
-    <td>Bella - Linjing Zhang</td>
-    <td><a href="mailto:sn25366@bristol.ac.uk">sn25366@bristol.ac.uk</a></td>
-  </tr>
-</table>
+| Role                                                                 | Name                    | Email                               |
+| :------------------------------------------------------------------- | :---------------------- | :---------------------------------- |
+| Developer, UI Designer, Level Designer, Video Editor                 | Helen – Yitong Zheng    | ul25116@bristol.ac.uk              |
+| Developer, Level Designer, UX Designer, Repository Management        | Li – Li Shen            | cm25322@bristol.ac.uk              |
+| Developer, UI Designer, UX Designer, Video Editor                    | Alice – Xianwen Hu      | ss25944@bristol.ac.uk              |
+| Developer, UX Designer, Level Designer, Audio Designer               | Murphy – Jingyu Xiao    | zz25762@bristol.ac.uk              |
+| Lead Developer, UI Designer, Level Designer, Audio Designer          | Anna – Sirui Zhong      | vc25336@bristol.ac.uk              |
+| Developer, UX Designer, Level Designer, Repository Management        | Bella – Linjing Zhang   | sn25366@bristol.ac.uk              |
 
-</div>
+**Team Photo**
 
-<br>
-
-<img src="./docs/images/team-photo-with-name.jpg" alt="Team Photo" width="100%">
-
-</div>
+<p align="center">
+  <img src="./docs/images/team-photo-with-name.jpg" alt="Team Photo" width="80%" />
+</p>
 
 ---
 
@@ -349,39 +318,6 @@ Raw SUS and NASA‑TLX scores for both difficulty levels are shown in the figure
 | **SUS score**  | 86.0              | 55.0              | $W = 0$            | $p < 0.01$| **Yes**      |
 | **NASA‑TLX**   | 27.6              | 21.9              | $W = 8.5$          | $p > 0.05$| **No**       |
 
-</p>
-
-<p align="center">
-  <table>
-    <thead>
-      <tr>
-        <th>Metric</th>
-        <th>Level 1 Mean (SD)</th>
-        <th>Level 2 Mean (SD)</th>
-        <th>Wilcoxon Statistic</th>
-        <th>P‑value</th>
-        <th>Significant?</th>
-      </tr>
-    </thead>
-    <tbody>
-      <tr>
-        <td><strong>SUS score</strong></td>
-        <td>86.0</td>
-        <td>55.0</td>
-        <td><em>W = 0</em></td>
-        <td><em>p &lt; 0.01</em></td>
-        <td><strong>Yes</strong></td>
-      </tr>
-      <tr>
-        <td><strong>NASA‑TLX</strong></td>
-        <td>27.6</td>
-        <td>21.9</td>
-        <td><em>W = 8.5</em></td>
-        <td><em>p &gt; 0.05</em></td>
-        <td><strong>No</strong></td>
-      </tr>
-    </tbody>
-  </table>
 </p>
 
 ---
