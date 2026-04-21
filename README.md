@@ -63,12 +63,8 @@
 
 ## 1. Team
 
-### Team
-
-**Team Members**
-
-| Role                                                                 | Name                    | Email                               |
-| :------------------------------------------------------------------- | :---------------------- | :---------------------------------- |
+| **Role**                                                             | **Name**                | **Email**                          |
+|:--------------------------------------------------------------------:|:-----------------------:|:----------------------------------:|
 | Developer, UI Designer, Level Designer, Video Editor                 | Helen – Yitong Zheng    | ul25116@bristol.ac.uk              |
 | Developer, Level Designer, UX Designer, Repository Management        | Li – Li Shen            | cm25322@bristol.ac.uk              |
 | Developer, UI Designer, UX Designer, Video Editor                    | Alice – Xianwen Hu      | ss25944@bristol.ac.uk              |
@@ -76,10 +72,8 @@
 | Lead Developer, UI Designer, Level Designer, Audio Designer          | Anna – Sirui Zhong      | vc25336@bristol.ac.uk              |
 | Developer, UX Designer, Level Designer, Repository Management        | Bella – Linjing Zhang   | sn25366@bristol.ac.uk              |
 
-**Team Photo**
-
 <p align="center">
-  <img src="./docs/images/team-photo-with-name.jpg" alt="Team Photo" width="80%" />
+  <img src="./docs/images/team-photo-with-name.jpg" alt="Team Photo" width="100%" />
 </p>
 
 ---
