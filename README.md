@@ -109,7 +109,7 @@
 
 <br>
 
-<img src="./docs/images/team-photo-with-name.jpg" alt="Team Photo" width="90%">
+<img src="./docs/images/team-photo-with-name.jpg" alt="Team Photo" width="86%">
 
 </div>
 
