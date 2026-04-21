@@ -9,8 +9,8 @@ const MINE_PRESS_MS = 500;  // 长按多久后破坏方块
 const WIN_SCORE = 12;
 const VICTORY_DELAY_MS = 1500;
 const ATTACK_COOLDOWN_MS = 400;  // 攻击冷却
-const MUTUAL_ATTACK_RANGE = 1.3 * TILE_SIZE;  // 敌人和玩家相互攻击的距离（中心距离 < 1.3格）
-const ENEMY_CONTACT_DAMAGE_INTERVAL_MS = 1000;
+const MUTUAL_ATTACK_RANGE = 24;  // 敌人和玩家相互攻击的距离（碰撞箱最短距离 < 24px）
+const ENEMY_CONTACT_DAMAGE_PER_SEC = 1;
 const ENEMY_ATTACK_START_DELAY_MS = 1000;  // 敌人进入攻击范围后延迟才开始造成伤害（毫秒）
 const PLAYER_ATTACK_RANGE = 2.2 * TILE_SIZE; // 玩家挥剑攻击范围：70.4 px
 
@@ -417,7 +417,8 @@ class Game {
     this.cameraX = 0;
     this.mouseDownTime = 0;
     this.lastAttackTime = 0;
-    this.lastEnemyContactDamageTime = 0;  // 上次因接触敌人扣血的时间
+    this.enemyContactDamageCarry = 0;  // 敌人接触伤害累计（满 1 点才真正扣血）
+    this.enemyContactLastTick = 0;     // 上次结算接触伤害的时间戳
     this.victoryAt = 0;
     this.showGuideMenu = false;
     this.activeGuideTab = 0;
@@ -456,7 +457,7 @@ class Game {
 
     let closest = null;
     
-    let scanRange = PLAYER_ATTACK_RANGE;
+    let scanRange = MUTUAL_ATTACK_RANGE;
     let closestDist = scanRange + 1;
 
     // 4. 遍历并寻找最近的敌人
@@ -464,7 +465,7 @@ class Game {
       for (const enemy of this.level.enemies) {
         if (enemy.isDead) continue;
         
-        const d = this.distanceToEnemy(enemy);
+        const d = this.distanceToEnemyBoxGap(enemy);
         
         if (d <= scanRange && d < closestDist) {
           closestDist = d;
@@ -475,7 +476,7 @@ class Game {
 
     // 5. 应用伤害
     if (closest) {
-      closest.takeDamage(dmg);
+      closest.takeDamage(dmg, this.level);
       this.lastAttackTime = now;
       console.log("💥 击中目标！伤害:", dmg, "距离:", closestDist.toFixed(1));
     } else {
@@ -543,6 +544,7 @@ class Game {
         enemy.update(this.player, this.level.platforms, this.level);
       }
     }
+    this.resolveEnemyPlayerOverlap();
     
     // 更新所有带 update 方法的物体（比如 TNT）
     const now = millis();
@@ -807,7 +809,7 @@ tryRescueBirdWithScissor(slotIndex) {
     return { x: targetX, y: targetY };
   }
 
-  /** 玩家与敌人的中心距离 */
+  /** 玩家与敌人碰撞箱中心距离（保留给旧逻辑） */
   distanceToEnemy(enemy) {
     const box = this.player.getCollisionBox();
     const px = box.x + box.w / 2;
@@ -816,6 +818,46 @@ tryRescueBirdWithScissor(slotIndex) {
     const ex = eBox.x + eBox.w / 2;
     const ey = eBox.y + eBox.h / 2;
     return Math.sqrt((px - ex) ** 2 + (py - ey) ** 2);
+  }
+
+  /** 玩家与敌人碰撞箱的最短距离（重叠时为 0） */
+  distanceToEnemyBoxGap(enemy) {
+    const a = this.player.getCollisionBox();
+    const b = enemy.getCollisionBox();
+    const dx = Math.max(0, Math.max(a.x - (b.x + b.w), b.x - (a.x + a.w)));
+    const dy = Math.max(0, Math.max(a.y - (b.y + b.h), b.y - (a.y + a.h)));
+    return Math.hypot(dx, dy);
+  }
+
+  resolveEnemyPlayerOverlap() {
+    if (!this.player || !this.level || !Array.isArray(this.level.enemies)) return;
+    const playerBox = this.player.getCollisionBox();
+    const allowedOverlap = 8;
+    for (const enemy of this.level.enemies) {
+      if (enemy.isDead) continue;
+      if (!(enemy instanceof Zombie) && !(enemy instanceof Drowned)) continue;
+      const box = enemy.getCollisionBox();
+      const overlapX = Math.min(playerBox.x + playerBox.w, box.x + box.w) - Math.max(playerBox.x, box.x);
+      const overlapY = Math.min(playerBox.y + playerBox.h, box.y + box.h) - Math.max(playerBox.y, box.y);
+      if (overlapX <= 0 || overlapY <= 0) continue;
+
+      const excessX = overlapX - allowedOverlap;
+      const excessY = overlapY - allowedOverlap;
+      if (excessX <= 0 && excessY <= 0) continue;
+
+      const playerCx = playerBox.x + playerBox.w / 2;
+      const playerCy = playerBox.y + playerBox.h / 2;
+      const enemyCx = box.x + box.w / 2;
+      const enemyCy = box.y + box.h / 2;
+
+      if (excessY <= 0 || (excessX > 0 && excessX <= excessY)) {
+        const dirX = enemyCx >= playerCx ? 1 : -1;
+        enemy.x += dirX * excessX;
+      } else {
+        const dirY = enemyCy >= playerCy ? 1 : -1;
+        enemy.y += dirY * excessY;
+      }
+    }
   }
 
   distanceToItem(item) {
@@ -1084,33 +1126,29 @@ tryPlantVineSeed(slotIndex) {
 
  checkCollisions() {
   const now = millis();
-  // 敌人伤害判定：距离小于1.3格时可以攻击玩家
+  if (this.enemyContactLastTick === 0) this.enemyContactLastTick = now;
+  const deltaSec = max(0, (now - this.enemyContactLastTick) / 1000);
+  this.enemyContactLastTick = now;
+  let touchingDamagingEnemy = false;
+  // 敌人伤害判定：与玩家碰撞箱最短距离 < 24px 时可攻击
   for (const enemy of this.level.enemies) {
     if (enemy.isDead) continue;
+    if (typeof enemy.canDamagePlayer === "function" && !enemy.canDamagePlayer()) continue;
     
-    const distToEnemy = this.distanceToEnemy(enemy);
+    const distToEnemy = this.distanceToEnemyBoxGap(enemy);
     const inAttackRange = distToEnemy < MUTUAL_ATTACK_RANGE;
     
-    // 更新敌人是否在攻击范围内
-    if (inAttackRange) {
-      // 首次进入攻击范围
-      if (enemy.enteredAttackRangeAt === -1) {
-        enemy.enteredAttackRangeAt = now;
-      }
-    } else {
-      // 离开攻击范围，重置
-      enemy.enteredAttackRangeAt = -1;
+    if (inAttackRange) touchingDamagingEnemy = true;
+  }
+
+  // 敌人在近距离内持续造成伤害；累计满 1 点生命值才真正扣血
+  if (touchingDamagingEnemy) {
+    this.enemyContactDamageCarry += deltaSec * ENEMY_CONTACT_DAMAGE_PER_SEC;
+    const wholeDamage = Math.floor(this.enemyContactDamageCarry);
+    if (wholeDamage > 0) {
+      this.player.takeDamage(wholeDamage);
+      this.enemyContactDamageCarry -= wholeDamage;
     }
-    
-    // 检查是否可以造成伤害：已在范围内超过延迟时间 且 上次伤害冷却已过
-    if (!inAttackRange) continue;  // 不在范围内不伤害
-    if (enemy.enteredAttackRangeAt === -1) continue;  // 不应该发生，但保险起见检查
-    if (now - enemy.enteredAttackRangeAt < ENEMY_ATTACK_START_DELAY_MS) continue;  // 延迟未过
-    if (now - this.lastEnemyContactDamageTime < ENEMY_CONTACT_DAMAGE_INTERVAL_MS) continue;  // 伤害冷却未过
-    
-    this.player.takeDamage(1);
-    this.lastEnemyContactDamageTime = now;
-    break;
   }
 
   for (let i = this.level.items.length - 1; i >= 0; i--) {
@@ -1308,8 +1346,8 @@ class ForestLevel extends Level {
       [21,9,[S,S,D,G,'log','log','log','leaves','leaves']], 
       [22,9,[S,S,D,G,N,'leaves','leaves','leaves','leaves']], 
       [23,7,[S,S,D,G,N,'leaves','leaves']],
-      [24,8,[S,S,S,S,D,G,G,G]],
-      [25,8,[S,S,S,S,D,G,G,G]], 
+      [24,8,[S,S,S,D,D,D,D,G]],
+      [25,8,[S,S,S,D,D,D,D,G]], 
       [26,3,[X,S,S]], 
       [27,3,[X,S,S]], 
       [28,5,[X,X,S,S,S]],
@@ -1450,9 +1488,11 @@ class ForestLevel extends Level {
 
     // ===== 敌人和物品生成（基于当前地形）=====
     // 敌人
-    this.enemies.push(new Enemy(21 * TILE_SIZE, groundY(21) - 64, 64, 64));
-    this.enemies.push(new Enemy(54 * TILE_SIZE, groundY(54) - 64, 64, 64));
-    this.enemies.push(new Enemy(104 * TILE_SIZE, baseGroundY(104) - 64, 64, 64));
+    this.enemies.push(new Zombie(21 * TILE_SIZE, groundY(21) - 64, 64, 64));
+    this.enemies.push(new Zombie(54 * TILE_SIZE, groundY(54) - 64, 64, 64));
+    this.enemies.push(new Zombie(104 * TILE_SIZE, baseGroundY(104) - 64, 64, 64));
+    // 新敌人：史莱姆（初始 128x128）
+    this.enemies.push(new Slime(79 * TILE_SIZE, groundY(79) - 128, 160, 128));
 
     // 污染物
     // this.items.push(new Pollutant(36 * TILE_SIZE + 4, groundY(36) - 18, 24, 18, "cigarette")); // 地面 col 36
@@ -2083,12 +2123,12 @@ class WaterLevel extends Level {
 
     // ===== 敌人和物品生成（基于当前地形）=====
     // 溺尸：至少 4 个，这里放 6 个，确保整张海洋图都有遭遇战
-    this.enemies.push(new Drowned(14 * TILE_SIZE, 176, 40, 56, 4));
-    this.enemies.push(new Drowned(32 * TILE_SIZE, 214, 40, 56, 4));
-    this.enemies.push(new Drowned(50 * TILE_SIZE, 188, 40, 56, 4));
-    this.enemies.push(new Drowned(68 * TILE_SIZE, 232, 40, 56, 4));
-    this.enemies.push(new Drowned(88 * TILE_SIZE, 196, 40, 56, 4));
-    this.enemies.push(new Drowned(108 * TILE_SIZE, 220, 40, 56, 4));
+    this.enemies.push(new Drowned(14 * TILE_SIZE, 176, 64, 64, 4));
+    this.enemies.push(new Drowned(32 * TILE_SIZE, 214, 64, 64, 4));
+    this.enemies.push(new Drowned(50 * TILE_SIZE, 188, 64, 64, 4));
+    this.enemies.push(new Drowned(68 * TILE_SIZE, 232, 64, 64, 4));
+    this.enemies.push(new Drowned(88 * TILE_SIZE, 196, 64, 64, 4));
+    this.enemies.push(new Drowned(108 * TILE_SIZE, 220, 64, 64, 4));
 
     // 污染物
    this.items.push(new Pollutant(40 * TILE_SIZE + 4, groundY(40) - 18, 24, 18, "plastic_bottle"));
@@ -2356,7 +2396,7 @@ class Platform {
 // ====== Player 类 ======
 class Player {
   constructor(x, y) {
-    Object.assign(this, { x, y, w: 32, h: 64, vx: 0, vy: 0, speed: 2, jumpForce: -6.32, gravity: 0.5, onGround: false, maxHealth: 10, health: 10, inventory: [], facingRight: true });
+    Object.assign(this, { x, y, w: 32, h: 64, vx: 0, vy: 0, speed: 2, jumpForce: -6.32, gravity: 0.5, onGround: false, maxHealth: 5, health: 5, inventory: [], facingRight: true });
     this.equippedWeaponType = 'wooden_sword';  // 手持武器，通过挖掘对应矿石升级
     
     this.isAttacking = false;
@@ -2801,6 +2841,10 @@ class Enemy {
   takeDamage(amount) {
     this.health = max(0, this.health - amount);
   }
+
+  canDamagePlayer() {
+    return !this.isDead;
+  }
   
   get isDead() { return this.health <= 0; }
   
@@ -2879,9 +2923,154 @@ class Enemy {
   }
   
   draw() {
+    fill(200, 50, 50);
+    rect(this.x, this.y, this.w, this.h);
+  }
+}
+
+
+class Zombie extends Enemy {
+  draw() {
     const img = this.facingRight ? window.zombieSpriteRight : window.zombieSpriteLeft;
     if (img && img.width > 0) image(img, this.x, this.y, this.w, this.h);
-    else { fill(200, 50, 50); rect(this.x, this.y, this.w, this.h); }
+    else super.draw();
+  }
+}
+
+
+class Slime extends Enemy {
+  constructor(x, y, w = 160, h = 128, health = 1) {
+    super(x, y, w, h, health);
+    this.delayMs = 3000; // 追踪玩家 3 秒前的位置
+    this.playerTrace = [];
+    this.jumpIntervalMs = 950;
+    this.jumpCooldownUntil = 0;
+    this.jumpSpeedX = max(1.1, this.w / 90);
+    this.jumpSpeedY = max(5.8, this.h / 18);
+    this.gravity = 0.45;
+    this.splitSpeedBase = max(2.2, this.w / 26);
+    this.vx = random(-0.8, 0.8); // 出生时轻微漂移，降低完全重叠感
+    this.vy = 0;
+    this.collisionW = this.w;
+    this.collisionH = this.h;
+    this.collisionOffsetX = 0;
+    this.collisionOffsetY = 0;
+  }
+
+  canDamagePlayer() {
+    // 16x16 及以下进入无害状态
+    return !this.isDead && this.w > 16 && this.h > 16;
+  }
+
+  getDelayedTarget(now, player) {
+    const sample = { t: now, x: player.x + player.w / 2, y: player.y + player.h / 2 };
+    this.playerTrace.push(sample);
+    const traceWindowMs = this.delayMs + 1000;
+    while (this.playerTrace.length > 0 && now - this.playerTrace[0].t > traceWindowMs) {
+      this.playerTrace.shift();
+    }
+
+    const targetTime = now - this.delayMs;
+    let delayed = this.playerTrace[0] || sample;
+    for (let i = this.playerTrace.length - 1; i >= 0; i--) {
+      if (this.playerTrace[i].t <= targetTime) {
+        delayed = this.playerTrace[i];
+        break;
+      }
+    }
+    return delayed;
+  }
+
+  update(player, platforms, level = null) {
+    if (this.isDead) return;
+
+    const now = millis();
+    const delayedTarget = this.getDelayedTarget(now, player);
+    const ex = this.x + this.w / 2;
+    const ey = this.y + this.h / 2;
+    const dx = delayedTarget.x - ex;
+    const dy = delayedTarget.y - ey;
+    const distance = Math.hypot(dx, dy);
+
+    if (!this.activated && distance <= ENEMY_DETECT_RANGE * 1.25) {
+      this.activated = true;
+    }
+
+    if (this.activated) {
+      const dirX = dx >= 0 ? 1 : -1;
+      this.facingRight = dirX > 0;
+
+      if (this.onGround && now >= this.jumpCooldownUntil) {
+        // 史莱姆通过周期跳跃追踪目标
+        this.vx = dirX * this.jumpSpeedX;
+        this.vy = -this.jumpSpeedY;
+        this.onGround = false;
+        this.jumpCooldownUntil = now + this.jumpIntervalMs + random(-140, 160);
+      } else if (this.onGround) {
+        this.vx *= 0.82;
+      }
+    } else if (this.onGround) {
+      this.vx *= 0.88;
+    }
+
+    this.vy += this.gravity;
+    this.x += this.vx;
+    this.resolveCollision(platforms, true);
+    this.y += this.vy;
+    this.onGround = false;
+    this.resolveCollision(platforms, false);
+  }
+
+  split(level) {
+    if (!level || !Array.isArray(level.enemies)) return;
+    const nextW = Math.floor(this.w / 2);
+    const nextH = Math.floor(this.h / 2);
+    if (nextW < 16 || nextH < 16) return;
+
+    const cx = this.x + this.w / 2;
+    const cy = this.y + this.h / 2;
+    const halfSpawnW = nextW / 2;
+    const halfSpawnH = nextH / 2;
+    const splash = this.splitSpeedBase;
+    const scatter = [
+      { x: -1, y: -1 },
+      { x: 1, y: -1 }
+    ];
+
+    for (let i = 0; i < scatter.length; i++) {
+      const s = scatter[i];
+      const child = new Slime(cx - halfSpawnW, cy - halfSpawnH, nextW, nextH, 1);
+      child.activated = this.activated;
+      child.playerTrace = this.playerTrace.slice();
+      child.jumpCooldownUntil = millis() + random(120, 420);
+      child.x += s.x * max(4, nextW * 0.12);
+      child.y += s.y * max(2, nextH * 0.08);
+      // 四散飞溅：给初速度
+      child.vx = s.x * splash * random(0.8, 1.15);
+      child.vy = s.y * splash * random(0.95, 1.25);
+      child.onGround = false;
+      level.enemies.push(child);
+    }
+  }
+
+  takeDamage(amount, level = null) {
+    if (this.isDead) return;
+    if (this.w <= 16 || this.h <= 16) {
+      this.health = 0;
+      return;
+    }
+    this.split(level);
+    this.health = 0;
+  }
+
+  draw() {
+    const img = window.slimeSprite;
+    if (img && img.width > 0) {
+      image(img, this.x, this.y, this.w, this.h);
+    } else {
+      fill(90, 210, 120);
+      rect(this.x, this.y, this.w, this.h, 8);
+    }
   }
 }
 
@@ -2892,7 +3081,7 @@ class Drowned extends Enemy {
     // 水中敌人不受重力影响，并采用更贴合体型的碰撞箱
     this.gravity = 0;
     this.collisionW = min(24, this.w - 8);
-    this.collisionH = min(48, this.h - 4);
+    this.collisionH = 64;
     this.collisionOffsetX = (this.w - this.collisionW) / 2;
     this.collisionOffsetY = this.h - this.collisionH;
 
@@ -2901,7 +3090,7 @@ class Drowned extends Enemy {
     this.floatOffset = random(TWO_PI);
     this.avoidDirY = random() < 0.5 ? -1 : 1;
     this.avoidUntilMs = 0;
-    this.renderScaleX = 1.15;
+    this.renderScaleX = 1;
   }
   draw() {
     const img = window.drownedLeft;
@@ -3679,6 +3868,8 @@ function setup() {
   load('assets/pic/enemy/zombie_right.png', 'zombieSpriteRight');
   // 水下敌人（assets/pic/enemy/drowned）
   load("assets/pic/enemy/drowned_left.png", 'drownedLeft');
+  // 史莱姆
+  load("assets/pic/enemy/slime.png", "slimeSprite");
 
   // 工具（assets/pic/tool 中全部，新增图片时在此数组加入文件名不含 .png）
   ['scissor', 'limestone', 'enlarged_water_bucket'].forEach(name =>load(`assets/pic/tool/${name}.png`, `tool_${name}`));
