@@ -1279,6 +1279,40 @@ class Level {
     this.terrainBlocks = Array.from({ length: TERRAIN_COLS }, () => []);  // [col][row] = Platform
     this.pollutants = []; 
   }
+  isBackgroundDecorationTile(tile) {
+    return (
+      tile === 'log' || tile === 'leaves' ||
+      tile === 'dandelion' || tile === 'orange_tulip' || tile === 'pink_tulip' ||
+      tile === 'poppy' || tile === 'red_mushroom' || tile === 'red_tulip' || tile === 'brown_mushroom' ||
+      tile === 'seagrass' || tile === 'tall_seagrass_1' || tile === 'tall_seagrass_2' ||
+      tile === 'tube_coral' || tile === 'tube_coral_fan' ||
+      tile === 'horn_coral' || tile === 'horn_coral_fan' ||
+      tile === 'fire_coral' || tile === 'fire_coral_fan' ||
+      tile === 'bubble_coral' || tile === 'bubble_coral_fan' ||
+      tile === 'brain_coral' || tile === 'brain_coral_fan' ||
+      tile === 'kelp_1' || tile === 'kelp_2' || tile === 'kelp_3' || tile === 'kelp_4' || tile === 'kelp_5'
+    );
+  }
+  clearBackgroundDecorationsInColumn(col) {
+    if (!this.treeColumns || col < 0 || col >= TERRAIN_COLS) return;
+    const column = this.treeColumns[col];
+    if (!column) return;
+    for (let r = 0; r < column.length; r++) {
+      if (this.isBackgroundDecorationTile(column[r])) {
+        column[r] = undefined;
+      }
+    }
+  }
+  clearLogLeavesInColumn(col) {
+    if (!this.treeColumns || col < 0 || col >= TERRAIN_COLS) return;
+    const column = this.treeColumns[col];
+    if (!column) return;
+    for (let r = 0; r < column.length; r++) {
+      if (column[r] === 'log' || column[r] === 'leaves') {
+        column[r] = undefined;
+      }
+    }
+  }
   loadAssets() {}
   draw() {}
 
@@ -1330,11 +1364,24 @@ class Level {
   removeTerrainBlock(col, row) {
     if (col < 0 || col >= TERRAIN_COLS) return false;
     if (!this.terrainBlocks[col][row]) return false;
+    const bgAbove = this.treeColumns?.[col]?.[row + 1];
+    const hasAdjacentBackgroundAbove = this.isBackgroundDecorationTile(bgAbove);
+    const hasAdjacentLogAbove = bgAbove === 'log';
     const platform = this.terrainBlocks[col][row];
     const i = this.platforms.indexOf(platform);
     if (i >= 0) this.platforms.splice(i, 1);
     this.tileMap[col][row] = T.NONE;
     this.terrainBlocks[col][row] = null;
+    if (hasAdjacentBackgroundAbove) {
+      this.clearBackgroundDecorationsInColumn(col);
+      if (hasAdjacentLogAbove) {
+        this.clearLogLeavesInColumn(col - 2);
+        this.clearLogLeavesInColumn(col - 1);
+        this.clearLogLeavesInColumn(col);
+        this.clearLogLeavesInColumn(col + 1);
+        this.clearLogLeavesInColumn(col + 2);
+      }
+    }
     return true;
   }
 }
@@ -1356,11 +1403,11 @@ class ForestLevel extends Level {
     const terrain = [
       // 第1屏 - 包含树木
       [0,8,[X,X,S,S,G,N,'leaves','leaves']], 
-      [1,10,[X,X,S,S,G,N,'leaves','leaves','leaves','leaves']], 
+      [1,10,[X,X,S,S,G,'red_tulip','leaves','leaves','leaves','leaves']], 
       [2,10,[X,X,S,D,G,'log','log','log','leaves','leaves']], 
       [3,10,[X,S,S,G,N,N,'leaves','leaves','leaves','leaves']], 
-      [4,8,[X,S,D,G,N,N,'leaves','leaves']],
-      [5,4,[X,S,D,G]],  
+      [4,8,[X,S,D,G,'pink_tulip',N,'leaves','leaves']],
+      [5,5,[X,S,D,G,'pink_tulip']],  
       [6,7,[X,S,S,N,N,D,G]], 
       [7,6,[X,T.LAVA,N,N,N,G]], 
       [8,2,[X,T.LAVA]],
@@ -1430,11 +1477,11 @@ class ForestLevel extends Level {
       [69,3,[S,D,G]], 
       [70,3,[S,D,G]], 
       [71,6,[S,D,G,N,N,G]],
-      [72,7,[S,G,N,N,N,S,G]], 
-      [73,7,[S,G,N,N,N,S,G]], 
+      [72,7,[S,G,'orange_tulip',N,N,S,G]], 
+      [73,7,[S,G,'red_tulip',N,N,S,G]], 
       [74,7,[S,G,N,N,N,N,G]], 
       [75,3,[X,S,G]],
-      [76,7,[X,S,G,N,N,'leaves','leaves']], 
+      [76,7,[X,S,G,'brown_mushroom',N,'leaves','leaves']], 
       [77,9,[X,S,D,G,N,'leaves','leaves','leaves','leaves']], 
       [78,9,[X,S,D,G,'log','log','log','leaves','leaves']], 
       [79,9,[X,S,D,G,N,'leaves','leaves','leaves','leaves']], 
@@ -1442,7 +1489,7 @@ class ForestLevel extends Level {
       [80,7,[X,S,D,G,N,'leaves','leaves']], 
       [81,4,[X,S,D,G]],
       [82,6,[X,S,G,N,'leaves','leaves']], 
-      [83,8,[X,S,G,N,'leaves','leaves','leaves','leaves']], 
+      [83,8,[X,S,G,'red_mushroom','leaves','leaves','leaves','leaves']], 
       [84,8,[X,S,G,'log','log','log','leaves','leaves']], 
       [85,8,[X,S,G,N,'leaves','leaves','leaves','leaves']], 
       [86,6,[X,S,G,N,'leaves','leaves']],
@@ -1451,8 +1498,8 @@ class ForestLevel extends Level {
       [89,2,[S,G]], 
       [90,7,[S,D,G,N,N,N,G]], 
       [91,8,[S,D,G,N,N,N,D,G]],
-      [92,8,[S,D,G,N,N,N,D,G]], 
-      [93,8,[S,D,G,N,N,N,D,G]], 
+      [92,8,[S,D,G,'pink_tulip',N,N,D,G]], 
+      [93,8,[S,D,G,'pink_tulip',N,N,D,G]], 
       [94,7,[S,D,G,N,N,N,G]], 
       [95,4,[X,S,S,S]],
       [96,6,[X,X,X,S,S,S]], 
@@ -1463,15 +1510,15 @@ class ForestLevel extends Level {
       [100,4,[X,S,D,G]], 
       [101,4,[X,S,D,G]], 
       [102,4,[X,S,D,G]], 
-      [103,7,[X,S,G,N,N,N,S]], 
-      [104,7,[X,S,G,N,N,N,S]],
+      [103,7,[X,S,G,'orange_tulip',N,N,S]], 
+      [104,7,[X,S,G,'orange_tulip',N,N,S]],
       [105,8,[X,S,G,N,N,N,S,G]], 
       [106,8,[X,S,G,N,N,N,N,G]], 
       [107,8,[X,S,G,N,N,N,N,G]], 
       [108,4,[X,X,S,S]], 
       [109,3,[X,S,S]], 
       [110,5,[S,G,N,'leaves','leaves']], 
-      [111,7,[S,G,N,'leaves','leaves','leaves','leaves']],
+      [111,7,[S,G,'brown_mushroom','leaves','leaves','leaves','leaves']],
       [112,7,[S,G,'log','log','log','leaves','leaves']], 
       [113,7,[S,G,N,'leaves','leaves','leaves','leaves']], 
       [114,5,[S,T.LAVA,N,'leaves','leaves']], 
@@ -1578,6 +1625,13 @@ class ForestLevel extends Level {
       // 森林关中复用的树
       log: window.tile_oak_log,
       leaves: window.tile_oak_leaves,
+      dandelion: window.tile_dandelion,
+      orange_tulip: window.tile_orange_tulip,
+      pink_tulip: window.tile_pink_tulip,
+      poppy: window.tile_poppy,
+      red_mushroom: window.tile_red_mushroom,
+      red_tulip: window.tile_red_tulip,
+      brown_mushroom: window.tile_brown_mushroom,
       // 海草
       seagrass: window.tile_seagrass,
       tall_seagrass_1: window.tile_tall_seagrass_1,
@@ -1660,6 +1714,8 @@ class ForestLevel extends Level {
       const tile = tiles[i];
       const isBackground =
         tile === 'log' || tile === 'leaves' ||
+        tile === 'dandelion' || tile === 'orange_tulip' || tile === 'pink_tulip' ||
+        tile === 'poppy' || tile === 'red_mushroom' || tile === 'red_tulip' || tile === 'brown_mushroom' ||
         tile === 'seagrass' || tile === 'tall_seagrass_1' || tile === 'tall_seagrass_2' ||
         tile === 'tube_coral' || tile === 'tube_coral_fan' ||
         tile === 'horn_coral' || tile === 'horn_coral_fan' ||
@@ -1691,6 +1747,8 @@ class ForestLevel extends Level {
       // 树木 / 水下装饰：只记录到 treeColumns，不创建平台
       if (
         tile === 'log' || tile === 'leaves' ||
+        tile === 'dandelion' || tile === 'orange_tulip' || tile === 'pink_tulip' ||
+        tile === 'poppy' || tile === 'red_mushroom' || tile === 'red_tulip' || tile === 'brown_mushroom' ||
         tile === 'seagrass' || tile === 'tall_seagrass_1' || tile === 'tall_seagrass_2' ||
         tile === 'tube_coral' || tile === 'tube_coral_fan' ||
         tile === 'horn_coral' || tile === 'horn_coral_fan' ||
@@ -1921,6 +1979,8 @@ class FactoryLevel extends ForestLevel {
       const tile = tiles[i];
       const isBackground =
         tile === 'log' || tile === 'leaves' ||
+        tile === 'dandelion' || tile === 'orange_tulip' || tile === 'pink_tulip' ||
+        tile === 'poppy' || tile === 'red_mushroom' || tile === 'red_tulip' || tile === 'brown_mushroom' ||
         tile === 'seagrass' || tile === 'tall_seagrass_1' || tile === 'tall_seagrass_2' ||
         tile === 'tube_coral' || tile === 'tube_coral_fan' ||
         tile === 'horn_coral' || tile === 'horn_coral_fan' ||
@@ -1948,6 +2008,8 @@ class FactoryLevel extends ForestLevel {
 
       if (
         tile === 'log' || tile === 'leaves' ||
+        tile === 'dandelion' || tile === 'orange_tulip' || tile === 'pink_tulip' ||
+        tile === 'poppy' || tile === 'red_mushroom' || tile === 'red_tulip' || tile === 'brown_mushroom' ||
         tile === 'seagrass' || tile === 'tall_seagrass_1' || tile === 'tall_seagrass_2' ||
         tile === 'tube_coral' || tile === 'tube_coral_fan' ||
         tile === 'horn_coral' || tile === 'horn_coral_fan' ||
@@ -2261,6 +2323,13 @@ class WaterLevel extends Level {
     const spriteMap = {
       log: window.tile_oak_log,
       leaves: window.tile_oak_leaves,
+      dandelion: window.tile_dandelion,
+      orange_tulip: window.tile_orange_tulip,
+      pink_tulip: window.tile_pink_tulip,
+      poppy: window.tile_poppy,
+      red_mushroom: window.tile_red_mushroom,
+      red_tulip: window.tile_red_tulip,
+      brown_mushroom: window.tile_brown_mushroom,
       seagrass: window.tile_seagrass,
       tall_seagrass_1: window.tile_tall_seagrass_1,
       tall_seagrass_2: window.tile_tall_seagrass_2,
@@ -2339,6 +2408,8 @@ class WaterLevel extends Level {
       const tile = tiles[i];
       const isBackground =
         tile === 'log' || tile === 'leaves' ||
+        tile === 'dandelion' || tile === 'orange_tulip' || tile === 'pink_tulip' ||
+        tile === 'poppy' || tile === 'red_mushroom' || tile === 'red_tulip' || tile === 'brown_mushroom' ||
         tile === 'seagrass' || tile === 'tall_seagrass_1' || tile === 'tall_seagrass_2' ||
         tile === 'tube_coral' || tile === 'tube_coral_fan' ||
         tile === 'horn_coral' || tile === 'horn_coral_fan' ||
@@ -2368,6 +2439,8 @@ class WaterLevel extends Level {
       // 树木 / 水下装饰：只记录到 treeColumns，不创建平台
       if (
         tile === 'log' || tile === 'leaves' ||
+        tile === 'dandelion' || tile === 'orange_tulip' || tile === 'pink_tulip' ||
+        tile === 'poppy' || tile === 'red_mushroom' || tile === 'red_tulip' || tile === 'brown_mushroom' ||
         tile === 'seagrass' || tile === 'tall_seagrass_1' || tile === 'tall_seagrass_2' ||
         tile === 'tube_coral' || tile === 'tube_coral_fan' ||
         tile === 'horn_coral' || tile === 'horn_coral_fan' ||
@@ -4073,6 +4146,8 @@ function setup() {
     'brain_coral', 'brain_coral_fan'
   ];
   groundTiles.forEach(name => loadImage(`assets/pic/ground/${name}.png`, img => window[`tile_${name.replace(/-/g, '_')}`] = img, () => console.warn(`pic/ground/${name}.png 加载失败`)));
+  const surroundingTiles = ['dandelion', 'orange_tulip', 'pink_tulip', 'poppy', 'red_mushroom', 'red_tulip', 'brown_mushroom'];
+  surroundingTiles.forEach(name => load(`assets/pic/surrounding/${name}.png`, `tile_${name}`));
   //加载游戏开始界面
   loadImage('assets/pic/bg/startscreen.png', img => window.startBg = img, () => console.warn('加载失败'));
 
