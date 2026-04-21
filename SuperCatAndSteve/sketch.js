@@ -1332,143 +1332,54 @@ class ForestLevel extends Level {
     const G = T.GRASS, D = T.DIRT, S = T.STONE, X = T.DEEP;
     const Cu = T.COPPER, CuX = T.DEEP_COPPER, Dx = T.DEEP_DIAMOND, Gx = T.DEEP_GOLD, Ix = T.DEEP_IRON;
     const Di = T.DIAMOND, Go = T.GOLD, Ir = T.IRON;
-    const N = T.NONE; // 空格子简写
-    const V = T.GRAVEL, SA = T.SAND, W = T.WATER; // 水关地形简写（ForestLevel 地形数据复用）
+    // 第一关改为 Perlin Noise 地形：连续起伏，更自然
+    // 同时限制相邻列高度差，避免生成不可达深坑（玩家跳不出来）
+    const MIN_GROUND_TILES = 4;
+    const MAX_GROUND_TILES = 9;
+    const MAX_DELTA_PER_COL = 1;
+    const NOISE_SCALE = 0.08;
+    const HEIGHT_SEED = 2026.15;
 
-    // 统一地形定义：addTerrainColumn(列号, 总高度, [贴图数组])
-    // - 数组从底部往上：[0] 是最底下那格，越往后越高
-    // - 地形贴图（G/D/S/X/矿石/LAVA/ACID）：创建碰撞平台
-    // - 树木 / 水下植物（'log'/'leaves'/海草珊瑚标记字符串）：只绘制背景，不碰撞
-    // - N (T.NONE)：空格子
-    const terrain = [
-      // 第1屏 - 包含树木
-      [0,8,[X,X,S,S,G,N,'leaves','leaves']], 
-      [1,10,[X,X,S,S,G,N,'leaves','leaves','leaves','leaves']], 
-      [2,10,[X,X,S,D,G,'log','log','log','leaves','leaves']], 
-      [3,10,[X,S,S,G,N,N,'leaves','leaves','leaves','leaves']], 
-      [4,8,[X,S,D,G,N,N,'leaves','leaves']],
-      [5,4,[X,S,D,G]], 
-      [6,3,[X,S,S]], 
-      [7,6,[X,S,S,N,N,G]], 
-      [8,7,[X,S,N,N,N,D,G]], 
-      [9,7,[X,T.LAVA,N,N,N,S,G]], 
-      [10,8,[X,T.LAVA,N,N,N,S,D,G]],
-      [11,8,[X,T.LAVA,N,N,N,N,D,G]],
-      [12,2,[X,T.LAVA]],
-      [13,3,[X,S,S]],
-      [14,6,[X,S,S,N,'leaves','leaves']],
-      [15,8,[X,S,G,N,'leaves','leaves','leaves','leaves']], 
-      [16,8,[X,S,G,'log','log','log','leaves','leaves']], 
-      [17,8,[X,S,G,N,'leaves','leaves','leaves','leaves']],
-      [18,6,[X,S,G,N,'leaves','leaves']],
-      [19,7,[X,S,D,G,N,'leaves','leaves']],
-      // 第2屏
-      [20,9,[S,S,D,G,N,'leaves','leaves','leaves','leaves']], 
-      [21,9,[S,S,D,G,'log','log','log','leaves','leaves']], 
-      [22,9,[S,S,D,G,N,'leaves','leaves','leaves','leaves']], 
-      [23,7,[S,S,G,N,N,'leaves','leaves']], 
-      [24,3,[S,S,G]],
-      [25,3,[S,S,G]], 
-      [26,3,[X,S,S]], 
-      [27,3,[X,S,S]], 
-      [28,5,[X,X,S,S,S]],
-      [29,3,[X,S,S]], 
-      [30,2,[S,S]],
-      [31,2,[X,T.LAVA]], 
-      [32,2,[X,T.LAVA]], 
-      [33,2,[X,T.LAVA]],
-      [34,2,[X,T.LAVA]], 
-      [35,2,[X,T.LAVA]], 
-      [36,7,[X,S,S,N,N,'leaves','leaves']], 
-      [37,9,[X,S,G,N,N,'leaves','leaves','leaves','leaves']], 
-      [38,9,[S,S,D,G,'log','log','log','leaves','leaves']], 
-      [39,9,[S,S,D,G,N,'leaves','leaves','leaves','leaves']],
-      // 第3屏
-      [40,7,[S,S,G,N,N,'leaves','leaves']], 
-      [41,3,[X,S,G]], 
-      [42,2,[S,S]], 
-      [43,2,[S,S]], 
-      [44,8,[S,S,Ir,N,N,N,'leaves','leaves']],
-      [45,10,[X,X,S,G,N,N,'leaves','leaves','leaves','leaves']], 
-      [46,10,[X,X,S,D,G,'log','log','log','leaves','leaves']], 
-      [47,10,[X,S,S,D,G,'leaves','leaves','leaves','leaves','leaves']], 
-      [48,9,[X,X,S,G,N,'leaves','leaves','leaves','leaves']], 
-      [49,9,[X,S,D,G,'log','log','log','leaves','leaves']], 
-      [50,9,[X,S,D,G,N,'leaves','leaves','leaves','leaves']], 
-      [51,7,[X,S,D,G,N,'leaves','leaves']],
-      [52,3,[S,S,G]], 
-      [53,3,[X,S,G]], 
-      [54,3,[X,S,G]], 
-      [55,3,[X,S,G]], 
-      [56,3,[X,S,G]],
-      [57,5,[X,D,G,'leaves','leaves']], 
-      [58,7,[S,G,N,'leaves','leaves','leaves','leaves']], 
-      [59,7,[S,G,'log','log','log','leaves','leaves']], 
-      // 第4屏
-      [60,7,[S,G,N,'leaves','leaves','leaves','leaves']], 
-      [61,5,[S,G,N,'leaves','leaves']],
-      [62,3,[S,S,G]], 
-      [63,2,[S,T.LAVA]], 
-      [64,2,[S,T.LAVA]], 
-      [65,2,[S,T.LAVA]], 
-      [66,2,[S,T.LAVA]],
-      [67,2,[S,T.LAVA]],
-      [68,2,[S,S]], 
-      [69,3,[S,D,G]], 
-      [70,3,[S,D,G]], 
-      [71,6,[S,D,G,N,N,G]],
-      [72,7,[S,G,N,N,N,S,G]], 
-      [73,7,[S,G,N,N,N,S,G]], 
-      [74,7,[S,G,N,N,N,N,G]], 
-      [75,3,[X,S,G]],
-      [76,7,[X,S,G,N,N,'leaves','leaves']], 
-      [77,9,[X,S,D,G,N,'leaves','leaves','leaves','leaves']], 
-      [78,9,[X,S,D,G,'log','log','log','leaves','leaves']], 
-      [79,9,[X,S,D,G,N,'leaves','leaves','leaves','leaves']], 
-      // 第5屏
-      [80,7,[X,S,D,G,N,'leaves','leaves']], 
-      [81,4,[X,S,D,G]],
-      [82,6,[X,S,G,N,'leaves','leaves']], 
-      [83,8,[X,S,G,N,'leaves','leaves','leaves','leaves']], 
-      [84,8,[X,S,G,'log','log','log','leaves','leaves']], 
-      [85,8,[X,S,G,N,'leaves','leaves','leaves','leaves']], 
-      [86,6,[X,S,G,N,'leaves','leaves']],
-      [87,2,[S,G]], 
-      [88,2,[S,G]], 
-      [89,2,[S,G]], 
-      [90,7,[S,D,G,N,N,N,G]], 
-      [91,8,[S,D,G,N,N,N,D,G]],
-      [92,8,[S,D,G,N,N,N,D,G]], 
-      [93,8,[S,D,G,N,N,N,D,G]], 
-      [94,7,[S,D,G,N,N,N,G]], 
-      [95,4,[X,S,S,S]],
-      [96,6,[X,X,X,S,S,S]], 
-      [97,3,[X,Di,G]], 
-      [98,3,[X,S,G]], 
-      [99,4,[X,S,D,G]],
-      // 第6屏
-      [100,4,[X,S,D,G]], 
-      [101,4,[X,S,D,G]], 
-      [102,4,[X,S,D,G]], 
-      [103,7,[X,S,G,N,N,N,S]], 
-      [104,7,[X,S,G,N,N,N,S]],
-      [105,8,[X,S,G,N,N,N,S,G]], 
-      [106,8,[X,S,G,N,N,N,N,G]], 
-      [107,8,[X,S,G,N,N,N,N,G]], 
-      [108,4,[X,X,S,S]], 
-      [109,3,[X,S,S]], 
-      [110,5,[S,G,N,'leaves','leaves']], 
-      [111,7,[S,G,N,'leaves','leaves','leaves','leaves']],
-      [112,7,[S,G,'log','log','log','leaves','leaves']], 
-      [113,7,[S,G,N,'leaves','leaves','leaves','leaves']], 
-      [114,5,[S,T.LAVA,N,'leaves','leaves']], 
-      [115,2,[S,T.LAVA]], 
-      [116,2,[S,T.LAVA]],
-      [117,2,[S,T.LAVA]], 
-      [118,2,[S,S]], 
-      [119,3,[S,D,G]], 
-    ];
-    terrain.forEach(([col, h, tiles]) => this.addTerrainColumn(col, h, tiles));
+    let prevHeight = 6;
+    for (let col = 0; col < TERRAIN_COLS; col++) {
+      const n = noise(HEIGHT_SEED + col * NOISE_SCALE);
+      const targetHeight = floor(lerp(MIN_GROUND_TILES, MAX_GROUND_TILES, n));
+      const boundedHeight = constrain(
+        targetHeight,
+        prevHeight - MAX_DELTA_PER_COL,
+        prevHeight + MAX_DELTA_PER_COL
+      );
+      const h = constrain(boundedHeight, MIN_GROUND_TILES, MAX_GROUND_TILES);
+      prevHeight = h;
+
+      const tiles = [];
+      for (let row = 0; row < h; row++) {
+        if (row === h - 1) {
+          tiles.push(G);
+        } else if (row >= h - 3) {
+          tiles.push(D);
+        } else {
+          // 深层用石头/深板岩，并少量混入矿石，保持可玩性
+          const oreNoise = noise(100 + col * 0.13 + row * 0.29);
+          if (row <= 1 && oreNoise > 0.89) tiles.push(Cu);
+          else if (row <= 2 && oreNoise > 0.94) tiles.push(Ir);
+          else if (row <= 2 && oreNoise < 0.03) tiles.push(Go);
+          else if (row <= 1 && oreNoise < 0.015) tiles.push(Di);
+          else tiles.push(row <= 1 ? S : X);
+        }
+      }
+
+      // 偶尔生成树木背景装饰（不参与碰撞）
+      if (col % 18 === 3 && h <= 8) {
+        tiles.push('log', 'log', 'leaves', 'leaves');
+      } else if (col % 18 === 4 && h <= 8) {
+        tiles.push('log', 'leaves', 'leaves');
+      } else if (col % 18 === 5 && h <= 8) {
+        tiles.push('log', 'log', 'leaves');
+      }
+
+      this.addTerrainColumn(col, tiles.length, tiles);
+    }
 
     // 辅助函数：获取“最高地表” y 坐标（通常用于放置物体/敌人）
     const groundY = (col) => this.terrainHeights[col];
@@ -1512,9 +1423,15 @@ class ForestLevel extends Level {
     this.enemies.push(new Enemy(54 * TILE_SIZE, groundY(54) - 64, 64, 64));
     this.enemies.push(new Enemy(104 * TILE_SIZE, baseGroundY(104) - 64, 64, 64));
 
-    // 污染物
-    // this.items.push(new Pollutant(36 * TILE_SIZE + 4, groundY(36) - 18, 24, 18, "cigarette")); // 地面 col 36
-    // this.items.push(new Pollutant(48 * TILE_SIZE + 4, groundY(48) - 18, 24, 18, "plastic_bottle")); // 地面 col 48
+    // 污染物（保底数量 >= WIN_SCORE，避免无法通关）
+    const pollutantCols = [];
+    for (let col = 6; col < TERRAIN_COLS - 4 && pollutantCols.length < WIN_SCORE + 3; col += 8) {
+      pollutantCols.push(col);
+    }
+    pollutantCols.forEach((col, idx) => {
+      const type = idx % 2 === 0 ? "cigarette" : "plastic_bottle";
+      this.items.push(new Pollutant(col * TILE_SIZE + 4, groundY(col) - 18, 24, 18, type));
+    });
 
     // TNT（不可收集，触发后爆炸）
     this.items.push(new TNT(97 * TILE_SIZE, groundY(97) - TILE_SIZE, TILE_SIZE, TILE_SIZE));
