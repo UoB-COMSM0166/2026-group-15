@@ -277,19 +277,21 @@ We conducted a **Think Aloud evaluation** on the **first forest level** and the 
 
 **Method**
 
-To complement the Think Aloud evaluation, we conducted a **heuristic analysis** of the same two levels in our game. Each usability issue was rated on **frequency**, **impact**, and **persistence** on a 0–4 scale, and a **severity score** was calculated as the average of these three values.
+To complement the Think Aloud evaluation, we conducted a heuristic analysis of the same two levels. The main issues identified in the Think Aloud sessions were mapped to Nielsen’s usability heuristics and rated on **frequency**, **impact**, and **persistence** on a 0–4 scale. A **severity score** was then calculated as the average of these three values to help us prioritise the issues more systematically in later iterations.
 
 **Issues and Severity**
 
-| **No.** | **Issue**                                                                                                 | **Heuristics Violated**                        | **Frequency (0–4)** | **Impact (0–4)** | **Persistence (0–4)** | **Severity** |
-|--------:|-----------------------------------------------------------------------------------------------------------|-----------------------------------------------|---------------------:|-----------------:|-----------------------:|------------:|
-| **1**   | Grey hint boxes are easy to miss; players often only notice hints after getting stuck.                    | Visibility of system status; Help & documentation | 4                   | 3               | 4                     | **3.7**     |
-| **2**   | Enemies show weak hit feedback and there are no clear health indicators.                                  | Visibility of system status; Error prevention | 3                   | 4               | 3                     | **3.3**     |
-| **3**   | Attack controls and hitboxes are unclear; some players try Left Click and feel the hit range is inconsistent. | Match between system and real world; Consistency & standards | 3                   | 3               | 3                     | **3.0**     |
-| **4**   | Tool behaviour is inconsistent; some tools disappear after use while others remain.                       | Consistency & standards; Recognition rather than recall | 3                   | 3               | 3                     | **3.0**     |
-| **5**   | Cleaning lava/acid does not always give clear visual feedback; acid pools look unchanged when cleaned.    | Visibility of system status; Error prevention | 2                   | 3               | 3                     | **2.7**     |
-| **6**   | Rock collision boxes feel larger than sprites, making some jumps effectively impossible.                  | Match between system and real world; Aesthetic & minimalist design | 3                   | 3               | 3                     | **3.0**     |
-| **7**   | Inventory layout is narrow, making it hard to see and manage all tools and pollutants.                    | Aesthetic & minimalist design; Recognition rather than recall | 2                   | 2               | 3                     | **2.3**     |
+#### Heuristic Evaluation – Issues and Severity
+
+| **Interface** | **Issue**                                                                                                 | **Heuristic(s)**                                             | **Frequency (0–4)** | **Impact (0–4)** | **Persistence (0–4)** | **Severity** |
+|--------------|-----------------------------------------------------------------------------------------------------------|-------------------------------------------------------------|---------------------:|-----------------:|-----------------------:|------------:|
+| Hints        | Grey hint boxes are easy to miss; players often only notice hints after getting stuck.                    | H1 – Visibility of system status; H10 – Help & documentation | 4                   | 3               | 4                     | **3.7**     |
+| Combat       | Enemies show weak hit feedback and there are no clear health indicators.                                  | H1 – Visibility of system status; H5 – Error prevention      | 3                   | 4               | 3                     | **3.3**     |
+| Combat       | Attack controls and hitboxes are unclear; some players try Left Click and feel the hit range is inconsistent. | H2 – Match between system and real world; H4 – Consistency & standards | 3                   | 3               | 3                     | **3.0**     |
+| Inventory    | Tool behaviour is inconsistent; some tools disappear after use while others remain.                       | H4 – Consistency & standards; H6 – Recognition rather than recall | 3                   | 3               | 3                     | **3.0**     |
+| Environment  | Cleaning lava/acid does not always give clear visual feedback; acid pools look unchanged when cleaned.    | H1 – Visibility of system status; H5 – Error prevention      | 2                   | 3               | 3                     | **2.7**     |
+| Movement     | Rock collision boxes feel larger than sprites, making some jumps effectively impossible.                  | H2 – Match between system and real world; H8 – Aesthetic & minimalist design | 3                   | 3               | 3                     | **3.0**     |
+| UI / Inventory | Inventory layout is narrow, making it hard to see and manage all tools and pollutants.                  | H8 – Aesthetic & minimalist design; H6 – Recognition rather than recall | 2                   | 2               | 3                     | **2.3**     |
 
 > **Severity = (Frequency + Impact + Persistence) / 3**
 
