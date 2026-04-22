@@ -804,14 +804,15 @@ class Game {
     return false;
   }
 
-  findNearestRescuableAnimal(rescueRange) {
+  findNearestRescuableAnimal(rescueRange, toolType = 'scissor') {
     let nearest = null;
     let bestDist = Infinity;
     for (const item of this.level.items) {
       if (!(item instanceof Animal)) continue;
-      if (typeof item.canRescueWithTool !== 'function' || !item.canRescueWithTool('scissor')) continue;
+      if (typeof item.canRescueWithTool !== 'function' || !item.canRescueWithTool(toolType)) continue;
       const d = this.distanceToItem(item);
-      if (d > rescueRange || d >= bestDist) continue;
+      const needRange = typeof item.requiresRescueRange === 'function' ? item.requiresRescueRange(toolType) : true;
+      if ((needRange && d > rescueRange) || d >= bestDist) continue;
       bestDist = d;
       nearest = item;
     }
@@ -822,18 +823,24 @@ class Game {
     if (typeof animal.onRescued !== 'function' || !animal.onRescued(this, 'scissor')) return false;
     this.player.inventory.splice(slotIndex, 1);
     this.player.selectedSlot = -1;
-    this.player.score += 1;
-    // 成功解救小动物：弹出统一得分提示
-    this.scoreToastMessage = t("Wildlife rescued! +1", "成功救援野生动物！+1");
-    this.scoreToastUntil = millis() + 1800;
+    this.grantWildlifeRescueReward(animal);
     return true;
   }
 
   tryRescueAnimalWithScissor(slotIndex) {
     const rescueRange = TILE_SIZE * 1.45;
-    const animal = this.findNearestRescuableAnimal(rescueRange);
+    const animal = this.findNearestRescuableAnimal(rescueRange, 'scissor');
     if (!animal) return false;
     return this.rescueAnimalWithScissor(animal, slotIndex);
+  }
+
+  grantWildlifeRescueReward(animal) {
+    if (!animal || animal.rescueAwarded) return false;
+    animal.rescueAwarded = true;
+    this.player.score += 1;
+    this.scoreToastMessage = t("Wildlife rescued! +1", "成功救援野生动物！+1");
+    this.scoreToastUntil = millis() + 1800;
+    return true;
   }
 
   getNearestTreeCrownTarget(bird) {
@@ -1091,12 +1098,9 @@ tryBreakIronBarWithWrench(slotIndex) {
   }
   for (const bar of barGroup) bar.removeByWrench();
   for (const turtle of linkedTurtles) {
-    if (!(turtle instanceof Turtle) || turtle.rescueAwarded) continue;
+    if (!(turtle instanceof Turtle)) continue;
     if (turtle.state === 'ascending' || turtle.state === 'patrol') {
-      turtle.rescueAwarded = true;
-      this.player.score += 1;
-      this.scoreToastMessage = t("Wildlife rescued! +1", "成功救援野生动物！+1");
-      this.scoreToastUntil = millis() + 1800;
+      this.grantWildlifeRescueReward(turtle);
     }
   }
   this.player.inventory.splice(slotIndex, 1);
@@ -1300,7 +1304,7 @@ tryPlantVineSeed(slotIndex) {
 
   for (let i = this.level.items.length - 1; i >= 0; i--) {
     const item = this.level.items[i];
-    if (item instanceof IronBar) continue;
+    if (item instanceof IronBar || item instanceof FishingNet) continue;
 
     // TNT 爆炸后延迟移除（不需要玩家碰到）
     if (item instanceof TNT && item.exploded && millis() >= item.removeAfter) {
@@ -2424,7 +2428,7 @@ class WaterLevel extends Level {
     // toolType 为 pic/item/tool 下文件名不含 .png，如 'scissor' 'bucket'
     const toolOffset = (TILE_SIZE - 24) / 2;
     // 剪刀
-    // this.items.push(new Tool(28 * TILE_SIZE + toolOffset, groundY(28) - 24, 24, 24, 'scissor'));
+    this.items.push(new Tool(40 * TILE_SIZE + toolOffset, groundY(40) - 24, 24, 24, 'scissor'));
     // this.items.push(new Tool(92 * TILE_SIZE + toolOffset, baseGroundY(92) - 24, 24, 24, 'scissor'));
     // 水桶
     this.items.push(new Tool(8 * TILE_SIZE + toolOffset, groundY(8) - 24, 24, 24, 'enlarged_water_bucket'));
@@ -2451,6 +2455,22 @@ class WaterLevel extends Level {
     });
     bars.forEach(bar => this.items.push(bar));
     turtle.bindBars(bars);
+
+    // 第69列 fish 事件：初始静止并被 fishing_net 覆盖，使用 scissor 解救后上浮2格再巡逻
+    const fishCol = 69;
+    const fishW = 32;
+    const fishH = 32;
+    const fishSurfaceY = this.getSolidSurfaceY(fishCol) ?? groundY(fishCol);
+    const fishX = fishCol * TILE_SIZE;
+    const fishY = fishSurfaceY - fishH;
+    const fish = new Fish(fishX, fishY, fishW, fishH);
+    this.items.push(fish);
+
+    const netX = 68 * TILE_SIZE;
+    const netY = fishY - 2 * TILE_SIZE;
+    const fishingNet = new FishingNet(netX, netY, 4 * TILE_SIZE, 3 * TILE_SIZE, fish);
+    this.items.push(fishingNet);
+    fish.bindNet(fishingNet);
 
     // ===== 结束：敌人和物品生成 =====
   }
@@ -3674,6 +3694,7 @@ class Animal extends Entity {
     this.sprite = sprite;
     this.vy = 0;
     this.gravity = 0.5;
+    this.rescueAwarded = false;
   }
 
   update(platforms, level = null) {
@@ -3710,6 +3731,10 @@ class Animal extends Entity {
 
   canRescueWithTool(toolType) {
     return false;
+  }
+
+  requiresRescueRange(toolType) {
+    return true;
   }
 
   onRescued(game, toolType) {
@@ -3914,7 +3939,7 @@ class Turtle extends Animal {
     super(x, y, w, h, null);
     this.state = 'idle';
     this.releaseTargetY = y;
-    this.rescueAwarded = false;
+    this.releaseTargetX = x;
     this.patrolOriginX = x;
     this.patrolRange = 4 * TILE_SIZE;
     this.patrolDir = -1;
@@ -3935,6 +3960,8 @@ class Turtle extends Animal {
     if (allRemoved && this.state === 'idle') {
       this.state = 'ascending';
       this.releaseTargetY = this.y - TILE_SIZE;
+      this.releaseTargetX = this.x - 2 * TILE_SIZE;
+      this.facingRight = false;
       this.vx = 0;
       this.vy = 0;
     }
@@ -3948,6 +3975,17 @@ class Turtle extends Animal {
       this.y -= ascendSpeed;
       if (this.y <= this.releaseTargetY) {
         this.y = this.releaseTargetY;
+        this.state = 'release_swim_left';
+      }
+      return;
+    }
+
+    if (this.state === 'release_swim_left') {
+      const releaseSwimSpeed = ENEMY_SPEED * 0.75;
+      this.facingRight = false;
+      this.x -= releaseSwimSpeed;
+      if (this.x <= this.releaseTargetX) {
+        this.x = this.releaseTargetX;
         this.state = 'patrol';
         this.patrolOriginX = this.x;
       }
@@ -4051,6 +4089,159 @@ class IronBar extends Entity {
     if (img && img.width > 0) image(img, this.x, this.y, this.w, this.h);
     else {
       fill(150);
+      rect(this.x, this.y, this.w, this.h);
+    }
+  }
+}
+
+class Fish extends Animal {
+  constructor(x, y, w = 32, h = 32) {
+    super(x, y, w, h, null);
+    this.state = 'trapped';
+    this.releaseTargetY = y;
+    this.patrolOriginX = x;
+    this.patrolRange = 4 * TILE_SIZE;
+    this.patrolDir = -1;
+    this.facingRight = false;
+    this.linkedNet = null;
+    this.gravity = 0;
+  }
+
+  bindNet(net) {
+    this.linkedNet = net || null;
+  }
+
+  isTrapped() {
+    return this.state === 'trapped' && this.linkedNet && !this.linkedNet.removed;
+  }
+
+  canRescueWithTool(toolType) {
+    return toolType === 'scissor' && this.isTrapped();
+  }
+
+  requiresRescueRange(toolType) {
+    if (toolType === 'scissor') return false;
+    return true;
+  }
+
+  onRescued(game, toolType) {
+    if (toolType !== 'scissor' || !this.isTrapped()) return false;
+    if (this.linkedNet) this.linkedNet.removeByScissor();
+    this.state = 'ascending';
+    this.releaseTargetY = this.y - 2 * TILE_SIZE;
+    this.vx = 0;
+    this.vy = 0;
+    return true;
+  }
+
+  onNetRemoved() {
+    if (this.state !== 'trapped') return;
+    this.state = 'ascending';
+    this.releaseTargetY = this.y - 2 * TILE_SIZE;
+    this.vx = 0;
+    this.vy = 0;
+  }
+
+  update(platforms, level = null) {
+    if (this.state === 'trapped') return;
+
+    if (this.state === 'ascending') {
+      const ascendSpeed = 1.25;
+      this.y -= ascendSpeed;
+      if (this.y <= this.releaseTargetY) {
+        this.y = this.releaseTargetY;
+        this.state = 'patrol';
+        this.patrolOriginX = this.x;
+      }
+      return;
+    }
+
+    if (this.state !== 'patrol') return;
+
+    const minX = this.patrolOriginX - this.patrolRange / 2;
+    const maxX = this.patrolOriginX + this.patrolRange / 2;
+    const patrolSpeed = ENEMY_SPEED * 0.75;
+    this.vx = patrolSpeed * this.patrolDir;
+    this.facingRight = this.patrolDir > 0;
+
+    if (this.x <= minX) {
+      this.x = minX;
+      this.patrolDir = 1;
+    } else if (this.x >= maxX) {
+      this.x = maxX;
+      this.patrolDir = -1;
+    }
+
+    this.vx *= WATER_DRAG;
+    this.vy *= WATER_DRAG;
+    this.vy += Math.sin(millis() * 0.004 + this.x * 0.03) * 0.03;
+    this.vy = constrain(this.vy, -1.0, 1.0);
+
+    this.x += this.vx;
+    this.resolveCollision(platforms, true);
+
+    this.y += this.vy;
+    this.resolveCollision(platforms, false);
+  }
+
+  resolveCollision(platforms, horizontal) {
+    const box = this.getCollisionBox();
+    for (const p of platforms) {
+      const rects = getCollisionRectsForCollider(p);
+      for (const r of rects) {
+        if (!rectCollision(box.x, box.y, box.w, box.h, r.x, r.y, r.w, r.h)) continue;
+        if (horizontal) {
+          if (this.vx > 0) this.x = r.x - box.w - this.collisionOffsetX;
+          else if (this.vx < 0) this.x = r.x + r.w - this.collisionOffsetX;
+          this.vx = 0;
+        } else {
+          if (this.vy > 0) this.y = r.y - this.h;
+          else if (this.vy < 0) this.y = r.y + r.h;
+          this.vy = 0;
+        }
+      }
+    }
+  }
+
+  draw() {
+    const img = window.fish;
+    if (img && img.width > 0) {
+      push();
+      imageMode(CENTER);
+      translate(this.x + this.w / 2, this.y + this.h / 2);
+      // fish 贴图默认朝左；向右游动时翻转
+      scale(this.facingRight ? -1 : 1, 1);
+      image(img, 0, 0, this.w, this.h);
+      pop();
+    } else {
+      fill(255, 140, 90);
+      rect(this.x, this.y, this.w, this.h);
+    }
+  }
+}
+
+class FishingNet extends Entity {
+  constructor(x, y, w = 4 * TILE_SIZE, h = 3 * TILE_SIZE, linkedFish = null) {
+    super(x, y, w, h);
+    this.removed = false;
+    this.linkedFish = linkedFish;
+  }
+
+  removeByScissor() {
+    if (this.removed) return;
+    this.removed = true;
+    if (this.linkedFish && typeof this.linkedFish.onNetRemoved === 'function') {
+      this.linkedFish.onNetRemoved();
+    }
+  }
+
+  draw() {
+    if (this.removed) return;
+    const img = window.fishing_net;
+    if (img && img.width > 0) image(img, this.x, this.y, this.w, this.h);
+    else {
+      noFill();
+      stroke(160, 110, 70);
       rect(this.x, this.y, this.w, this.h);
     }
   }
@@ -4343,6 +4534,75 @@ class UIManager {
     text(desc, x + 28, y + 23);
   }
 
+  getGuideRowsByTab(levelType = "forest") {
+    const commonTools = {
+      scissor: [window.tool_scissor, t("Scissors", "剪刀"), t("Rescue trapped wildlife", "解救被困动物")],
+      waterBucket: [window.tool_enlarged_water_bucket, t("Bucket", "水桶"), t("Use near lava", "在岩浆附近使用")],
+      limestone: [window.tool_limestone, t("Limestone", "石灰石"), t("Use near acid", "在酸液附近使用")],
+      vineSeed: [window.tool_vine_seed, t("Vine Seed", "藤蔓种子"), t("Grow a ladder to climb", "生成藤蔓梯子爬到高处")],
+      wrench: [window.tool_wrench, t("Wrench", "扳手"), t("Remove iron bars", "拆除铁栏杆")]
+    };
+
+    if (levelType === "water") {
+      return [
+        [
+          commonTools.scissor,
+          commonTools.wrench,
+          commonTools.waterBucket
+        ],
+        [
+          [window.plastic_bottle, t("Plastic Bottle", "塑料瓶"), t("Collect", "收集")],
+          [window.plastic_bag, t("Plastic Bag", "塑料袋"), t("Collect", "收集")]
+        ],
+        [
+          [window.turtle_0, t("Turtle", "海龟"), t("Break iron bars to rescue", "拆除铁栏杆进行救援")],
+          [window.fish, t("Fish", "小鱼"), t("Cut fishing net to rescue", "剪开渔网进行救援")]
+        ],
+        [
+          [window.drownedSprite, t("Drowned", "溺尸"), t("Keep distance or attack", "保持距离或攻击")],
+          [window.sharkSpriteStill, t("Shark", "鲨鱼"), t("Patrols in water", "会在水中巡逻")]
+        ]
+      ];
+    }
+
+    if (levelType === "factory") {
+      return [
+        [
+          commonTools.waterBucket,
+          commonTools.limestone
+        ],
+        [
+          [window.plastic_bottle, t("Plastic Bottle", "塑料瓶"), t("Collect", "收集")],
+          [window.plastic_bag, t("Plastic Bag", "塑料袋"), t("Collect", "收集")],
+          [window.tnt, "TNT", t("Keep away", "远离")]
+        ],
+        [],
+        [
+          [window.slimeSprite, t("Slime", "史莱姆"), t("Press F to attack", "按 F 攻击")]
+        ]
+      ];
+    }
+
+    // forest（默认）
+    return [
+      [
+        commonTools.scissor,
+        commonTools.waterBucket,
+        commonTools.vineSeed
+      ],
+      [
+        [window.plastic_bottle, t("Plastic Bottle", "塑料瓶"), t("Collect", "收集")],
+        [window.plastic_bag, t("Plastic Bag", "塑料袋"), t("Collect", "收集")]
+      ],
+      [
+        [window.bird, t("Bird", "小鸟"), t("Click scissors to rescue", "点击剪刀进行救援")]
+      ],
+      [
+        [window.zombieSpriteRight, t("Zombie", "僵尸"), t("Press F to attack", "按 F 攻击")]
+      ]
+    ];
+  }
+
   drawGuideMenu(activeGuideTab = 0) {
     const panel = this.getGuideMenuRect();
     noStroke();
@@ -4372,37 +4632,28 @@ class UIManager {
     }
     textAlign(LEFT, BASELINE);
 
-    const rowsByTab = [
-      [
-        [window.tool_scissor, t("Scissors", "剪刀"), t("Cut webs to rescue", "剪开蛛网进行救援")],
-        [window.tool_enlarged_water_bucket, t("Bucket", "水桶"), t("Use near lava", "在岩浆附近使用")],
-        [window.tool_limestone, t("Limestone", "石灰石"), t("Use near acid", "在酸液附近使用")],
-        [window.tool_vine_seed, t("Vine Seed", "藤蔓种子"), t("Grow a ladder to climb", "生成藤蔓梯子爬到高处")]
-      ],
-      [
-        [window.cigarette, t("Cigarette", "香烟"), t("Collect", "收集")],
-        [window.plastic_bottle, t("Plastic Bottle", "塑料瓶"), t("Collect", "收集")],
-        [null, t("Wrapper", "包装纸"), t("Collect", "收集")],
-        [null, t("Acid Pool", "酸液池"), t("Treat with limestone", "使用石灰石处理")]
-      ],
-      [
-        [window.bird, t("Bird", "小鸟"), t("Click scissors to rescue", "点击剪刀进行救援")]
-      ],
-      [
-        [window.zombieSpriteRight, t("Zombie", "僵尸"), t("Press F to attack", "按 F 攻击")],
-        [window.tnt, "TNT", t("Keep away", "远离")]
-      ]
-    ];
+    const rowsByTab = this.getGuideRowsByTab(game?.levelType || "forest");
 
     const tabIndex = constrain(activeGuideTab, 0, rowsByTab.length - 1);
-    const rows = rowsByTab[tabIndex];
+    const rows = rowsByTab[tabIndex] || [];
     const rowX = panel.x + 12;
     const rowW = panel.w - 24;
     let rowY = panel.y + 48;
 
-    for (const [icon, name, desc] of rows) {
-      this.drawGuideRow(rowX, rowY, rowW, icon, name, desc);
-      rowY += 34;
+    if (!rows.length) {
+      this.drawGuideRow(
+        rowX,
+        rowY,
+        rowW,
+        null,
+        t("No entries in this level", "本关暂无该类条目"),
+        t("Switch tab to view other categories", "可切换到其他标签查看")
+      );
+    } else {
+      for (const [icon, name, desc] of rows) {
+        this.drawGuideRow(rowX, rowY, rowW, icon, name, desc);
+        rowY += 34;
+      }
     }
   }
 }
@@ -4450,11 +4701,13 @@ function setup() {
   load('assets/pic/item/pollutant/tnt_side.png', 'tnt');
   load('assets/pic/animals/bird.png', 'bird');
   load('assets/pic/animals/bird_flip.png', 'bird_flip');
+  load('assets/pic/animals/fish.png', 'fish');
   load('assets/pic/animals/turtle_0.png', 'turtle_0');
   load('assets/pic/animals/turtle_1.png', 'turtle_1');
   load('assets/pic/animals/iron_bar.png', 'iron_bar');
   load('assets/pic/animals/web_back.png', 'web_back');
   load('assets/pic/animals/web_front.png', 'web_front');
+  load('assets/pic/item/restraint/fishing_net.png', 'fishing_net');
   // 玩家：根据武器等级与攻击状态切换对应立绘（朝向用水平翻转）
   load('assets/pic/player_cat/Alex_wooden_sword_0.png', 'alexSpriteWoodenSword');
   load('assets/pic/player_cat/Alex_stone_sword_0.png', 'alexSpriteStoneSword');
