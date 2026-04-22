@@ -587,7 +587,7 @@ class Game {
       } else if (item instanceof Ladder) {
         // 梯子是放置物，不受重力影响
         continue;
-      } else if (item instanceof Item) {
+      } else if (item instanceof Item || item instanceof Animal) {
         item.update(this.level.platforms, this.level);
       }
     }
@@ -782,7 +782,10 @@ class Game {
   handleSelectedToolUse(slotIndex, item) {
     switch (item.toolType) {
       case 'scissor':
-        this.tryRescueBirdWithScissor(slotIndex);
+        this.tryInteractAnimalWithTool(slotIndex, item.toolType);
+        break;
+      case 'wrench':
+        this.tryBreakIronBarWithWrench(slotIndex);
         break;
       case 'enlarged_water_bucket':
         this.tryUseWaterBucket();
@@ -796,15 +799,27 @@ class Game {
     }
   }
 
-tryRescueBirdWithScissor(slotIndex) {
-    const rescueRange = TILE_SIZE * 1.45;
-    const trappedBird = this.level.items.find(item =>
-      item instanceof TrappedBird && item.isTrapped() && this.distanceToItem(item) <= rescueRange
-    );
-    if (!trappedBird) return false;
-    
-    const target = this.getNearestTreeCrownTarget(trappedBird);
-    trappedBird.startRescue(target.x, target.y);
+  tryInteractAnimalWithTool(slotIndex, toolType) {
+    if (toolType === 'scissor') return this.tryRescueAnimalWithScissor(slotIndex);
+    return false;
+  }
+
+  findNearestRescuableAnimal(rescueRange) {
+    let nearest = null;
+    let bestDist = Infinity;
+    for (const item of this.level.items) {
+      if (!(item instanceof Animal)) continue;
+      if (typeof item.canRescueWithTool !== 'function' || !item.canRescueWithTool('scissor')) continue;
+      const d = this.distanceToItem(item);
+      if (d > rescueRange || d >= bestDist) continue;
+      bestDist = d;
+      nearest = item;
+    }
+    return nearest;
+  }
+
+  rescueAnimalWithScissor(animal, slotIndex) {
+    if (typeof animal.onRescued !== 'function' || !animal.onRescued(this, 'scissor')) return false;
     this.player.inventory.splice(slotIndex, 1);
     this.player.selectedSlot = -1;
     this.player.score += 1;
@@ -812,6 +827,13 @@ tryRescueBirdWithScissor(slotIndex) {
     this.scoreToastMessage = t("Wildlife rescued! +1", "成功救援野生动物！+1");
     this.scoreToastUntil = millis() + 1800;
     return true;
+  }
+
+  tryRescueAnimalWithScissor(slotIndex) {
+    const rescueRange = TILE_SIZE * 1.45;
+    const animal = this.findNearestRescuableAnimal(rescueRange);
+    if (!animal) return false;
+    return this.rescueAnimalWithScissor(animal, slotIndex);
   }
 
   getNearestTreeCrownTarget(bird) {
@@ -973,6 +995,12 @@ tryRescueBirdWithScissor(slotIndex) {
     return this.player.inventory.length < INVENTORY_SLOTS;
   }
 
+  handleAnimalTouchInteraction(animal) {
+    // 动物不走通用拾取逻辑，统一在此处理专属交互
+    if (typeof animal.onPlayerTouch === 'function') return animal.onPlayerTouch(this);
+    return false;
+  }
+
 handleMousePressed(mx, my) {
   const topRight = this.uiManager.getTopRightButtons();
   if (this.uiManager.isInsideRect(mx, my, topRight.exitRect)) {
@@ -1006,6 +1034,74 @@ handleMousePressed(mx, my) {
   if (item instanceof Tool) {
     this.handleSelectedToolUse(slotIndex, item);
   }
+}
+
+findNearestBreakableIronBar(breakRange) {
+  let nearest = null;
+  let bestDist = Infinity;
+  for (const it of this.level.items) {
+    if (!(it instanceof IronBar) || it.removed) continue;
+    const d = this.distanceToItem(it);
+    if (d > breakRange || d >= bestDist) continue;
+    bestDist = d;
+    nearest = it;
+  }
+  return nearest;
+}
+
+getAdjacentIronBarGroup(seedBar) {
+  const bars = this.level.items.filter(it => it instanceof IronBar && !it.removed);
+  const visited = new Set();
+  const queue = [seedBar];
+  const group = [];
+  const isAdjacent = (a, b) => {
+    const ax2 = a.x + a.w, ay2 = a.y + a.h;
+    const bx2 = b.x + b.w, by2 = b.y + b.h;
+    const touchX = Math.abs(ax2 - b.x) <= 0.1 || Math.abs(bx2 - a.x) <= 0.1;
+    const overlapY = Math.max(a.y, b.y) <= Math.min(ay2, by2);
+    const touchY = Math.abs(ay2 - b.y) <= 0.1 || Math.abs(by2 - a.y) <= 0.1;
+    const overlapX = Math.max(a.x, b.x) <= Math.min(ax2, bx2);
+    return (touchX && overlapY) || (touchY && overlapX);
+  };
+
+  while (queue.length) {
+    const bar = queue.shift();
+    if (!bar || visited.has(bar)) continue;
+    visited.add(bar);
+    group.push(bar);
+    for (const other of bars) {
+      if (visited.has(other) || other === bar) continue;
+      if (isAdjacent(bar, other)) queue.push(other);
+    }
+  }
+  return group;
+}
+
+tryBreakIronBarWithWrench(slotIndex) {
+  const breakRange = TILE_SIZE * 1.45;
+  const nearest = this.findNearestBreakableIronBar(breakRange);
+  if (!nearest) return false;
+
+  const barGroup = this.getAdjacentIronBarGroup(nearest);
+  if (!barGroup.length) return false;
+
+  const linkedTurtles = new Set();
+  for (const bar of barGroup) {
+    if (bar.linkedTurtle) linkedTurtles.add(bar.linkedTurtle);
+  }
+  for (const bar of barGroup) bar.removeByWrench();
+  for (const turtle of linkedTurtles) {
+    if (!(turtle instanceof Turtle) || turtle.rescueAwarded) continue;
+    if (turtle.state === 'ascending' || turtle.state === 'patrol') {
+      turtle.rescueAwarded = true;
+      this.player.score += 1;
+      this.scoreToastMessage = t("Wildlife rescued! +1", "成功救援野生动物！+1");
+      this.scoreToastUntil = millis() + 1800;
+    }
+  }
+  this.player.inventory.splice(slotIndex, 1);
+  this.player.selectedSlot = -1;
+  return true;
 }
 
 getInventorySlotAt(mx, my) {
@@ -1204,6 +1300,7 @@ tryPlantVineSeed(slotIndex) {
 
   for (let i = this.level.items.length - 1; i >= 0; i--) {
     const item = this.level.items[i];
+    if (item instanceof IronBar) continue;
 
     // TNT 爆炸后延迟移除（不需要玩家碰到）
     if (item instanceof TNT && item.exploded && millis() >= item.removeAfter) {
@@ -1220,7 +1317,8 @@ tryPlantVineSeed(slotIndex) {
       continue;
     }
 
-    if (item instanceof TrappedBird) {
+    if (item instanceof Animal) {
+      this.handleAnimalTouchInteraction(item);
       continue;
     }
 
@@ -2333,8 +2431,26 @@ class WaterLevel extends Level {
     this.items.push(new Tool(23 * TILE_SIZE + toolOffset, groundY(23) - 24, 24, 24, 'enlarged_water_bucket'));
     this.items.push(new Tool(29 * TILE_SIZE + toolOffset, groundY(29) - 24, 24, 24, 'enlarged_water_bucket'));
     this.items.push(new Tool(103 * TILE_SIZE + toolOffset, groundY(103) - 24, 24, 24, 'enlarged_water_bucket'));
+    this.items.push(new Tool(44 * TILE_SIZE + toolOffset, groundY(44) - 24, 24, 24, 'wrench'));
     // 石灰石
     // this.items.push(new Tool(14 * TILE_SIZE + toolOffset, groundY(14) - 24, 24, 24, 'limestone'));
+
+    // 第48列海龟事件：初始静止，解锁条件为上方 47/48/49 三个铁栏杆全部被 wrench 拆除
+    const turtleW = 62;
+    const turtleH = 32;
+    const turtleCol = 48;
+    const turtleX = turtleCol * TILE_SIZE + (TILE_SIZE - turtleW) / 2;
+    const turtleSurfaceY = this.getSolidSurfaceY(turtleCol) ?? groundY(turtleCol);
+    const turtleY = turtleSurfaceY - turtleH;
+    const turtle = new Turtle(turtleX, turtleY, turtleW, turtleH);
+    this.items.push(turtle);
+
+    const bars = [47, 48, 49].map(col => {
+      const barSurfaceY = this.getSolidSurfaceY(col) ?? groundY(col);
+      return new IronBar(col * TILE_SIZE, barSurfaceY - TILE_SIZE, TILE_SIZE, TILE_SIZE, turtle);
+    });
+    bars.forEach(bar => this.items.push(bar));
+    turtle.bindBars(bars);
 
     // ===== 结束：敌人和物品生成 =====
   }
@@ -2576,10 +2692,43 @@ class Platform {
   }
 }
 
+// ====== Entity 基类 ======
+class Entity {
+  constructor(x, y, w, h) {
+    this.x = x;
+    this.y = y;
+    this.w = w;
+    this.h = h;
+    this.collisionW = w;
+    this.collisionH = h;
+    this.collisionOffsetX = 0;
+    this.collisionOffsetY = 0;
+  }
+
+  getCollisionBox() {
+    return {
+      x: this.x + this.collisionOffsetX,
+      y: this.y + this.collisionOffsetY,
+      w: this.collisionW,
+      h: this.collisionH
+    };
+  }
+
+  collidesWith(obj) {
+    if (!obj) return false;
+    const a = this.getCollisionBox();
+    const b = typeof obj.getCollisionBox === 'function'
+      ? obj.getCollisionBox()
+      : { x: obj.x, y: obj.y, w: obj.w, h: obj.h };
+    return rectCollision(a.x, a.y, a.w, a.h, b.x, b.y, b.w, b.h);
+  }
+}
+
 // ====== Player 类 ======
-class Player {
+class Player extends Entity {
   constructor(x, y) {
-    Object.assign(this, { x, y, w: 32, h: 64, vx: 0, vy: 0, speed: 2, jumpForce: -6.32, gravity: 0.5, onGround: false, maxHealth: 5, health: 5, inventory: [], facingRight: true });
+    super(x, y, 32, 64);
+    Object.assign(this, { vx: 0, vy: 0, speed: 2, jumpForce: -6.32, gravity: 0.5, onGround: false, maxHealth: 5, health: 5, inventory: [], facingRight: true });
     this.equippedWeaponType = 'wooden_sword';  // 手持武器，通过挖掘对应矿石升级
     
     this.isAttacking = false;
@@ -2607,16 +2756,6 @@ class Player {
 
   }
   
-  // 获取碰撞箱的实际坐标
-  getCollisionBox() {
-    return {
-      x: this.x + this.collisionOffsetX,
-      y: this.y + this.collisionOffsetY,
-      w: this.collisionW,
-      h: this.collisionH
-    };
-  }
-
   isInWater(level) {
     return isEntityInWater(this, level);
   }
@@ -2934,10 +3073,6 @@ class Player {
     this.jumpsRemaining -= 1;
   }
 
-  collidesWith(obj) { 
-    const box = this.getCollisionBox();
-    return rectCollision(box.x, box.y, box.w, box.h, obj.x, obj.y, obj.w, obj.h); 
-  }
   collect(item) { if (this.inventory.length < INVENTORY_SLOTS) this.inventory.push(item); }
   takeDamage(amount) { this.health = max(0, this.health - amount); }
 
@@ -2990,9 +3125,10 @@ const ENEMY_DEFAULT_HEALTH = 5;
 const ENEMY_DETECT_RANGE = 4 * TILE_SIZE; // 4格检测范围
 const ENEMY_SPEED = 1; // 敌人移动速度
 
-class Enemy {
+class Enemy extends Entity {
   constructor(x, y, w, h, health = ENEMY_DEFAULT_HEALTH) {
-    Object.assign(this, { x, y, w, h, health, maxHealth: health });
+    super(x, y, w, h);
+    Object.assign(this, { health, maxHealth: health });
     this.activated = false; // 是否已被激活（玩家进入检测范围）
     this.vx = 0; // 水平速度
     this.vy = 0; // 垂直速度
@@ -3006,15 +3142,6 @@ class Enemy {
     this.collisionH = 64;
     this.collisionOffsetX = (this.w - this.collisionW) / 2;  // 水平居中
     this.collisionOffsetY = this.h - this.collisionH;  // 底部对齐
-  }
-  
-  getCollisionBox() {
-    return {
-      x: this.x + this.collisionOffsetX,
-      y: this.y + this.collisionOffsetY,
-      w: this.collisionW,
-      h: this.collisionH
-    };
   }
   
   takeDamage(amount) {
@@ -3500,9 +3627,10 @@ class Slime extends Enemy {
 }
 
 
-class Item {
+class Item extends Entity {
   constructor(x, y, w, h, sprite) {
-    Object.assign(this, { x, y, w, h, sprite });
+    super(x, y, w, h);
+    Object.assign(this, { sprite });
     this.vy = 0;
     this.gravity = 0.5;
   }
@@ -3537,6 +3665,59 @@ class Item {
   draw() {
     if (this.sprite) image(this.sprite, this.x, this.y, this.w, this.h);
     else { fill(255, 255, 0); rect(this.x, this.y, this.w, this.h); }
+  }
+}
+
+class Animal extends Entity {
+  constructor(x, y, w, h, sprite = null) {
+    super(x, y, w, h);
+    this.sprite = sprite;
+    this.vy = 0;
+    this.gravity = 0.5;
+  }
+
+  update(platforms, level = null) {
+    if (isEntityInWater(this, level)) {
+      this.vy += WATER_GRAVITY - WATER_BUOYANCY;
+      this.vy *= WATER_DRAG;
+    } else {
+      this.vy += this.gravity;
+    }
+    this.y += this.vy;
+
+    const box = this.getCollisionBox();
+    for (let p of platforms) {
+      const rects = getCollisionRectsForCollider(p);
+      for (const r of rects) {
+        if (!rectCollision(box.x, box.y, box.w, box.h, r.x, r.y, r.w, r.h)) continue;
+        this.y = r.y - this.h;
+        this.vy = 0;
+        return;
+      }
+    }
+
+    const maxY = CANVAS_H - this.h;
+    if (this.y > maxY) {
+      this.y = maxY;
+      this.vy = 0;
+    }
+  }
+
+  draw() {
+    if (this.sprite) image(this.sprite, this.x, this.y, this.w, this.h);
+    else { fill(180, 200, 220); rect(this.x, this.y, this.w, this.h); }
+  }
+
+  canRescueWithTool(toolType) {
+    return false;
+  }
+
+  onRescued(game, toolType) {
+    return false;
+  }
+
+  onPlayerTouch(game) {
+    return false;
   }
 }
 
@@ -3639,7 +3820,7 @@ class TNT extends Pollutant {
   }
 }
 
-class TrappedBird extends Item {
+class TrappedBird extends Animal {
   constructor(x, y, w = 48, h = 36) {
     super(x, y, w, h, null);
     this.state = 'trapped';
@@ -3659,6 +3840,18 @@ class TrappedBird extends Item {
     this.targetY = targetY;
     this.facingRight = targetX > this.x;
     this.vy = 0;
+  }
+  canRescueWithTool(toolType) {
+    return toolType === 'scissor' && this.isTrapped();
+  }
+  onRescued(game, toolType) {
+    if (toolType !== 'scissor' || !this.isTrapped()) return false;
+    const target = game.getNearestTreeCrownTarget(this);
+    this.startRescue(target.x, target.y);
+    return true;
+  }
+  onPlayerTouch(game) {
+    return this.state === 'trapped';
   }
   update(platforms, level = null) {
     if (this.state === 'trapped') {
@@ -3716,7 +3909,154 @@ class TrappedBird extends Item {
   }
 }
 
-class LittleBird extends Item {
+class Turtle extends Animal {
+  constructor(x, y, w = 62, h = 32) {
+    super(x, y, w, h, null);
+    this.state = 'idle';
+    this.releaseTargetY = y;
+    this.rescueAwarded = false;
+    this.patrolOriginX = x;
+    this.patrolRange = 4 * TILE_SIZE;
+    this.patrolDir = -1;
+    this.facingRight = false;
+    this.vx = 0;
+    this.bars = [];
+    // 初始静止：不受 Animal 默认重力影响
+    this.gravity = 0;
+  }
+
+  bindBars(bars) {
+    this.bars = Array.isArray(bars) ? bars : [];
+  }
+
+  onBarRemoved() {
+    if (!this.bars.length) return;
+    const allRemoved = this.bars.every(bar => bar.removed);
+    if (allRemoved && this.state === 'idle') {
+      this.state = 'ascending';
+      this.releaseTargetY = this.y - TILE_SIZE;
+      this.vx = 0;
+      this.vy = 0;
+    }
+  }
+
+  update(platforms, level = null) {
+    if (this.state === 'idle') return;
+
+    if (this.state === 'ascending') {
+      const ascendSpeed = 1.25;
+      this.y -= ascendSpeed;
+      if (this.y <= this.releaseTargetY) {
+        this.y = this.releaseTargetY;
+        this.state = 'patrol';
+        this.patrolOriginX = this.x;
+      }
+      return;
+    }
+
+    if (this.state !== 'patrol') return;
+
+    const minX = this.patrolOriginX - this.patrolRange / 2;
+    const maxX = this.patrolOriginX + this.patrolRange / 2;
+    const patrolSpeed = ENEMY_SPEED * 0.75;
+    this.vx = patrolSpeed * this.patrolDir;
+    this.facingRight = this.patrolDir > 0;
+
+    if (this.x <= minX) {
+      this.x = minX;
+      this.patrolDir = 1;
+    } else if (this.x >= maxX) {
+      this.x = maxX;
+      this.patrolDir = -1;
+    }
+
+    // 复用 shark 的水中巡航手感：阻力 + 轻微上下起伏
+    this.vx *= WATER_DRAG;
+    this.vy *= WATER_DRAG;
+    this.vy += Math.sin(millis() * 0.004 + this.x * 0.03) * 0.03;
+    this.vy = constrain(this.vy, -1.0, 1.0);
+
+    this.x += this.vx;
+    this.resolveCollision(platforms, true);
+
+    this.y += this.vy;
+    this.resolveCollision(platforms, false);
+
+    if (this.y < 0) {
+      this.y = 0;
+      if (this.vy < 0) this.vy = 0;
+    }
+    const maxY = CANVAS_H - this.h;
+    if (this.y > maxY) {
+      this.y = maxY;
+      if (this.vy > 0) this.vy = 0;
+    }
+  }
+
+  resolveCollision(platforms, horizontal) {
+    const box = this.getCollisionBox();
+    for (const p of platforms) {
+      const rects = getCollisionRectsForCollider(p);
+      for (const r of rects) {
+        if (!rectCollision(box.x, box.y, box.w, box.h, r.x, r.y, r.w, r.h)) continue;
+        if (horizontal) {
+          if (this.vx > 0) this.x = r.x - box.w - this.collisionOffsetX;
+          else if (this.vx < 0) this.x = r.x + r.w - this.collisionOffsetX;
+          this.vx = 0;
+        } else {
+          if (this.vy > 0) this.y = r.y - this.h;
+          else if (this.vy < 0) this.y = r.y + r.h;
+          this.vy = 0;
+        }
+      }
+    }
+  }
+
+  draw() {
+    const frames = [window.turtle_0, window.turtle_1];
+    const frame = frames[Math.floor(millis() / 220) % frames.length];
+    if (frame && frame.width > 0) {
+      push();
+      imageMode(CENTER);
+      translate(this.x + this.w / 2, this.y + this.h / 2);
+      // turtle 贴图默认朝右；朝左游动时做水平翻转
+      scale(this.facingRight ? 1 : -1, 1);
+      image(frame, 0, 0, this.w, this.h);
+      pop();
+    } else {
+      fill(90, 170, 110);
+      rect(this.x, this.y, this.w, this.h);
+    }
+  }
+}
+
+class IronBar extends Entity {
+  constructor(x, y, w = TILE_SIZE, h = TILE_SIZE, linkedTurtle = null) {
+    super(x, y, w, h);
+    this.removed = false;
+    this.linkedTurtle = linkedTurtle;
+  }
+
+  removeByWrench() {
+    if (this.removed) return;
+    this.removed = true;
+    if (this.linkedTurtle && typeof this.linkedTurtle.onBarRemoved === 'function') {
+      this.linkedTurtle.onBarRemoved();
+    }
+  }
+
+  draw() {
+    if (this.removed) return;
+    const img = window.iron_bar;
+    if (img && img.width > 0) image(img, this.x, this.y, this.w, this.h);
+    else {
+      fill(150);
+      rect(this.x, this.y, this.w, this.h);
+    }
+  }
+}
+
+class LittleBird extends Animal {
   constructor(x, y, w = 24, h = 24) {
     super(x, y, w, h, null);
   }
@@ -4110,6 +4450,9 @@ function setup() {
   load('assets/pic/item/pollutant/tnt_side.png', 'tnt');
   load('assets/pic/animals/bird.png', 'bird');
   load('assets/pic/animals/bird_flip.png', 'bird_flip');
+  load('assets/pic/animals/turtle_0.png', 'turtle_0');
+  load('assets/pic/animals/turtle_1.png', 'turtle_1');
+  load('assets/pic/animals/iron_bar.png', 'iron_bar');
   load('assets/pic/animals/web_back.png', 'web_back');
   load('assets/pic/animals/web_front.png', 'web_front');
   // 玩家：根据武器等级与攻击状态切换对应立绘（朝向用水平翻转）
@@ -4132,7 +4475,7 @@ function setup() {
   load("assets/pic/enemy/slime.png", "slimeSprite");
 
   // 工具（assets/pic/item/tool 中全部，新增图片时在此数组加入文件名不含 .png）
-  ['scissor', 'limestone', 'enlarged_water_bucket'].forEach(name =>load(`assets/pic/item/tool/${name}.png`, `tool_${name}`));
+  ['scissor', 'limestone', 'enlarged_water_bucket', 'wrench'].forEach(name =>load(`assets/pic/item/tool/${name}.png`, `tool_${name}`));
   load('assets/pic/item/tool/vine_seed.png', 'tool_vine_seed');
   load('assets/pic/item/tool/vine_ladder.png', 'tool_vine_ladder');
   // 武器（assets/pic/weapon，威力从低到高：wooden / stone / iron / diamond）
