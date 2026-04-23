@@ -403,7 +403,17 @@ In the end, we think this project was valuable not only because we made a playab
 ---
 
 ## 9. Individual Contribution
-- Provide a table of everyone's contribution, which *may* be used to weight individual grades. We expect that the contribution will be split evenly across team-members in most cases. Please let us know as soon as possible if there are any issues with teamwork as soon as they are apparent and we will do our best to help your team work harmoniously together.
+
+We worked on the game collaboratively and did not experience major issues with teamwork. Each person had slightly different areas of focus, but overall we feel that the workload was shared fairly, so we report an equal contribution for all team members.
+
+| Name                  | Main Contribution (summary)                     | Contribution |
+|-----------------------|-----------------------------------------------|-------------:|
+| Helen - Yitong Zheng  | Development, UI, level layout, video editing  |        1.00  |
+| Li - Li Shen          | Development, level design, UX, repo workflow  |        1.00  |
+| Alice - Xianwen Hu    | Development, UI/UX, video editing             |        1.00  |
+| Murphy - Jingyu Xiao  | Development, UX, level design, audio          |        1.00  |
+| Anna - Sirui Zhong    | Core development, UI, level design, audio     |        1.00  |
+| Bella - Linjing Zhang | Development, UX, level design, repo workflow  |        1.00  |
 
 ### Additional Marks
 
