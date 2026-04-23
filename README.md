@@ -326,9 +326,40 @@ NASA‑TLX scores did **not** show a statistically significant difference betwee
 ---
 
 ## 7. Process
-- 15% ~750 words
 
-- Teamwork. How did you work together, what tools and methods did you use? Did you define team roles? Reflection on how you worked together. Be honest, we want to hear about what didn't work as well as what did work, and importantly how your team adapted throughout the project.
+From the start, we treated our game as a shared group project rather than just a programming task. We did not choose a formal team leader. Instead, each member had a main area to focus on, such as programming, level design, UI/UX, art, audio, or evaluation, while the overall game idea and environmental theme were discussed together. This worked well for us because it meant people could take responsibility for their own part of the project, while still contributing to bigger design decisions as a team.
+
+### How we organised our work
+
+We worked in a light-weight **Agile** style, with short iterations and regular discussion instead of following a fixed plan from the beginning. Most weeks, we had a team meeting of about one hour, usually around the workshop, to talk about progress and decide what to focus on next. In these meetings, we usually reported what had been done, discussed the most important tasks for the coming week, adjusted smaller gameplay details, and talked through any problems that had come up. We tried to keep the game in a playable state as much as possible, even if some assets or UI elements were still unfinished, because it was much easier to test ideas when we had something concrete to play.
+
+Outside the weekly meetings, we mostly communicated through our group chat. This was useful for quick updates, small design decisions, and bug discussions, since it was faster than waiting for the next full meeting. For task management, we mainly used the **GitHub kanban board** to keep track of features, bugs, and other development tasks. We also used GitHub branches and pull requests to manage code changes and keep the main branch stable enough for testing.
+
+In terms of tools, **Visual Studio Code** was our main coding environment. For sprite drawing and tile design, we used **Pixelorama** and **Piskel**, and for diagrams such as use cases and planning visuals, we used **draw.io**. Keeping to a small set of shared tools made it easier to stay organised and reduced confusion when several people were working on related parts of the game at the same time.
+
+### How our discussions shaped the game
+
+A big part of our discussions was about how to make the game feel meaningful as an **environmental game for younger players**, rather than just another platform game with a theme added on top. We often asked how to make the gameplay more interesting while still connecting it to environmental ideas in a clear way. This included thinking about level themes, enemies, trapped animals, collectible pollutants, tools, and the overall interface.
+
+For example, we decided to build three different worlds—**forest**, **underwater**, and **factory**—so that each level could represent a different environmental setting. We also discussed what kinds of enemies and animals would suit each world, and how pollution should appear in gameplay. Some pollutants, such as plastic bottles, can simply be collected, while others, such as acid pools, need to be dealt with using a specific item like limestone. These were not decisions made by one person only; they came out of repeated group discussion and later changes during development.
+
+The **requirements workshop** also helped us a lot. Once we had written stakeholders, epics, user stories, and acceptance criteria, it became easier to turn ideas into actual tasks. For example, the requirement that players should collect pollutants and rescue animals affected the scoring system, level structure, item design, and UI feedback. This made our planning more focused and gave us a clearer link between game features and the purpose of the project.
+
+### Problems we ran into and how we changed our approach
+
+Even though the team worked well overall, we did run into some problems along the way.
+
+One issue was the **art style and asset sizing**. At the beginning, different people created tiles, tools, and UI elements without a shared size guide, so when we added them into the game, some of them looked too large, too small, or visually inconsistent. To solve this, we agreed on common pixel sizes for tiles, characters, and items, and adjusted earlier assets to fit. We also narrowed final sprite production to fewer people so that the visual style stayed more consistent.
+
+Another issue was the **movement feel**. Early versions of jumping and underwater movement did not feel natural, and some playtesters commented that the character movement looked unrealistic. After comparing our implementation with what we expected from platform games, we realised that we had not really considered movement in terms of force and acceleration. Later, we reworked jumping, underwater buoyancy, and some other movement behaviours using that logic, which improved the overall feel of the game.
+
+We also had trouble with the original **follower-cat mechanic**. At first, we wanted the cat to follow the player through the level, but once more hazards and different environments were added, this caused a lot of technical problems. The cat sometimes floated in the air, moved in odd ways, or ended up in acid and lava because of the follow logic. After several attempts to improve it, we decided to move the cat into the UI as a progress indicator instead. This reduced the original “companion” feeling, but it was much more stable and also gave players clearer feedback about their progress.
+
+Testing was another area where we had to improve our process. At first, we assumed that testing tasks would be shared naturally, but this meant that note-taking, participant organisation, and data handling were not always clearly assigned. After the first evaluation round, we made these responsibilities more explicit, which made later Think Aloud sessions, heuristic analysis, and SUS/NASA-TLX data collection more organised and easier to use.
+
+### Reflection
+
+Looking back, one of the most useful things about our teamwork was that we were willing to change our process when something was not working well. We did not follow Agile in a strict textbook way, but the general approach of working in small stages, getting feedback early, and adjusting the plan regularly suited our project well. Overall, the project helped us learn not only how to make a game together, but also how to balance design ideas, technical constraints, and player experience in a small team.
 
 ---
 
