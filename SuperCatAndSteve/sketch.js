@@ -1697,6 +1697,8 @@ class ForestLevel extends Level {
       return { x: col * TILE_SIZE, y: 360 };
     };
 
+    const solidSurfaceY = (col) => this.getSolidSurfaceY(col) ?? groundY(col);
+
     // ===== 敌人和物品生成（基于当前地形）=====
     // 敌人
     this.enemies.push(new Zombie(21 * TILE_SIZE, groundY(21) - 64, 64, 64));
@@ -2396,6 +2398,8 @@ class WaterLevel extends Level {
       return baseY - (lastSolidRow + 1) * TILE_SIZE;
     };
 
+    const solidSurfaceY = (col) => this.getSolidSurfaceY(col) ?? groundY(col);
+
     // ===== 敌人和物品生成（基于当前地形）=====
     this.enemies.push(new Drowned(6 * TILE_SIZE, baseGroundY(6) - 64, 64, 64));
     // shark 使用绝对坐标生成，避免贴地对齐后被非水方块“吸附”
@@ -2407,10 +2411,10 @@ class WaterLevel extends Level {
     this.enemies.push(new Shark(91 * TILE_SIZE, 125, 84, 68));
     this.enemies.push(new Shark(115 * TILE_SIZE, 110, 84, 68));
 
-    // 污染物
-   this.items.push(new Pollutant(40 * TILE_SIZE + 4, groundY(40) - 18, 24, 18, "plastic_bottle"));
-   this.items.push(new Pollutant(46 * TILE_SIZE + 4, groundY(46) - 18, 24, 18, "plastic_bag"));
-   this.items.push(new Pollutant(60 * TILE_SIZE + 4, groundY(60) - 18, 24, 18, "plastic_bottle"));
+    // 污染物（进入关卡时直接贴到实体地形表面）
+   // this.items.push(new Pollutant(40 * TILE_SIZE + 4, solidSurfaceY(40) - 18, 24, 18, "plastic_bottle"));
+   // this.items.push(new Pollutant(46 * TILE_SIZE + 4, solidSurfaceY(46) - 18, 24, 18, "plastic_bag"));
+   // this.items.push(new Pollutant(60 * TILE_SIZE + 4, solidSurfaceY(60) - 18, 24, 18, "plastic_bottle"));
 
     // TNT（不可收集，触发后爆炸）
     // this.items.push(new TNT(97 * TILE_SIZE, groundY(97) - TILE_SIZE, TILE_SIZE, TILE_SIZE));
@@ -2427,17 +2431,8 @@ class WaterLevel extends Level {
     // 工具（平台上 + 地面上，居中放置）Tool(x, y, w, h, toolType)
     // toolType 为 pic/item/tool 下文件名不含 .png，如 'scissor' 'bucket'
     const toolOffset = (TILE_SIZE - 24) / 2;
-    // 剪刀
-    this.items.push(new Tool(40 * TILE_SIZE + toolOffset, groundY(40) - 24, 24, 24, 'scissor'));
-    // this.items.push(new Tool(92 * TILE_SIZE + toolOffset, baseGroundY(92) - 24, 24, 24, 'scissor'));
-    // 水桶
-    this.items.push(new Tool(8 * TILE_SIZE + toolOffset, groundY(8) - 24, 24, 24, 'enlarged_water_bucket'));
-    this.items.push(new Tool(23 * TILE_SIZE + toolOffset, groundY(23) - 24, 24, 24, 'enlarged_water_bucket'));
-    this.items.push(new Tool(29 * TILE_SIZE + toolOffset, groundY(29) - 24, 24, 24, 'enlarged_water_bucket'));
-    this.items.push(new Tool(103 * TILE_SIZE + toolOffset, groundY(103) - 24, 24, 24, 'enlarged_water_bucket'));
-    this.items.push(new Tool(44 * TILE_SIZE + toolOffset, groundY(44) - 24, 24, 24, 'wrench'));
-    // 石灰石
-    // this.items.push(new Tool(14 * TILE_SIZE + toolOffset, groundY(14) - 24, 24, 24, 'limestone'));
+    this.items.push(new Tool(40 * TILE_SIZE + toolOffset, solidSurfaceY(40) - 24, 24, 24, 'scissor'));
+    this.items.push(new Tool(44 * TILE_SIZE + toolOffset, solidSurfaceY(44) - 24, 24, 24, 'wrench'));
 
     // 第48列海龟事件：初始静止，解锁条件为上方 47/48/49 三个铁栏杆全部被 wrench 拆除
     const turtleW = 62;
@@ -4821,6 +4816,10 @@ function keyPressed() {
   let inputKey = null;
   if (key && key.length === 1) inputKey = key.toLowerCase();
 
+  // p5 常量 ENTER/ESCAPE 为 event.key 字符串；需同时兼容 keyCode（13 / 27）
+  const enterPressed = key === ENTER || keyCode === 13;
+  const escapePressed = key === ESCAPE || keyCode === 27;
+
   // 防止长按重复触发
   if (inputKey && keys[inputKey] === true) {
     return false;
@@ -4834,7 +4833,7 @@ function keyPressed() {
 
   // ===== 菜单状态 =====
   if (game.state === "start") {
-    if (keyCode === ENTER) {
+    if (enterPressed) {
       game.state = "levelSelect";
     }
     return false;
@@ -4859,7 +4858,7 @@ function keyPressed() {
       game.beginPlaying();
       return false;
     }
-    if (keyCode === ESCAPE) {
+    if (escapePressed) {
       game.state = "start";
       return false;
     }
@@ -4867,14 +4866,14 @@ function keyPressed() {
   }
 
   if (game.state === "settings") {
-    if (keyCode === ESCAPE) {
+    if (escapePressed) {
       game.state = "start";
     }
     return false;
   }
 
   if (game.state === "gameover" || game.state === "victory") {
-    if (keyCode === ENTER) {
+    if (enterPressed) {
       game.resetToStartScreen();
     }
     return false;
