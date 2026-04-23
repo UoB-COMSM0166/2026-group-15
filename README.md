@@ -67,6 +67,10 @@
 
 ## 2. Team
 
+<p align="center">
+  <img src="./docs/images/team-photo-with-name.jpg" alt="Team Photo" width="100%" />
+</p>
+
 <div align="center">
 
 | **Name**              | **Role**                                                      | **Email**             |
@@ -79,10 +83,6 @@
 | Bella – Linjing Zhang | Developer, UX Designer, Level Designer, Repository Management | sn25366@bristol.ac.uk |
 
 </div>
-
-<p align="center">
-  <img src="./docs/images/team-photo-with-name.jpg" alt="Team Photo" width="100%" />
-</p>
 
 ---
 
