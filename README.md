@@ -50,16 +50,16 @@
 
 <div align="center">
 
-| **Week** | **Title**                                                         | **Documentation** |
-|:------:|:---------------------------------------------------------------|:---------------|
-| 01   | Lab 1: Game Ideas                                       | [README](https://github.com/UoB-COMSM0166/2026-group-15/tree/main/Homework_Week1_GameIdeas) |
-| 02   | Lab 2: Spray Fun and Brainstorm                       | [README](https://github.com/UoB-COMSM0166/2026-group-15/tree/main/Homework_Week2_SprayFun) |
-| 03   | Lab 3: Prototype & Game Selection                               | [README](https://github.com/UoB-COMSM0166/2026-group-15/tree/main/Homework_Week3_Prototypes) |
-| 04   | Lab 4: User Stories & Requirements Engineering                 | [README](link_to_readme_04) |
-| 05   | Lab 5: Object-Oriented Design & Agile Estimation               | [README](link_to_readme_05) |
-| 07   | Lab 7: Think Aloud Study & Heuristic Evaluation                | [README](link_to_readme_07) |
-| 08   | Lab 8: HCI Evaluation — NASA-TLX & SUS                          | [README](link_to_readme_08) |
-| 09   | Lab 9: Quality Assurance — Black-Box & White-Box Testing       | [README](link_to_readme_09) |
+| **Week** | **Title**                                                | **Documentation** |
+|:--------:|:---------------------------------------------------------|:---------------:|
+| 01       | Lab 1: Game Ideas                                        | [README](https://github.com/UoB-COMSM0166/2026-group-15/tree/main/Homework_Week1_GameIdeas) |
+| 02       | Lab 2: Spray Fun and Brainstorm                          | [README](https://github.com/UoB-COMSM0166/2026-group-15/tree/main/Homework_Week2_SprayFun) |
+| 03       | Lab 3: Prototype & Game Selection                        | [README](https://github.com/UoB-COMSM0166/2026-group-15/tree/main/Homework_Week3_Prototypes) |
+| 04       | Lab 4: User Stories & Requirements Engineering           | [README](link_to_readme_04) |
+| 05       | Lab 5: Object-Oriented Design & Agile Estimation         | [README](link_to_readme_05) |
+| 07       | Lab 7: Think Aloud Study & Heuristic Evaluation          | [README](link_to_readme_07) |
+| 08       | Lab 8: HCI Evaluation — NASA-TLX & SUS                   | [README](link_to_readme_08) |
+| 09       | Lab 9: Quality Assurance — Black-Box & White-Box Testing | [README](link_to_readme_09) |
 
 </div>
 
@@ -69,13 +69,13 @@
 
 <div align="center">
 
-| **Name**              | **Role**                                             | **Email**                  |
-|:-----------------------|:------------------------------------------------------|:----------------------------|
-| Helen – Yitong Zheng  | Developer, UI Designer, Level Designer, Video Editor | ul25116@bristol.ac.uk     |
+| **Name**              | **Role**                                                      | **Email**             |
+|:----------------------|:--------------------------------------------------------------|:----------------------|
+| Helen – Yitong Zheng  | Developer, UI Designer, Level Designer, Video Editor          | ul25116@bristol.ac.uk |
 | Li – Li Shen          | Developer, Level Designer, UX Designer, Repository Management | cm25322@bristol.ac.uk |
-| Alice – Xianwen Hu    | Developer, UI Designer, UX Designer, Video Editor    | ss25944@bristol.ac.uk     |
-| Murphy – Jingyu Xiao  | Developer, UX Designer, Level Designer, Audio Designer | zz25762@bristol.ac.uk  |
-| Anna – Sirui Zhong    | Developer, UI Designer, Level Designer, Audio Designer | vc25336@bristol.ac.uk  |
+| Alice – Xianwen Hu    | Developer, UI Designer, UX Designer, Video Editor             | ss25944@bristol.ac.uk |
+| Murphy – Jingyu Xiao  | Developer, UX Designer, Level Designer, Audio Designer        | zz25762@bristol.ac.uk |
+| Anna – Sirui Zhong    | Developer, UI Designer, Level Designer, Audio Designer        | vc25336@bristol.ac.uk |
 | Bella – Linjing Zhang | Developer, UX Designer, Level Designer, Repository Management | sn25366@bristol.ac.uk |
 
 </div>
@@ -103,8 +103,8 @@ At the beginning of the project, our team did not decide the final game idea str
 
 <p align="center"><strong>Game Ideas and Discussion Results</strong></p>
 
-| Game Type | Game Prototype | Game Description | Added Idea Points | Possible Challenges |
-|----------|----------------|------------------|-------------------|---------------------|
+| Game Type  | Game Prototype   | Game Description  | Added Idea Points  | Possible Challenges  |
+|:----------:|:----------------:|:------------------|:-------------------|:---------------------|
 | Platform Adventure / Roguelike / Mystery Gacha | Super Mario (platforming), Risk of Rain (RNG & risk/reward) | Players control Mario through platforming levels, jumping on enemies, collecting coins, and reaching the end flag. | (1) End-Level Box: 50/50 chance each level (Princess = bonuses, Dragon = player gets weaker but survives).<br>(2) Optional Boxes: Random power-ups in dangerous areas.<br>(3) Time Loop: Restart level, player keeps items/coins, loses health.<br>(4) Princess Blessings: Stack blessings for better rewards and higher Princess rates. | (1) RNG fairness & seed control<br>(2) Dynamic health bar & animation<br>(3) Sprite scaling & collision accuracy<br>(4) State persistence for time loop<br>(5) Particle systems (fireworks)<br>(6) Item effect stacking & timers<br>(7) Box placement & level balance<br>(8) Dynamic probability & pity system |
 | Single-player / Multi-player / Arcade / Action / Strategy | Bomber Man | Players navigate a maze, placing bombs to destroy obstacles and enemies within a time limit. Each player has 3 lives. | (1) Explosive Block Types<br>- Chain explosions, mini-bombs, unusual fire patterns<br><br>(2) Dynamic Maze<br>- Walls move, paths open, blocks regenerate<br><br>(3) Enemy AI Variations<br>- Enemies can kick, throw, or push bombs | (1) Fair random maze generation<br>(2) Ensuring dynamic changes don’t disrupt gameplay<br>(3) Balancing different explosion behaviors |
 | Multiplayer / MOBA / Action Strategy | Honor of Kings | A 5v5 MOBA focused on team-based combat, hero roles, strategy, and mechanical skill. | (1) Dynamic map events<br>(2) In-match progression choices<br>(3) Team coordination mechanics<br>(4) Improved tutorials & role guidance<br>(5) Post-match performance feedback | (1) Game balance across heroes & items<br>(2) High learning curve for new players<br>(3) Network latency & server stability<br>(4) Matchmaking fairness |
@@ -118,14 +118,18 @@ After careful consideration, we have selected two game concepts for further deve
 
 The first is a Minecraft-themed 2D platformer. We plan to leverage the iconic pixel art and classic mechanics of Minecraft—such as biome-hopping (from grasslands to deep caves), tool upgrades, and using items like water buckets and TNT—to create a familiar yet fresh exploration and survival experience.
 
-Its major advantages are significantly reduced asset creation by utilizing MC's established visual style and high recognizability among UK audiences. Another key feature of the game is the use of randomly generated enemies, ensuring that each playthrough feels unpredictable. In addition, the game includes multiple environments—such as underground caves, and underwater areas—each with distinct gameplay mechanics and movement constraints
+Its major advantages are significantly reduced asset creation by utilizing MC's established visual style and high recognizability among UK audiences. Another key feature of the game is the use of randomly generated enemies, ensuring that each playthrough feels unpredictable. In addition, the game includes multiple environments—such as underground caves, and underwater areas—each with distinct gameplay mechanics and movement constraints.
+
 [![视频预览](https://img.youtube.com/vi/Uex90hFB9x8/maxresdefault.jpg)](https://youtu.be/Uex90hFB9x8)
 
 The second is an environmental puzzle game centered on a core "time reversal" mechanic with platforms or maze maps. The player starts in a fully polluted city and must navigate through it, undo ecological damage by collecting various pollutants and healing affected wildlife. A character selection system with varied stats (e.g., healing vs. cleanup proficiency) influences multiple endings.
+
 [![视频预览](https://img.youtube.com/vi/nzsu2YbncT4/maxresdefault.jpg)](https://youtu.be/nzsu2YbncT4)
 
 After choosing this direction, we developed the idea into Super Cat and Steve, an environmental platform game with three themed levels: forest, underwater, and factory. From this point, our requirements became more specific. The game needed to support basic movement, double jump, combat, item use, mining, score-based level completion, and interactions with environmental hazards. It also needed to include systems for collecting pollutants and rescuing trapped animals, since these actions were central to the theme of the game. According to the current gameplay design, players choose a level at the start, use keyboard controls to move, attack zombies with the F key, use the mouse for tools and mining, and pass the level by gaining enough score through cleanup and rescue tasks.
+
 **The following is a paper prototype of our game:**
+
 [![视频预览](https://img.youtube.com/vi/Igxwji-czvQ/maxresdefault.jpg)](https://youtu.be/Igxwji-czvQ)
 
 ### 4.2 Stakeholders 
@@ -133,15 +137,18 @@ To make our requirements clearer, we used the approach introduced in the require
 
 The player was still the main stakeholder, so most of our functional requirements were written around the player’s actions. A player should be able to choose a level, move through the environment, avoid or attack enemies, collect pollutants, use tools, rescue animals, and complete the level by earning enough points. However, writing these requirements as user stories made them more precise. Instead of saying that the game should be “interesting” or “educational”, we had to describe exactly what the user would do and what the system should return in response. The acceptance criteria were especially helpful because they gave us a simple way to decide whether a feature worked properly or not.
 
+<p align="center">
 <img width="1536" height="1024" alt="onion model" src="https://github.com/user-attachments/assets/b7c967ee-8189-4378-b14c-9797fc61944e" />
+</p>
 
 ### 4.3 Use Case Diagram
 This use case diagram shows the main ways the player interacts with Super Cat and Steve. The player starts the game, selects a level, and then enters the main part of the gameplay, shown here as Explore Level. From this point, the player can carry out several different actions during the level, such as collecting pollutants, rescuing animals, using tools, fighting enemies, and mining resources.
 
 We placed Explore Level at the centre of the diagram because it is the core activity of the game. Most of the important gameplay actions happen during exploration, while Complete Level represents the final objective. In our game, finishing a level is closely connected to environmental tasks, especially pollutant collection and animal rescue. For this reason, these two actions are shown as key parts of level completion. Overall, the diagram highlights that environmental protection is built into the gameplay itself rather than added only as background theme.
 
+<p align="center">
 <img width="725" height="515" alt="case diagram" src="https://github.com/user-attachments/assets/d1997d90-a505-403e-b446-0775469490f4" />
-
+</p>
 
 ### 4.4 User Stories and Acceptance Criteria
 The following user stories were selected from our earlier requirements discussion and refined into a smaller set of core stories. We focused on the stories that were most closely related to the final version of *Super Cat and Steve*, especially its environmental theme, level design, player interaction, and testing needs.
@@ -156,8 +163,6 @@ The following user stories were selected from our earlier requirements discussio
 | **As** a tester, **I want** to test the game across different levels and gameplay situations, **so that** I can identify bugs and help improve stability. | **Given** the game includes multiple levels, enemies, and environmental mechanics, **when** a tester plays through them, **then** unexpected behaviour should be recorded and reported clearly.<br>**Given** bugs are found, **when** the development team reviews the reports, **then** the issues should be reproducible and fixable. |
 | **As** a professor or teaching assistant, **I want** to review the game design, implementation, and documentation, **so that** I can assess whether the project meets the module requirements. | **Given** the project has been submitted, **when** I review the game and its documentation, **then** I should be able to understand the design decisions, core features, and technical work completed by the team. |
 
-
-
 ### 4.5 Reflection on the Requirements Process
 Through the requirements workshop, our team developed a clearer, more systematic way to capture and structure requirements by first analysing the jogging‑app case study and then applying the same techniques to our own environmental protection game. Starting from the case helped us separate the method (stakeholders → epics → user stories → acceptance criteria) from any specific domain, so we could later reuse it for our game design.
 
@@ -167,7 +172,6 @@ We then wrote acceptance criteria in the Given–When–Then format to turn thos
 
 ​Applying these techniques to our game solidified the connection between requirements and the product's core context. It helped us align technical tasks (e.g., efficient asset loading) with business goals (portability) and user values (environmental education), ensuring that every feature we plan serves a clear purpose for both the project and its users.
 
-
 Looking back, the requirements stage was not just an early planning task. It played an important role in shaping the whole project. It helped us choose an idea that matched both our interests and our technical ability, and it also gave us a clearer structure for development. Without that stage, the game would probably have remained a general “environmental game” idea rather than becoming a more focused platform adventure with clear goals and mechanics.
 
 ---
@@ -176,7 +180,9 @@ Looking back, the requirements stage was not just an early planning task. It pla
 - 15% ~750 words 
 - System architecture. Class diagrams, behavioural diagrams.
 
+<p align="center">
 - <img width="1590" height="700" alt="3339b730d5d336317972099c83ecc550" src="https://github.com/user-attachments/assets/b58ce78b-cf50-478e-ae06-c9fbae35e6a1" />
+</p>
 
 ### 5.1 Class Diagram
 Write here.
@@ -298,7 +304,7 @@ Raw SUS and NASA‑TLX scores for both difficulty levels are shown in the figure
 <p align="center">
 
 | Metric         | Level 1 Mean (SD) | Level 2 Mean (SD) | Wilcoxon Statistic | P‑value   | Significant? |
-| :------------- | :---------------- | :---------------- | :----------------- | :-------- | :----------- |
+| :------------- | :---------------: | :---------------: | :----------------: | :-------: | :----------: |
 | **SUS score**  | 86.0              | 55.0              | $W = 0$            | $p < 0.01$| **Yes**      |
 | **NASA‑TLX**   | 27.6              | 21.9              | $W = 8.5$          | $p > 0.05$| **No**       |
 
@@ -406,14 +412,14 @@ In the end, we think this project was valuable not only because we made a playab
 
 <div align="center">
 
-| Name | Main Contribution | Contribution |
-|:---:|:---:|:---:|
-| Helen - Yitong Zheng  | Development, UI, level layout, video editing | 1.00 |
-| Li - Li Shen          | Development, level design, UX, repo workflow | 1.00 |
-| Alice - Xianwen Hu    | Development, UI/UX, video editing            | 1.00 |
-| Murphy - Jingyu Xiao  | Development, UX, level design, audio         | 1.00 |
-| Anna - Sirui Zhong    | Core development, UI, level design, audio    | 1.00 |
-| Bella - Linjing Zhang | Development, UX, level design, repo workflow | 1.00 |
+| Name                  | Main Contribution                            | Contribution |
+|:----------------------|:---------------------------------------------|:------------:|
+| Helen - Yitong Zheng  | Development, UI, level layout, video editing | 1.00         |
+| Li - Li Shen          | Development, level design, UX, repo workflow | 1.00         |
+| Alice - Xianwen Hu    | Development, UI/UX, video editing            | 1.00         |
+| Murphy - Jingyu Xiao  | Development, UX, level design, audio         | 1.00         |
+| Anna - Sirui Zhong    | Core development, UI, level design, audio    | 1.00         |
+| Bella - Linjing Zhang | Development, UX, level design, repo workflow | 1.00         |
 
 </div>
 
