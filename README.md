@@ -87,7 +87,8 @@
 ---
 
 ## 3. Introduction
-Super Cat and Steve is an environmental-themed platform adventure built around three different worlds: a forest, an underwater area, and a factory.
+
+**Super Cat and Steve** is an environmental-themed platform adventure built around three different worlds: a forest, an underwater area, and a factory.
 
 Each level shares the same core. Move forward, jump across platforms, avoid danger, and stay alive. But the goal is not just to reach the end. Players also collect pollutants, use tools, rescue trapped animals, and deal with enemies such as zombies along the way.
 
@@ -98,7 +99,9 @@ What makes Super Cat and Steve distinctive is the way the environment affects pl
 ---
 
 ## 4. Requirements
+
 ### 4.1 Early-stage Design and Ideation
+
 At the beginning of the project, our team did not decide the final game idea straight away. We first had a brainstorming session where each member suggested possible game types. The ideas we discussed included obstacle-avoidance games such as Snake and Temple Run, matching games like Tetris, level-based platform games inspired by Mario, and battle-style games based on a simplified version of Hearthstone. This gave us several possible directions and helped us compare different types of gameplay before making a decision.
 
 <p align="center"><strong>Game Ideas and Discussion Results</strong></p>
@@ -113,26 +116,26 @@ At the beginning of the project, our team did not decide the final game idea str
 | Tower Defense | Kingdom Rush, Plants vs. Zombies | Players place defensive structures to stop waves of enemies from reaching their base. | Add collectible temporary buffs dropped by monsters to increase strategic depth. | Balancing randomness with strategy, avoiding interruption and visual clutter |
 | Puzzle Game / Match-3 | Candy Crush Saga | Players swap tiles to match three or more items to meet level objectives within limited moves. | Add obstacles (chocolate, ice, chains) requiring multiple matches to clear. | Ensuring solvable boards & non-repetitive patterns; smooth animations & particle effects |
 
+After careful consideration, we have selected **two game concepts** for further development.
 
-After careful consideration, we have selected two game concepts for further development.
-
-The first is a Minecraft-themed 2D platformer. We plan to leverage the iconic pixel art and classic mechanics of Minecraft—such as biome-hopping (from grasslands to deep caves), tool upgrades, and using items like water buckets and TNT—to create a familiar yet fresh exploration and survival experience.
+The **first** is a Minecraft-themed 2D platformer. We plan to leverage the iconic pixel art and classic mechanics of Minecraft—such as biome-hopping (from grasslands to deep caves), tool upgrades, and using items like water buckets and TNT—to create a familiar yet fresh exploration and survival experience.
 
 Its major advantages are significantly reduced asset creation by utilizing MC's established visual style and high recognizability among UK audiences. Another key feature of the game is the use of randomly generated enemies, ensuring that each playthrough feels unpredictable. In addition, the game includes multiple environments—such as underground caves, and underwater areas—each with distinct gameplay mechanics and movement constraints.
 
 [![视频预览](https://img.youtube.com/vi/Uex90hFB9x8/maxresdefault.jpg)](https://youtu.be/Uex90hFB9x8)
 
-The second is an environmental puzzle game centered on a core "time reversal" mechanic with platforms or maze maps. The player starts in a fully polluted city and must navigate through it, undo ecological damage by collecting various pollutants and healing affected wildlife. A character selection system with varied stats (e.g., healing vs. cleanup proficiency) influences multiple endings.
+The **second** is an environmental puzzle game centered on a core "time reversal" mechanic with platforms or maze maps. The player starts in a fully polluted city and must navigate through it, undo ecological damage by collecting various pollutants and healing affected wildlife. A character selection system with varied stats (e.g., healing vs. cleanup proficiency) influences multiple endings.
 
 [![视频预览](https://img.youtube.com/vi/nzsu2YbncT4/maxresdefault.jpg)](https://youtu.be/nzsu2YbncT4)
 
-After choosing this direction, we developed the idea into Super Cat and Steve, an environmental platform game with three themed levels: forest, underwater, and factory. From this point, our requirements became more specific. The game needed to support basic movement, double jump, combat, item use, mining, score-based level completion, and interactions with environmental hazards. It also needed to include systems for collecting pollutants and rescuing trapped animals, since these actions were central to the theme of the game. According to the current gameplay design, players choose a level at the start, use keyboard controls to move, attack zombies with the F key, use the mouse for tools and mining, and pass the level by gaining enough score through cleanup and rescue tasks.
+After choosing this direction, we developed the idea into Super Cat and Steve, **an environmental platform game with three themed levels**: forest, underwater, and factory. From this point, our requirements became more specific. The game needed to support basic movement, double jump, combat, item use, mining, score-based level completion, and interactions with environmental hazards. It also needed to include systems for collecting pollutants and rescuing trapped animals, since these actions were central to the theme of the game. According to the current gameplay design, players choose a level at the start, use keyboard controls to move, attack zombies with the F key, use the mouse for tools and mining, and pass the level by gaining enough score through cleanup and rescue tasks.
 
 **The following is a paper prototype of our game:**
 
 [![视频预览](https://img.youtube.com/vi/Igxwji-czvQ/maxresdefault.jpg)](https://youtu.be/Igxwji-czvQ)
 
 ### 4.2 Stakeholders 
+
 To make our requirements clearer, we used the approach introduced in the requirements workshop. We first identified the stakeholders for the game, then grouped their needs into broader epics, and finally turned these into user stories and acceptance criteria. This was useful because it made us think about the project from different perspectives instead of only from the programmer’s side. In our materials, the stakeholders included not only players but also the development team, artists, testers, publishers, reviewers, teaching staff, and organisations interested in environmental education. This wider view helped us think more carefully about usability, portability, educational purpose, and overall presentation.
 
 The player was still the main stakeholder, so most of our functional requirements were written around the player’s actions. A player should be able to choose a level, move through the environment, avoid or attack enemies, collect pollutants, use tools, rescue animals, and complete the level by earning enough points. However, writing these requirements as user stories made them more precise. Instead of saying that the game should be “interesting” or “educational”, we had to describe exactly what the user would do and what the system should return in response. The acceptance criteria were especially helpful because they gave us a simple way to decide whether a feature worked properly or not.
@@ -142,6 +145,7 @@ The player was still the main stakeholder, so most of our functional requirement
 </p>
 
 ### 4.3 Use Case Diagram
+
 This use case diagram shows the main ways the player interacts with Super Cat and Steve. The player starts the game, selects a level, and then enters the main part of the gameplay, shown here as Explore Level. From this point, the player can carry out several different actions during the level, such as collecting pollutants, rescuing animals, using tools, fighting enemies, and mining resources.
 
 We placed Explore Level at the centre of the diagram because it is the core activity of the game. Most of the important gameplay actions happen during exploration, while Complete Level represents the final objective. In our game, finishing a level is closely connected to environmental tasks, especially pollutant collection and animal rescue. For this reason, these two actions are shown as key parts of level completion. Overall, the diagram highlights that environmental protection is built into the gameplay itself rather than added only as background theme.
@@ -151,6 +155,7 @@ We placed Explore Level at the centre of the diagram because it is the core acti
 </p>
 
 ### 4.4 User Stories and Acceptance Criteria
+
 The following user stories were selected from our earlier requirements discussion and refined into a smaller set of core stories. We focused on the stories that were most closely related to the final version of *Super Cat and Steve*, especially its environmental theme, level design, player interaction, and testing needs.
 
 | User Story / Epic | Acceptance Criteria |
@@ -164,6 +169,7 @@ The following user stories were selected from our earlier requirements discussio
 | **As** a professor or teaching assistant, **I want** to review the game design, implementation, and documentation, **so that** I can assess whether the project meets the module requirements. | **Given** the project has been submitted, **when** I review the game and its documentation, **then** I should be able to understand the design decisions, core features, and technical work completed by the team. |
 
 ### 4.5 Reflection on the Requirements Process
+
 Through the requirements workshop, our team developed a clearer, more systematic way to capture and structure requirements by first analysing the jogging‑app case study and then applying the same techniques to our own environmental protection game. Starting from the case helped us separate the method (stakeholders → epics → user stories → acceptance criteria) from any specific domain, so we could later reuse it for our game design.
 
 ​In the case study, we began by identifying stakeholders such as employees, managers, health services, and transport providers, which showed us how many different parties are affected by a single app. From there we defined epics to describe high‑level goals, then broke these into user stories using the “As a… I want… So that…” template, which forced us to think concretely about each stakeholder’s needs and benefits.
@@ -177,6 +183,7 @@ Looking back, the requirements stage was not just an early planning task. It pla
 ---
 
 ## 5. Design
+
 - 15% ~750 words 
 - System architecture. Class diagrams, behavioural diagrams.
 
