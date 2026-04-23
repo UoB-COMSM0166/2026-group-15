@@ -14,6 +14,25 @@ const ENEMY_CONTACT_DAMAGE_PER_SEC = 1;
 const ENEMY_ATTACK_START_DELAY_MS = 1000;  // 敌人进入攻击范围后延迟才开始造成伤害（毫秒）
 const PLAYER_ATTACK_RANGE = 2.2 * TILE_SIZE; // 玩家挥剑攻击范围：70.4 px
 
+// ========== TEMP 调试：每列地形底部列序号（删改时整段移除 + Game.draw 内对应一行）==========
+const DEBUG_DRAW_TERRAIN_COLUMN_INDEX = true;
+
+function drawDebugTerrainColumnIndexLabels() {
+  if (!DEBUG_DRAW_TERRAIN_COLUMN_INDEX) return;
+  push();
+  textAlign(CENTER, CENTER);
+  textSize(8);
+  fill(255, 230, 60, 230);
+  stroke(0, 0, 0, 170);
+  strokeWeight(1);
+  const y = CANVAS_H * 0.5;
+  for (let col = 0; col < TERRAIN_COLS; col++) {
+    text(String(col), col * TILE_SIZE + TILE_SIZE * 0.5, y);
+  }
+  pop();
+}
+// ========== END TEMP ==========
+
 // 水中物理（统一参数，应用于水关卡中的实体）
 const WATER_GRAVITY = 0.1;   // 基础重力
 const WATER_BUOYANCY = 0.08; // 浮力（抵消部分重力）
@@ -594,6 +613,12 @@ class Game {
     this.checkCollisions();
     this.updateMining();
 
+    // 全局坠落死亡：玩家碰撞箱上缘超过屏幕下缘则死亡
+    const playerBox = this.player.getCollisionBox();
+    if (playerBox.y > CANVAS_H) {
+      this.player.health = 0;
+    }
+
     // ===== 岩浆 / 酸池伤害判定：玩家碰撞箱底部接触岩浆/酸就立即死亡 =====
     // 使用玩家贴图位置而不是碰撞箱检测岩浆
     const pxCenter = this.player.x + this.player.w / 2;
@@ -700,11 +725,6 @@ class Game {
     const worldY = mouseY;
     const pointedTile = this.getPointedMineableTile(worldX, worldY);
     if (pointedTile) {
-      if (pointedTile.kind === 'terrain' && pointedTile.row === pointedTile.bottomRow) {
-        this.state = "gameover";
-        this.mouseDownTime = 0;
-        return;
-      }
       if (pointedTile.kind === 'terrain') {
         this.level.removeTerrainBlock(pointedTile.col, pointedTile.row);
         this.tryWeaponUpgrade(pointedTile.tileType);
@@ -966,17 +986,7 @@ class Game {
     }
 
     if (targetRow !== -1) {
-      // 计算这一列中“最底下的实心方块行号”（用于最后一层判定）
-      // 注意：row=0 是最底部，从下往上找第一个非空格子
-      let bottomRow = -1;
-      for (let row = 0; row < column.length; row++) {
-        const tileType = column[row];
-        if (tileType === T.NONE || tileType === undefined) continue;
-        bottomRow = row;
-        break;
-      }
-      if (bottomRow === -1) return null;
-      return { col, row: targetRow, bottomRow, kind: 'terrain', tileType: column[targetRow] };
+      return { col, row: targetRow, kind: 'terrain', tileType: column[targetRow] };
     }
 
     // 地形未命中时，允许直接长按破坏背景装饰方块（treeColumns）
@@ -1356,6 +1366,7 @@ tryPlantVineSeed(slotIndex) {
     translate(-this.cameraX, 0);
     this.level.draw();
     this.player.draw();
+    drawDebugTerrainColumnIndexLabels();
 
     // 如果玩家在水中，叠加一层半透明水贴图在玩家前面
     // if (typeof this.player.isInWater === "function" && this.player.isInWater(this.level)) {
@@ -2246,7 +2257,7 @@ class WaterLevel extends Level {
       // 第1屏
       [0,12,[V,V,SA,W,W,W,W,W,W,W,W,W]],
       [1,12,[V,SA,SA,'fire_coral_fan',W,W,W,W,W,W,W,W]],
-      [2,12,[V,SA,SA,'horn_coral',W,W,W,W,W,W,W,W]],
+      [2,12,[T.IRON,SA,SA,'horn_coral',W,W,W,W,W,W,W,W]],
       [3,12,[V,SA,SA,'bubble_coral_fan',W,W,W,W,W,W,W,W]],
       [4,12,[V,SA,'fire_coral',W,W,W,W,W,W,W,W,W]],
       [5,12,[V,SA,'fire_coral_fan',W,W,W,W,W,W,W,W,W]],
@@ -2401,10 +2412,7 @@ class WaterLevel extends Level {
     const solidSurfaceY = (col) => this.getSolidSurfaceY(col) ?? groundY(col);
 
     // ===== 敌人和物品生成（基于当前地形）=====
-    this.enemies.push(new Drowned(6 * TILE_SIZE, baseGroundY(6) - 64, 64, 64));
-    // shark 使用绝对坐标生成，避免贴地对齐后被非水方块“吸附”
-    const sharkSpawnX = 33 * TILE_SIZE;
-    const sharkSpawnY = 170;
+    this.enemies.push(new Drowned(17 * TILE_SIZE - 16, 32, 64, 64));
     this.enemies.push(new Shark(15 * TILE_SIZE, 150, 84, 68));
     this.enemies.push(new Shark(33 * TILE_SIZE, 140, 84, 68));
     this.enemies.push(new Shark(60 * TILE_SIZE, 125, 84, 68));
@@ -2416,23 +2424,10 @@ class WaterLevel extends Level {
    // this.items.push(new Pollutant(46 * TILE_SIZE + 4, solidSurfaceY(46) - 18, 24, 18, "plastic_bag"));
    // this.items.push(new Pollutant(60 * TILE_SIZE + 4, solidSurfaceY(60) - 18, 24, 18, "plastic_bottle"));
 
-    // TNT（不可收集，触发后爆炸）
-    // this.items.push(new TNT(97 * TILE_SIZE, groundY(97) - TILE_SIZE, TILE_SIZE, TILE_SIZE));
-
-    // 食物（地面上，吃了回血，不进背包）
-    // this.items.push(new Hp(70 * TILE_SIZE + 4, groundY(70) - 24, 24, 24, 'apple'));
-    // this.items.push(new Hp(107 * TILE_SIZE + 4, groundY(107) - 24, 24, 24, 'golden_apple'));
-
-    // 被困小鸟（网 32x24，鸟 16x20）
-    // const birdOffset = (TILE_SIZE - 32) / 2;
-    // this.items.push(new TrappedBird(73 * TILE_SIZE + birdOffset, groundY(73) - 24, 32, 24));
-    // this.items.push(new TrappedBird(92 * TILE_SIZE + birdOffset, groundY(92) - 24, 32, 24));
-
     // 工具（平台上 + 地面上，居中放置）Tool(x, y, w, h, toolType)
-    // toolType 为 pic/item/tool 下文件名不含 .png，如 'scissor' 'bucket'
     const toolOffset = (TILE_SIZE - 24) / 2;
-    this.items.push(new Tool(40 * TILE_SIZE + toolOffset, solidSurfaceY(40) - 24, 24, 24, 'scissor'));
-    this.items.push(new Tool(44 * TILE_SIZE + toolOffset, solidSurfaceY(44) - 24, 24, 24, 'wrench'));
+    this.items.push(new Tool(7 * TILE_SIZE + toolOffset, 296, 24, 24, 'scissor'));
+    this.items.push(new Tool(37 * TILE_SIZE + toolOffset, solidSurfaceY(37) - 24, 24, 24, 'wrench'));
 
     // 第48列海龟事件：初始静止，解锁条件为上方 47/48/49 三个铁栏杆全部被 wrench 拆除
     const turtleW = 62;
@@ -2451,14 +2446,59 @@ class WaterLevel extends Level {
     bars.forEach(bar => this.items.push(bar));
     turtle.bindBars(bars);
 
+    // 第8列 fish 事件：在 fishing_net 范围中生成5条鱼，剪网后全部上浮并巡逻
+    const fish8W = 32;
+    const fish8H = 32;
+    // 手动调整第8列5条鱼各自的巡逻范围（像素，按 fish8Offsets 顺序对应）
+    const fish8PatrolRanges = [
+      10 * TILE_SIZE,
+      6 * TILE_SIZE,
+      11 * TILE_SIZE,
+      9 * TILE_SIZE,
+      7 * TILE_SIZE
+    ];
+    // 手动调整第8列5条鱼各自的上移距离（网被破坏后，像素，按 fish8Offsets 顺序对应）
+    const fish8RiseDistances = [
+      0 * TILE_SIZE,
+      2 * TILE_SIZE,
+      0.5 * TILE_SIZE,
+      1.5 * TILE_SIZE,
+      0.7 * TILE_SIZE
+    ];
+    const net8X = 7 * TILE_SIZE;
+    const fish8Offsets = [0, 20, 40, 64, 84];
+    const fish8VerticalOffsets = [0, -40, -12, -25, -20];
+    const fish8List = fish8Offsets.map((offsetX, idx) => {
+      const fishX = net8X + offsetX;
+      const centerCol = Math.floor((fishX + fish8W / 2) / TILE_SIZE);
+      const fishSurfaceY = this.getSolidSurfaceY(centerCol) ?? groundY(centerCol);
+      const fishY = fishSurfaceY - fish8H + fish8VerticalOffsets[idx];
+      const f = new Fish(fishX, fishY, fish8W, fish8H);
+      f.setPatrolRange(fish8PatrolRanges[idx] ?? 4 * TILE_SIZE);
+      f.setReleaseRiseDistance(fish8RiseDistances[idx] ?? 2 * TILE_SIZE);
+      this.items.push(f);
+      return f;
+    });
+
+    const net8H = 3 * TILE_SIZE;
+    const net8SurfaceY = this.getSolidSurfaceY(8) ?? groundY(8);
+    const net8Y = net8SurfaceY - net8H;
+    const fishingNet8 = new FishingNet(net8X, net8Y, 4 * TILE_SIZE, net8H, fish8List);
+    this.items.push(fishingNet8);
+    fish8List.forEach(f => f.bindNet(fishingNet8));
+
     // 第69列 fish 事件：初始静止并被 fishing_net 覆盖，使用 scissor 解救后上浮2格再巡逻
     const fishCol = 69;
     const fishW = 32;
     const fishH = 32;
+    const fishPatrolRange = 4 * TILE_SIZE; // 手动调整第69列鱼巡逻范围（像素）
+    const fishRiseDistance = 2 * TILE_SIZE; // 手动调整第69列鱼上移距离（像素）
     const fishSurfaceY = this.getSolidSurfaceY(fishCol) ?? groundY(fishCol);
     const fishX = fishCol * TILE_SIZE;
     const fishY = fishSurfaceY - fishH;
     const fish = new Fish(fishX, fishY, fishW, fishH);
+    fish.setPatrolRange(fishPatrolRange);
+    fish.setReleaseRiseDistance(fishRiseDistance);
     this.items.push(fish);
 
     const netX = 68 * TILE_SIZE;
@@ -2751,7 +2791,7 @@ class Player extends Entity {
     this.attackAnimDuration = 150; // 挥剑持续时间，毫秒
 
     // 碰撞箱尺寸（独立于贴图尺寸）
-    this.collisionW = 24;
+    this.collisionW = 16;
     this.standingCollisionH = 56;
     this.crouchScale = 0.78;
     this.crouchingCollisionH = this.h * this.crouchScale;
@@ -2930,6 +2970,12 @@ class Player extends Entity {
       this.vy = 0;
       this.onGround = true;
       this.jumpsRemaining = this.maxJumps;
+    }
+
+    // 第二关（水关）：活动范围不超出屏幕上缘（贴图顶 y >= 0）
+    if (isWaterStage && this.y < 0) {
+      this.y = 0;
+      if (this.vy < 0) this.vy = 0;
     }
   }
 
@@ -3273,6 +3319,7 @@ class Zombie extends Enemy {
 class Drowned extends Enemy {
   constructor(x, y, w = 64, h = 64, health = ENEMY_DEFAULT_HEALTH) {
     super(x, y, w, h, health);
+    this.facingRight = false; // 贴图默认朝左，与基类默认朝右区分
     // 保持独立配置：24x64 碰撞箱，底对齐、水平居中
     this.collisionW = 24;
     this.collisionH = 64;
@@ -4100,6 +4147,20 @@ class Fish extends Animal {
     this.facingRight = false;
     this.linkedNet = null;
     this.gravity = 0;
+    this.releaseRiseDistance = 2 * TILE_SIZE;
+  }
+
+  setPatrolRange(rangePx) {
+    const n = Number(rangePx);
+    if (!Number.isFinite(n)) return;
+    // 保底给 1 格，避免范围过小导致左右抖动
+    this.patrolRange = Math.max(TILE_SIZE, n);
+  }
+
+  setReleaseRiseDistance(distancePx) {
+    const n = Number(distancePx);
+    if (!Number.isFinite(n)) return;
+    this.releaseRiseDistance = Math.max(0, n);
   }
 
   bindNet(net) {
@@ -4123,7 +4184,7 @@ class Fish extends Animal {
     if (toolType !== 'scissor' || !this.isTrapped()) return false;
     if (this.linkedNet) this.linkedNet.removeByScissor();
     this.state = 'ascending';
-    this.releaseTargetY = this.y - 2 * TILE_SIZE;
+    this.releaseTargetY = this.y - this.releaseRiseDistance;
     this.vx = 0;
     this.vy = 0;
     return true;
@@ -4132,7 +4193,7 @@ class Fish extends Animal {
   onNetRemoved() {
     if (this.state !== 'trapped') return;
     this.state = 'ascending';
-    this.releaseTargetY = this.y - 2 * TILE_SIZE;
+    this.releaseTargetY = this.y - this.releaseRiseDistance;
     this.vx = 0;
     this.vy = 0;
   }
@@ -4219,14 +4280,19 @@ class FishingNet extends Entity {
   constructor(x, y, w = 4 * TILE_SIZE, h = 3 * TILE_SIZE, linkedFish = null) {
     super(x, y, w, h);
     this.removed = false;
-    this.linkedFish = linkedFish;
+    const fishList = Array.isArray(linkedFish) ? linkedFish : (linkedFish ? [linkedFish] : []);
+    this.linkedFishes = fishList;
+    // 向后兼容：保留单鱼字段
+    this.linkedFish = fishList[0] || null;
   }
 
   removeByScissor() {
     if (this.removed) return;
     this.removed = true;
-    if (this.linkedFish && typeof this.linkedFish.onNetRemoved === 'function') {
-      this.linkedFish.onNetRemoved();
+    for (const fish of this.linkedFishes) {
+      if (fish && typeof fish.onNetRemoved === 'function') {
+        fish.onNetRemoved();
+      }
     }
   }
 
@@ -4613,7 +4679,7 @@ class UIManager {
       t("Tools", "工具"),
       t("Pollutants", "污染物"),
       t("Trapped", "待救援"),
-      t("Enemy / Danger", "敌人 / 危险")
+      t("Danger", "危险")
     ];
     const tabs = this.getGuideTabRects();
     textAlign(CENTER, CENTER);
