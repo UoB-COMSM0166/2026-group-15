@@ -50,8 +50,8 @@
 
 <div align="center">
 
-| Week | Title                                                         | Documentation |
-|------|---------------------------------------------------------------|---------------|
+| **Week** | **Title**                                                         | **Documentation** |
+|:------:|:---------------------------------------------------------------|:---------------|
 | 01   | Lab 1: Game Ideas                                       | [README](https://github.com/UoB-COMSM0166/2026-group-15/tree/main/Homework_Week1_GameIdeas) |
 | 02   | Lab 2: Spray Fun and Brainstorm                       | [README](https://github.com/UoB-COMSM0166/2026-group-15/tree/main/Homework_Week2_SprayFun) |
 | 03   | Lab 3: Prototype & Game Selection                               | [README](https://github.com/UoB-COMSM0166/2026-group-15/tree/main/Homework_Week3_Prototypes) |
@@ -69,14 +69,14 @@
 
 <div align="center">
 
-| **Role**                                                             | **Name**                | **Email**                          |
-|:--------------------------------------------------------------------:|:-----------------------:|:----------------------------------:|
-| Developer, UI Designer, Level Designer, Video Editor                 | Helen – Yitong Zheng    | ul25116@bristol.ac.uk              |
-| Developer, Level Designer, UX Designer, Repository Management        | Li – Li Shen            | cm25322@bristol.ac.uk              |
-| Developer, UI Designer, UX Designer, Video Editor                    | Alice – Xianwen Hu      | ss25944@bristol.ac.uk              |
-| Developer, UX Designer, Level Designer, Audio Designer               | Murphy – Jingyu Xiao    | zz25762@bristol.ac.uk              |
-| Lead Developer, UI Designer, Level Designer, Audio Designer          | Anna – Sirui Zhong      | vc25336@bristol.ac.uk              |
-| Developer, UX Designer, Level Designer, Repository Management        | Bella – Linjing Zhang   | sn25366@bristol.ac.uk              |
+| **Name**              | **Role**                                             | **Email**                  |
+|:-----------------------|:------------------------------------------------------|:----------------------------|
+| Helen – Yitong Zheng  | Developer, UI Designer, Level Designer, Video Editor | ul25116@bristol.ac.uk     |
+| Li – Li Shen          | Developer, Level Designer, UX Designer, Repository Management | cm25322@bristol.ac.uk |
+| Alice – Xianwen Hu    | Developer, UI Designer, UX Designer, Video Editor    | ss25944@bristol.ac.uk     |
+| Murphy – Jingyu Xiao  | Developer, UX Designer, Level Designer, Audio Designer | zz25762@bristol.ac.uk  |
+| Anna – Sirui Zhong    | Developer, UI Designer, Level Designer, Audio Designer | vc25336@bristol.ac.uk  |
+| Bella – Linjing Zhang | Developer, UX Designer, Level Designer, Repository Management | sn25366@bristol.ac.uk |
 
 </div>
 
