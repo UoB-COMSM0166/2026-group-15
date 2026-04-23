@@ -57,8 +57,13 @@ const MAX_HEARTS = 5, HEART_SIZE = 20;
 const HEART_GAP = 0;
 /** 生命栏相对画布左上内边距 */
 const HEART_UI_INSET = 4;
-/** 得分奖杯栏：槽位数（超过则全部显示为已满） */
+/** 得分奖杯栏：默认槽位数（未配置关卡时使用） */
 const MAX_TROPHY_SLOTS = 5;
+/** 得分奖杯栏：按关卡类型配置槽位上限 */
+const TROPHY_SLOTS_BY_LEVEL = {
+  forest: 2,
+  water: 4
+};
 /** 奖杯图标绘制边长（与心形栏一致便于对齐） */
 const TROPHY_SIZE = HEART_SIZE;
 /** 奖杯栏相对画布上、右内边距（整条栏的顶边与最右格右缘） */
@@ -471,8 +476,20 @@ class Game {
     // --- 新增：统一的得分反馈提示（污染物/救援共用） ---
     this.scoreToastMessage = null;   // 当前显示的得分提示文案
     this.scoreToastUntil = 0;        // 提示显示截止时间戳（millis）
+    this.toolHintMessage = null;     // 工具使用结果提示（顶部居中）
+    this.toolHintUntil = 0;          // 工具提示显示截止时间戳（millis）
     this.maxPlayerProgress = 0;      // 本局已到达的最远进度（用于背包上的进度猫）
     this.displayedCatProgress = 0;   // HUD 中小猫当前显示的进度（带一点缓动）
+  }
+
+  getTrophySlotLimit() {
+    return TROPHY_SLOTS_BY_LEVEL[this.levelType] ?? MAX_TROPHY_SLOTS;
+  }
+
+  addScore(points = 1) {
+    if (!this.player) return;
+    const next = this.player.score + points;
+    this.player.score = Math.min(this.getTrophySlotLimit(), next);
   }
   
   tryAttack() {
@@ -576,6 +593,8 @@ class Game {
     // 重置得分反馈提示状态（避免关卡切换残留文案）
     this.scoreToastMessage = null;
     this.scoreToastUntil = 0;
+    this.toolHintMessage = null;
+    this.toolHintUntil = 0;
 }
 
   update() {
@@ -788,7 +807,7 @@ class Game {
     if (s < 0 || s >= this.player.inventory.length) return false;
     const item = this.player.inventory[s];
     if (!(item instanceof Tool) || item.toolType !== toolType) return false;
-    this.player.inventory.splice(s, 1);apple
+    this.player.inventory.splice(s, 1);
     this.player.selectedSlot = -1;
     return true;
   }
@@ -802,21 +821,23 @@ class Game {
   handleSelectedToolUse(slotIndex, item) {
     switch (item.toolType) {
       case 'scissor':
-        this.tryInteractAnimalWithTool(slotIndex, item.toolType);
-        break;
+        return this.tryInteractAnimalWithTool(slotIndex, item.toolType);
       case 'wrench':
-        this.tryBreakIronBarWithWrench(slotIndex);
-        break;
+        return this.tryBreakIronBarWithWrench(slotIndex);
       case 'enlarged_water_bucket':
-        this.tryUseWaterBucket();
-        break;
+        return this.tryUseWaterBucket();
       case 'limestone':
-        this.tryUseLimestone();
-        break;
+        return this.tryUseLimestone();
       case 'vine_seed':
-        this.tryPlantVineSeed(slotIndex);
-        break;
+        return this.tryPlantVineSeed(slotIndex);
+      default:
+        return false;
     }
+  }
+
+  showToolHint(message, durationMs = 1200) {
+    this.toolHintMessage = message;
+    this.toolHintUntil = millis() + durationMs;
   }
 
   tryInteractAnimalWithTool(slotIndex, toolType) {
@@ -857,7 +878,7 @@ class Game {
   grantWildlifeRescueReward(animal) {
     if (!animal || animal.rescueAwarded) return false;
     animal.rescueAwarded = true;
-    this.player.score += 1;
+    this.addScore(1);
     this.scoreToastMessage = t("Wildlife rescued! +1", "成功救援野生动物！+1");
     this.scoreToastUntil = millis() + 1800;
     return true;
@@ -1049,7 +1070,10 @@ handleMousePressed(mx, my) {
   if (!item) return;
 
   if (item instanceof Tool) {
-    this.handleSelectedToolUse(slotIndex, item);
+    const used = this.handleSelectedToolUse(slotIndex, item);
+    if (!used) {
+      this.showToolHint(t("No valid target nearby", "附近没有可交互目标"));
+    }
   }
 }
 
@@ -1341,7 +1365,7 @@ tryPlantVineSeed(slotIndex) {
     }
 
     if (item instanceof Pollutant) {
-      this.player.score += 1;
+      this.addScore(1);
       // 收集污染物：弹出统一得分提示
       this.scoreToastMessage = t("Pollutant collected! +1", "收集污染物！+1");
       this.scoreToastUntil = millis() + 1400;
@@ -1395,6 +1419,22 @@ tryPlantVineSeed(slotIndex) {
     // }
     pop();
     this.uiManager.drawHUD(this.player, this.showGuideMenu, this.activeGuideTab);
+    this.drawTopCenterHint();
+  }
+
+  drawTopCenterHint() {
+    if (!this.toolHintMessage || millis() > this.toolHintUntil) return;
+    push();
+    textAlign(CENTER, BOTTOM);
+    textSize(14);
+    noStroke();
+    fill(245, 248, 255);
+    const topUiBottom = Math.max(
+      HEART_UI_INSET + HEART_SIZE,
+      TROPHY_UI_INSET + TROPHY_SIZE
+    );
+    text(this.toolHintMessage, width / 2, topUiBottom);
+    pop();
   }
 }
 
@@ -2257,7 +2297,7 @@ class WaterLevel extends Level {
       // 第1屏
       [0,12,[V,V,SA,W,W,W,W,W,W,W,W,W]],
       [1,12,[V,SA,SA,'fire_coral_fan',W,W,W,W,W,W,W,W]],
-      [2,12,[T.IRON,SA,SA,'horn_coral',W,W,W,W,W,W,W,W]],
+      [2,12,[V,SA,SA,'horn_coral',W,W,W,W,W,W,W,W]],
       [3,12,[V,SA,SA,'bubble_coral_fan',W,W,W,W,W,W,W,W]],
       [4,12,[V,SA,'fire_coral',W,W,W,W,W,W,W,W,W]],
       [5,12,[V,SA,'fire_coral_fan',W,W,W,W,W,W,W,W,W]],
@@ -2273,7 +2313,7 @@ class WaterLevel extends Level {
       [15,12,[V,V,SA,SA,'fire_coral_fan',W,W,W,SA,W,W,W]],
       [16,12,[V,V,SA,SA,W,W,W,W,SA,'horn_coral_fan',W,W]],
       [17,12,[V,V,SA,SA,W,W,W,W,SA,W,W,W]],
-      [18,12,[V,V,SA,W,W,W,W,SA,SA,W,W,W]],
+      [18,12,[V,T.IRON,SA,W,W,W,W,SA,SA,W,W,W]],
       [19,12,[V,V,SA,W,W,W,W,SA,SA,'tall_seagrass_1','tall_seagrass_2',W]],
       // 第2屏
       [20,12,[V,V,SA,'bubble_coral',W,W,W,SA,'bubble_coral_fan',W,W,N]],
@@ -2333,7 +2373,7 @@ class WaterLevel extends Level {
       [72,11,[V,SA,W,W,W,W,W,W,W,W,W]],
       [73,11,[V,SA,SA,W,W,W,W,W,W,W,W]],
       [74,11,[V,V,SA,'bubble_coral_fan',W,W,W,W,W,W,W]],
-      [75,11,[V,V,SA,'fire_coral',W,W,W,W,W,W,W]],
+      [75,11,[V,T.DIAMOND,SA,'fire_coral',W,W,W,W,W,W,W]],
       [76,11,[V,V,SA,SA,SA,SA,W,W,W,W,W]],
       [77,11,[V,SA,SA,SA,SA,W,W,W,W,W,W]],
       [78,11,[V,SA,SA,W,W,W,W,W,W,W,W]],
@@ -2355,7 +2395,7 @@ class WaterLevel extends Level {
       [93,11,[V,SA,W,W,W,W,W,W,W,W,W]],
       [94,11,[V,SA,SA,'bubble_coral',W,W,W,W,SA,'bubble_coral_fan',W]],
       [95,11,[V,SA,SA,SA,W,W,W,W,SA,SA,'seagrass']],
-      [96,11,[V,SA,SA,SA,W,W,W,W,V,SA,W]],
+      [96,11,[V,SA,SA,SA,SA,W,W,W,V,SA,W]],
       [97,11,[V,V,SA,SA,SA,W,W,W,V,SA,'horn_coral']],
       [98,11,[V,V,V,SA,SA,W,W,W,W,SA,'fire_coral']],
       [99,11,[V,V,SA,SA,SA,'horn_coral_fan',W,W,W,SA,W]],
@@ -2412,7 +2452,10 @@ class WaterLevel extends Level {
     const solidSurfaceY = (col) => this.getSolidSurfaceY(col) ?? groundY(col);
 
     // ===== 敌人和物品生成（基于当前地形）=====
+    this.enemies.push(new Drowned(6 * TILE_SIZE - 16, 96, 64, 64));
     this.enemies.push(new Drowned(17 * TILE_SIZE - 16, 32, 64, 64));
+    this.enemies.push(new Drowned(39 * TILE_SIZE - 16, 96, 64, 64));
+    this.enemies.push(new Drowned(52 * TILE_SIZE - 16, 232, 64, 64));
     this.enemies.push(new Shark(15 * TILE_SIZE, 150, 84, 68));
     this.enemies.push(new Shark(33 * TILE_SIZE, 140, 84, 68));
     this.enemies.push(new Shark(60 * TILE_SIZE, 125, 84, 68));
@@ -2426,7 +2469,8 @@ class WaterLevel extends Level {
 
     // 工具（平台上 + 地面上，居中放置）Tool(x, y, w, h, toolType)
     const toolOffset = (TILE_SIZE - 24) / 2;
-    this.items.push(new Tool(7 * TILE_SIZE + toolOffset, 296, 24, 24, 'scissor'));
+    this.items.push(new Tool(7 * TILE_SIZE + toolOffset, 360 - 2 * TILE_SIZE, 24, 24, 'scissor'));
+    this.items.push(new Tool(53 * TILE_SIZE + toolOffset, 360 - 2 * TILE_SIZE, 24, 24, 'scissor'));
     this.items.push(new Tool(37 * TILE_SIZE + toolOffset, solidSurfaceY(37) - 24, 24, 24, 'wrench'));
 
     // 第48列海龟事件：初始静止，解锁条件为上方 47/48/49 三个铁栏杆全部被 wrench 拆除
@@ -2445,6 +2489,23 @@ class WaterLevel extends Level {
     });
     bars.forEach(bar => this.items.push(bar));
     turtle.bindBars(bars);
+
+    // 第97列海龟事件：初始静止，解锁条件为上方 96/97/98 三个铁栏杆全部被 wrench 拆除
+    const turtle97W = 62;
+    const turtle97H = 32;
+    const turtle97Col = 97;
+    const turtle97X = turtle97Col * TILE_SIZE + (TILE_SIZE - turtle97W) / 2;
+    const turtle97SurfaceY = this.getBaseSolidSurfaceY(turtle97Col) ?? groundY(turtle97Col);
+    const turtle97Y = turtle97SurfaceY - turtle97H;
+    const turtle97 = new Turtle(turtle97X, turtle97Y, turtle97W, turtle97H);
+    this.items.push(turtle97);
+
+    const bars97 = [96, 97, 98].map(col => {
+      const barSurfaceY = this.getBaseSolidSurfaceY(col) ?? groundY(col);
+      return new IronBar(col * TILE_SIZE, barSurfaceY - TILE_SIZE, TILE_SIZE, TILE_SIZE, turtle97);
+    });
+    bars97.forEach(bar => this.items.push(bar));
+    turtle97.bindBars(bars97);
 
     // 第8列 fish 事件：在 fishing_net 范围中生成5条鱼，剪网后全部上浮并巡逻
     const fish8W = 32;
@@ -2487,25 +2548,50 @@ class WaterLevel extends Level {
     this.items.push(fishingNet8);
     fish8List.forEach(f => f.bindNet(fishingNet8));
 
-    // 第69列 fish 事件：初始静止并被 fishing_net 覆盖，使用 scissor 解救后上浮2格再巡逻
-    const fishCol = 69;
-    const fishW = 32;
-    const fishH = 32;
-    const fishPatrolRange = 4 * TILE_SIZE; // 手动调整第69列鱼巡逻范围（像素）
-    const fishRiseDistance = 2 * TILE_SIZE; // 手动调整第69列鱼上移距离（像素）
-    const fishSurfaceY = this.getSolidSurfaceY(fishCol) ?? groundY(fishCol);
-    const fishX = fishCol * TILE_SIZE;
-    const fishY = fishSurfaceY - fishH;
-    const fish = new Fish(fishX, fishY, fishW, fishH);
-    fish.setPatrolRange(fishPatrolRange);
-    fish.setReleaseRiseDistance(fishRiseDistance);
-    this.items.push(fish);
+    // 第69列 fish 事件：在 fishing_net 范围中生成7条鱼，剪网后全部上浮并巡逻
+    const fish69W = 32;
+    const fish69H = 32;
+    // 手动调整第69列7条鱼各自的巡逻范围（像素，按 fish69Offsets 顺序对应）
+    const fish69PatrolRanges = [
+      1 * TILE_SIZE,
+      1 * TILE_SIZE,
+      15 * TILE_SIZE,
+      4 * TILE_SIZE,
+      8 * TILE_SIZE,
+      6 * TILE_SIZE,
+      5 * TILE_SIZE
+    ];
+    // 手动调整第69列7条鱼各自的上移距离（网被破坏后，像素，按 fish69Offsets 顺序对应）
+    const fish69RiseDistances = [
+      1 * TILE_SIZE,
+      5 * TILE_SIZE,
+      4 * TILE_SIZE,
+      2 * TILE_SIZE,
+      3 * TILE_SIZE,
+      2.5 * TILE_SIZE,
+      4.7 * TILE_SIZE
+    ];
+    const net69X = 68 * TILE_SIZE;
+    const fish69Offsets = [0, 16, 32, 48, 64, 80, 96];
+    const fish69VerticalOffsets = [0, -16, -30, -10, -24, -6, -20];
+    const fish69List = fish69Offsets.map((offsetX, idx) => {
+      const fishX = net69X + offsetX;
+      const centerCol = Math.floor((fishX + fish69W / 2) / TILE_SIZE);
+      const fishSurfaceY = this.getSolidSurfaceY(centerCol) ?? groundY(centerCol);
+      const fishY = fishSurfaceY - fish69H + fish69VerticalOffsets[idx];
+      const f = new Fish(fishX, fishY, fish69W, fish69H);
+      f.setPatrolRange(fish69PatrolRanges[idx] ?? 4 * TILE_SIZE);
+      f.setReleaseRiseDistance(fish69RiseDistances[idx] ?? 2 * TILE_SIZE);
+      this.items.push(f);
+      return f;
+    });
 
-    const netX = 68 * TILE_SIZE;
-    const netY = fishY - 2 * TILE_SIZE;
-    const fishingNet = new FishingNet(netX, netY, 4 * TILE_SIZE, 3 * TILE_SIZE, fish);
-    this.items.push(fishingNet);
-    fish.bindNet(fishingNet);
+    const net69H = 3 * TILE_SIZE;
+    const net69SurfaceY = this.getSolidSurfaceY(69) ?? groundY(69);
+    const net69Y = net69SurfaceY - net69H;
+    const fishingNet69 = new FishingNet(net69X, net69Y, 4 * TILE_SIZE, net69H, fish69List);
+    this.items.push(fishingNet69);
+    fish69List.forEach(f => f.bindNet(fishingNet69));
 
     // ===== 结束：敌人和物品生成 =====
   }
@@ -2941,8 +3027,8 @@ class Player extends Entity {
       this.vx *= WATER_DRAG;
       this.vy *= WATER_DRAG;
       // 玩家输入额外影响垂直速度（保留上浮/下潜手感）
-      if (this.swimUpHeld) this.vy -= 0.22;
-      if (crouchHeld) this.vy += 0.14;
+      if (this.swimUpHeld) this.vy -= 0.38;
+      if (crouchHeld) this.vy += 0.20;
       this.vy = constrain(this.vy, -1.8, 1.8);
     } else {
       this.vy += this.gravity;
@@ -3185,6 +3271,8 @@ class Player extends Entity {
 const ENEMY_DEFAULT_HEALTH = 5;
 const ENEMY_DETECT_RANGE = 4 * TILE_SIZE; // 4格检测范围
 const ENEMY_SPEED = 1; // 敌人移动速度
+const ENEMY_WATER_CHASE_SPEED_SCALE = 0.75; // 敌人在水中追踪时再降一档
+const ENEMY_LOSE_TARGET_RANGE = ENEMY_DETECT_RANGE * 1.6; // 超出该范围后丢失目标
 
 class Enemy extends Entity {
   constructor(x, y, w, h, health = ENEMY_DEFAULT_HEALTH) {
@@ -3218,6 +3306,19 @@ class Enemy extends Entity {
   }
   
   get isDead() { return this.health <= 0; }
+
+  updateActivation(distance, detectRange = ENEMY_DETECT_RANGE, loseRange = ENEMY_LOSE_TARGET_RANGE) {
+    if (!this.activated && distance <= detectRange) {
+      this.activated = true;
+    } else if (this.activated && distance > loseRange) {
+      this.activated = false;
+      this.enteredAttackRangeAt = -1;
+      // 丢失目标时给一个轻微减速，避免出现瞬停感
+      this.vx *= 0.6;
+      this.vy *= 0.6;
+    }
+    return this.activated;
+  }
   
   // 更新敌人状态（追踪玩家）
   update(player, platforms, level = null) {
@@ -3228,26 +3329,23 @@ class Enemy extends Entity {
     const ex = this.x + this.w / 2;
     const ey = this.y + this.h / 2;
     const distance = Math.hypot(px - ex, py - ey);
-    
-    // 首次进入4格范围内，激活敌人
-    if (!this.activated && distance <= ENEMY_DETECT_RANGE) {
-      this.activated = true;
-    }
+    const inWater = this.isInWater(level);
+    const chaseSpeed = ENEMY_SPEED * (inWater ? ENEMY_WATER_CHASE_SPEED_SCALE : 1);
+    this.updateActivation(distance);
     
     // 激活后持续追踪玩家
     if (this.activated) {
       // 水平移动：朝向玩家
       if (px < ex - 5) {
-        this.vx = -ENEMY_SPEED;
+        this.vx = -chaseSpeed;
         this.facingRight = false; // 向左移动
       } else if (px > ex + 5) {
-        this.vx = ENEMY_SPEED;
+        this.vx = chaseSpeed;
         this.facingRight = true; // 向右移动
       } else {
         this.vx = 0;
       }
-      
-      const inWater = this.isInWater(level);
+
       if (inWater) {
         this.vy += WATER_GRAVITY - WATER_BUOYANCY;
         this.vx *= WATER_DRAG;
@@ -3339,17 +3437,16 @@ class Drowned extends Enemy {
     const ex = this.x + this.w / 2;
     const ey = this.y + this.h / 2;
     const distance = Math.hypot(px - ex, py - ey);
-
-    if (!this.activated && distance <= ENEMY_DETECT_RANGE) {
-      this.activated = true;
-    }
+    const inWater = this.isInWater(level);
+    const chaseSpeed = ENEMY_SPEED * (inWater ? ENEMY_WATER_CHASE_SPEED_SCALE : 1);
+    this.updateActivation(distance);
 
     if (this.activated) {
       if (px < ex - 5) {
-        this.vx = -ENEMY_SPEED;
+        this.vx = -chaseSpeed;
         this.facingRight = false;
       } else if (px > ex + 5) {
-        this.vx = ENEMY_SPEED;
+        this.vx = chaseSpeed;
         this.facingRight = true;
       } else {
         this.vx = 0;
@@ -3358,7 +3455,6 @@ class Drowned extends Enemy {
       this.vx *= 0.92;
     }
 
-    const inWater = this.isInWater(level);
     if (inWater) {
       // 统一水中物理：重力 + 浮力 + 阻力
       this.vy += WATER_GRAVITY - WATER_BUOYANCY;
@@ -3449,18 +3545,17 @@ class Shark extends Enemy {
     const ex = this.x + this.w / 2;
     const ey = this.y + this.h / 2;
     const distance = Math.hypot(px - ex, py - ey);
-
-    if (!this.activated && distance <= ENEMY_DETECT_RANGE) {
-      this.activated = true;
-    }
+    const inWater = this.isInWater(level);
+    const chaseSpeed = ENEMY_SPEED * (inWater ? ENEMY_WATER_CHASE_SPEED_SCALE : 1);
+    this.updateActivation(distance);
 
     if (this.activated) {
       // 检测到玩家后，行为与 drowned 一致：朝玩家追踪
       if (px < ex - 5) {
-        this.vx = -ENEMY_SPEED;
+        this.vx = -chaseSpeed;
         this.facingRight = false;
       } else if (px > ex + 5) {
-        this.vx = ENEMY_SPEED;
+        this.vx = chaseSpeed;
         this.facingRight = true;
       } else {
         this.vx = 0;
@@ -3483,7 +3578,6 @@ class Shark extends Enemy {
     }
     this.refreshCollisionAnchor();
 
-    const inWater = this.isInWater(level);
     if (inWater) {
       // shark 在水中不受重力/浮力，仅受阻力影响
       this.vx *= WATER_DRAG;
@@ -3598,10 +3692,8 @@ class Slime extends Enemy {
     const dx = delayedTarget.x - ex;
     const dy = delayedTarget.y - ey;
     const distance = Math.hypot(dx, dy);
-
-    if (!this.activated && distance <= ENEMY_DETECT_RANGE * 1.25) {
-      this.activated = true;
-    }
+    const inWater = this.isInWater(level);
+    this.updateActivation(distance, ENEMY_DETECT_RANGE * 1.25);
 
     if (this.activated) {
       const dirX = dx >= 0 ? 1 : -1;
@@ -3620,7 +3712,6 @@ class Slime extends Enemy {
       this.vx *= 0.88;
     }
 
-    const inWater = this.isInWater(level);
     if (inWater) {
       this.vy += WATER_GRAVITY - WATER_BUOYANCY;
       this.vx *= WATER_DRAG;
@@ -4176,7 +4267,8 @@ class Fish extends Animal {
   }
 
   requiresRescueRange(toolType) {
-    if (toolType === 'scissor') return false;
+    // Scissor rescue should only work when player is nearby.
+    if (toolType === 'scissor') return true;
     return true;
   }
 
@@ -4486,9 +4578,12 @@ class UIManager {
     const trophyStride = TROPHY_SIZE + HEART_GAP;
     const trophyContainerImg = window.trophyContainer;
     const trophyFillImg = window.trophyFill;
-    const filledTrophies = Math.min(Math.max(0, Math.floor(player.score)), MAX_TROPHY_SLOTS);
-    for (let i = 0; i < MAX_TROPHY_SLOTS; i++) {
-      const x = width - TROPHY_UI_INSET - TROPHY_SIZE - (MAX_TROPHY_SLOTS - 1 - i) * trophyStride;
+    const trophySlots = game && typeof game.getTrophySlotLimit === 'function'
+      ? game.getTrophySlotLimit()
+      : MAX_TROPHY_SLOTS;
+    const filledTrophies = Math.min(Math.max(0, Math.floor(player.score)), trophySlots);
+    for (let i = 0; i < trophySlots; i++) {
+      const x = width - TROPHY_UI_INSET - TROPHY_SIZE - (trophySlots - 1 - i) * trophyStride;
       if (trophyContainerImg && trophyContainerImg.width > 0) {
         image(trophyContainerImg, x, trophyY, TROPHY_SIZE, TROPHY_SIZE);
       } else {
