@@ -406,14 +406,18 @@ In the end, we think this project was valuable not only because we made a playab
 
 We worked on the game collaboratively and did not experience major issues with teamwork. Each person had slightly different areas of focus, but overall we feel that the workload was shared fairly, so we report an equal contribution for all team members.
 
-| Name                  | Main Contribution (summary)                     | Contribution |
-|-----------------------|-----------------------------------------------|-------------:|
-| Helen - Yitong Zheng  | Development, UI, level layout, video editing  |        1.00  |
-| Li - Li Shen          | Development, level design, UX, repo workflow  |        1.00  |
-| Alice - Xianwen Hu    | Development, UI/UX, video editing             |        1.00  |
-| Murphy - Jingyu Xiao  | Development, UX, level design, audio          |        1.00  |
-| Anna - Sirui Zhong    | Core development, UI, level design, audio     |        1.00  |
-| Bella - Linjing Zhang | Development, UX, level design, repo workflow  |        1.00  |
+<div align="center">
+
+| Name | Main Contribution | Contribution |
+|:---:|:---:|:---:|
+| Helen - Yitong Zheng | Development, UI, level layout, video editing | 1.00 |
+| Li - Li Shen | Development, level design, UX, repo workflow | 1.00 |
+| Alice - Xianwen Hu | Development, UI/UX, video editing | 1.00 |
+| Murphy - Jingyu Xiao | Development, UX, level design, audio | 1.00 |
+| Anna - Sirui Zhong | Core development, UI, level design, audio | 1.00 |
+| Bella - Linjing Zhang | Development, UX, level design, repo workflow | 1.00 |
+
+</div>
 
 ### Additional Marks
 
