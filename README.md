@@ -18,34 +18,35 @@
 
 ## Table of Contents
 
-- [1. Team](#1-team)
-- [2. Introduction](#2-introduction)
-- [3. Requirements](#3-requirements)
-  - [3.1 Case Diagram](#31-case-diagram)
-  - [3.2 User Stories](#32-user-stories)
-  - [3.3 Early Stage Design](#33-early-stage-design)
-  - [3.4 Ideation Process](#34-ideation-process)
+- [1. Weekly Labs](#1-weekly-labs)
+- [2. Team](#2-team)
+- [3. Introduction](#3-introduction)
+- [4. Requirements](#4-requirements)
+  - [4.1 Case Diagram](#41-case-diagram)
+  - [4.2 User Stories](#42-user-stories)
+  - [4.3 Early Stage Design](#43-early-stage-design)
+  - [4.4 Ideation Process](#44-ideation-process)
     - [Two Game Ideas](#two-game-ideas)
     - [Stakeholders](#stakeholders)
     - [Team Reflection on Requirements Workshop](#team-reflection-on-requirements-workshop)
-- [4. Design](#4-design)
-  - [4.1 Class Diagram](#41-class-diagram)
-  - [4.2 Communication Diagram](#42-communication-diagram)
-  - [4.3 Design Conclusion](#43-design-conclusion)
-- [5. Implementation](#5-implementation)
+- [5. Design](#5-design)
+  - [5.1 Class Diagram](#51-class-diagram)
+  - [5.2 Communication Diagram](#52-communication-diagram)
+  - [5.3 Design Conclusion](#53-design-conclusion)
+- [6. Implementation](#6-implementation)
   - [Camera Movement](#camera-movement)
   - [Physics Engine](#physics-engine)
   - [Gameplay Additions](#gameplay-additions)
-- [6. Evaluation](#6-evaluation)
-  - [6.1 Qualitative Analysis](#61-qualitative-analysis)
-  - [6.2 Quantitative Analysis](#62-quantitative-analysis)
-  - [6.3 Testing](#63-testing)
-- [7. Process](#7-process)
-- [8. Conclusion](#8-conclusion)
-- [9. Individual Contribution](#9-individual-contribution)
+- [7. Evaluation](#7-evaluation)
+  - [7.1 Qualitative Analysis](#71-qualitative-analysis)
+  - [7.2 Quantitative Analysis](#72-quantitative-analysis)
+  - [7.3 Testing](#73-testing)
+- [8. Process](#8-process)
+- [9. Conclusion](#9-conclusion)
+- [10. Individual Contribution](#10-individual-contribution)
 
 ---
-## Weekly Labs
+## 1. Weekly Labs
 
 <div align="center">
 
@@ -64,7 +65,7 @@
 
 ---
 
-## 1. Team
+## 2. Team
 
 <div align="center">
 
@@ -85,7 +86,7 @@
 
 ---
 
-## 2. Introduction
+## 3. Introduction
 Super Cat and Steve is an environmental-themed platform adventure built around three different worlds: a forest, an underwater area, and a factory.
 
 Each level shares the same core. Move forward, jump across platforms, avoid danger, and stay alive. But the goal is not just to reach the end. Players also collect pollutants, use tools, rescue trapped animals, and deal with enemies such as zombies along the way.
@@ -96,8 +97,8 @@ What makes Super Cat and Steve distinctive is the way the environment affects pl
 
 ---
 
-## 3. Requirements
-### 3.1 Early-stage Design and Ideation
+## 4. Requirements
+### 4.1 Early-stage Design and Ideation
 At the beginning of the project, our team did not decide the final game idea straight away. We first had a brainstorming session where each member suggested possible game types. The ideas we discussed included obstacle-avoidance games such as Snake and Temple Run, matching games like Tetris, level-based platform games inspired by Mario, and battle-style games based on a simplified version of Hearthstone. This gave us several possible directions and helped us compare different types of gameplay before making a decision.
 
 <p align="center"><strong>Game Ideas and Discussion Results</strong></p>
@@ -127,22 +128,14 @@ After choosing this direction, we developed the idea into Super Cat and Steve, a
 **The following is a paper prototype of our game:**
 [![视频预览](https://img.youtube.com/vi/Igxwji-czvQ/maxresdefault.jpg)](https://youtu.be/Igxwji-czvQ)
 
-
-
-
-
-
-### 3.2 Stakeholders 
+### 4.2 Stakeholders 
 To make our requirements clearer, we used the approach introduced in the requirements workshop. We first identified the stakeholders for the game, then grouped their needs into broader epics, and finally turned these into user stories and acceptance criteria. This was useful because it made us think about the project from different perspectives instead of only from the programmer’s side. In our materials, the stakeholders included not only players but also the development team, artists, testers, publishers, reviewers, teaching staff, and organisations interested in environmental education. This wider view helped us think more carefully about usability, portability, educational purpose, and overall presentation.
 
 The player was still the main stakeholder, so most of our functional requirements were written around the player’s actions. A player should be able to choose a level, move through the environment, avoid or attack enemies, collect pollutants, use tools, rescue animals, and complete the level by earning enough points. However, writing these requirements as user stories made them more precise. Instead of saying that the game should be “interesting” or “educational”, we had to describe exactly what the user would do and what the system should return in response. The acceptance criteria were especially helpful because they gave us a simple way to decide whether a feature worked properly or not.
 
 <img width="1536" height="1024" alt="onion model" src="https://github.com/user-attachments/assets/b7c967ee-8189-4378-b14c-9797fc61944e" />
 
-
-
-
-### 3.3 Use Case Diagram
+### 4.3 Use Case Diagram
 This use case diagram shows the main ways the player interacts with Super Cat and Steve. The player starts the game, selects a level, and then enters the main part of the gameplay, shown here as Explore Level. From this point, the player can carry out several different actions during the level, such as collecting pollutants, rescuing animals, using tools, fighting enemies, and mining resources.
 
 We placed Explore Level at the centre of the diagram because it is the core activity of the game. Most of the important gameplay actions happen during exploration, while Complete Level represents the final objective. In our game, finishing a level is closely connected to environmental tasks, especially pollutant collection and animal rescue. For this reason, these two actions are shown as key parts of level completion. Overall, the diagram highlights that environmental protection is built into the gameplay itself rather than added only as background theme.
@@ -150,7 +143,7 @@ We placed Explore Level at the centre of the diagram because it is the core acti
 <img width="725" height="515" alt="case diagram" src="https://github.com/user-attachments/assets/d1997d90-a505-403e-b446-0775469490f4" />
 
 
-### 3.4 User Stories and Acceptance Criteria
+### 4.4 User Stories and Acceptance Criteria
 The following user stories were selected from our earlier requirements discussion and refined into a smaller set of core stories. We focused on the stories that were most closely related to the final version of *Super Cat and Steve*, especially its environmental theme, level design, player interaction, and testing needs.
 
 | User Story / Epic | Acceptance Criteria |
@@ -165,7 +158,7 @@ The following user stories were selected from our earlier requirements discussio
 
 
 
-### 3.5 Reflection on the Requirements Process
+### 4.5 Reflection on the Requirements Process
 Through the requirements workshop, our team developed a clearer, more systematic way to capture and structure requirements by first analysing the jogging‑app case study and then applying the same techniques to our own environmental protection game. Starting from the case helped us separate the method (stakeholders → epics → user stories → acceptance criteria) from any specific domain, so we could later reuse it for our game design.
 
 ​In the case study, we began by identifying stakeholders such as employees, managers, health services, and transport providers, which showed us how many different parties are affected by a single app. From there we defined epics to describe high‑level goals, then broke these into user stories using the “As a… I want… So that…” template, which forced us to think concretely about each stakeholder’s needs and benefits.
@@ -179,24 +172,24 @@ Looking back, the requirements stage was not just an early planning task. It pla
 
 ---
 
-## 4. Design
+## 5. Design
 - 15% ~750 words 
 - System architecture. Class diagrams, behavioural diagrams.
 
 - <img width="1590" height="700" alt="3339b730d5d336317972099c83ecc550" src="https://github.com/user-attachments/assets/b58ce78b-cf50-478e-ae06-c9fbae35e6a1" />
 
-### 4.1 Class Diagram
+### 5.1 Class Diagram
 Write here.
 
-### 4.2 Communication Diagram
+### 5.2 Communication Diagram
 Write here.
 
-### 4.3 Design Conclusion
+### 5.3 Design Conclusion
 Write here.
 
 ---
 
-## 5. Implementation
+## 6. Implementation
 - 15% ~750 words
 
 - Describe implementation of your game, in particular highlighting the TWO areas of *technical challenge* in developing your game. 
@@ -212,13 +205,13 @@ Write here.
 
 ---
 
-## 6. Evaluation
+## 7. Evaluation
 
-### 6.1 Qualitative Analysis
+### 7.1 Qualitative Analysis
 
 To evaluate the usability and overall experience of our game, we used a qualitative approach that combined a **Think Aloud evaluation** with a **heuristic analysis** based on Nielsen’s usability guidelines. These methods helped us understand how players actually played the game, where they became confused, and which usability issues should be prioritised in later iterations.
 
-#### 6.1.1 Think Aloud Evaluation
+#### 7.1.1 Think Aloud Evaluation
 
 We conducted a **Think Aloud evaluation** on the **first forest level** and the **partially implemented second ocean level** to identify usability issues during gameplay.
 
@@ -239,7 +232,7 @@ We conducted a **Think Aloud evaluation** on the **first forest level** and the 
   - Rock collision boxes felt too large, making some jumps effectively impossible because of invisible boundaries.  
   - Inventory slots were narrow, which made it difficult to collect and quickly review all tools and pollutants.
 
-#### 6.1.2 Heuristic Analysis
+#### 7.1.2 Heuristic Analysis
 
 **Method**  
 
@@ -268,23 +261,23 @@ The heuristic analysis reflects and structures the issues observed in the Think 
 - **Items and environment behaviour** – Issues 4 and 5 capture inconsistent tool behaviour and unclear environmental changes, making it harder for players to understand how cleaning mechanics work and when an area is complete.  
 - **Movement and interface** – Issues 6 and 7 align with feedback about oversized collision boxes and a cramped inventory, which affects both movement fairness and the readability of collected items.
 
-#### 6.1.3 Follow-up Changes
+#### 7.1.3 Follow-up Changes
 
 In later iterations, we increased hint visibility, improved combat feedback and hitbox alignment, made tool and environment behaviour more consistent, and adjusted collision boxes and the inventory layout to make the game easier to play and understand.
 
 ***
 
-### 6.2 Quantitative Analysis
+### 7.2 Quantitative Analysis
 
 We conducted a structured usability and workload evaluation with **10 participants**. Each participant played the game at two difficulty levels: **Level 1 (Easy)** and **Level 2 (Hard)**.
 
-#### 6.2.1 Method
+#### 7.2.1 Method
 
 - **System Usability Scale (SUS):** 10‑item questionnaire to measure perceived usability.
 - **NASA Task Load Index (NASA‑TLX):** Six subscales to assess mental and physical workload.
 - **Statistical test:** Wilcoxon signed‑rank test (paired, two‑tailed, $\alpha = 0.05$).
 
-#### 6.2.2 Data Summary and Statistical Results
+#### 7.2.2 Data Summary and Statistical Results
 
 Raw SUS and NASA‑TLX scores for both difficulty levels are shown in the figures below.
 
@@ -311,7 +304,7 @@ Raw SUS and NASA‑TLX scores for both difficulty levels are shown in the figure
 
 </p>
 
-#### 6.2.3 Key Findings
+#### 7.2.3 Key Findings
 
 ##### System Usability Scale (SUS)
 
@@ -327,12 +320,12 @@ NASA‑TLX scores did **not** show a statistically significant difference betwee
 
 ***
 
-### 6.3 Testing
+### 7.3 Testing
 - Description of how code was tested.
 
 ---
 
-## 7. Process
+## 8. Process
 
 From the beginning, we treated our game as a shared design project rather than just a piece of coursework. We did not appoint a formal team leader. Instead, we worked with shared ownership of the game concept and environmental theme, while each member still had a main area they focused on, such as programming, level design, UI/UX, art, audio, or evaluation. In discussions we were less interested in “who owns this file?” and more interested in questions like “what does this change mean for the player?” and “does it support our environmental education goal for children?”.
 
@@ -394,7 +387,7 @@ The fourth pattern, **Minimize main thread work**, was only partly addressed, bu
 
 ---
 
-## 8. Conclusion
+## 9. Conclusion
 Overall, this project helped us understand how difficult it is to turn a simple game idea into a working product. At the start, Super Cat and Steve seemed like a fairly straightforward platform game with an environmental theme. However, once we started building it, we realised that many small ideas were much harder to implement than expected. This was one of the biggest lessons from the whole project: in game development, even simple mechanics can become complicated when they interact with physics, level design, and player control.
 
 One of the most difficult parts was the cat-following mechanic. We wanted the cat to move naturally with the main character, but this was harder than we first thought. Because the game contains multiple layers of platforms, the cat sometimes judged the wrong platform as the ground and moved to the upper level by mistake. In other situations, when the player jumped, the cat would also jump even though it was not always necessary. Solving this problem made us realise that companion behaviour needs more than just simple following logic. It also needs better judgement about terrain, timing, and movement state.
@@ -409,9 +402,7 @@ In the end, we think this project was valuable not only because we made a playab
 
 ---
 
-## 9. Individual Contribution
-
-## Individual Contributions
+## 10. Individual Contribution
 
 <div align="center">
 
