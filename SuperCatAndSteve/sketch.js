@@ -456,6 +456,7 @@ class Game {
     //this.player = new Player(80, 60); 
     this.uiManager = new UIManager();
     this.cameraX = 0;
+    this.cameraY = 0;
     this.mouseDownTime = 0;
     this.lastAttackTime = 0;
     this.enemyContactDamageCarry = 0;  // 敌人接触伤害累计（满 1 点才真正扣血）
@@ -634,7 +635,7 @@ class Game {
 
     // 全局坠落死亡：玩家碰撞箱上缘超过屏幕下缘则死亡
     const playerBox = this.player.getCollisionBox();
-    if (playerBox.y > CANVAS_H) {
+    if (playerBox.y - this.cameraY > CANVAS_H) {
       this.player.health = 0;
     }
 
@@ -646,7 +647,7 @@ class Game {
 
     if (colUnder >= 0 && colUnder < TERRAIN_COLS) {
       // 减去1像素以正确处理踩在格子上边界的情况
-      const rowUnder = Math.floor((360 - feetY - 1) / TILE_SIZE);
+      const rowUnder = Math.floor((CANVAS_H - feetY - 1) / TILE_SIZE);
       if (rowUnder >= 0) {
         const column = this.level.tileMap[colUnder];
         const tt = column?.[rowUnder];
@@ -726,7 +727,7 @@ class Game {
   isPointInTerrainTile(wx, wy, col, row) {
     const tx = col * TILE_SIZE;
     // 与 draw() 中地形绘制保持一致：从屏幕底部往上排布
-    const ty = 360 - (row + 1) * TILE_SIZE;
+    const ty = CANVAS_H - (row + 1) * TILE_SIZE;
     return wx >= tx && wx < tx + TILE_SIZE && wy >= ty && wy < ty + TILE_SIZE;
   }
 
@@ -741,7 +742,7 @@ class Game {
     if (now - this.mouseDownTime < MINE_PRESS_MS) return;
 
     const worldX = mouseX + this.cameraX;
-    const worldY = mouseY;
+    const worldY = mouseY + this.cameraY;
     const pointedTile = this.getPointedMineableTile(worldX, worldY);
     if (pointedTile) {
       if (pointedTile.kind === 'terrain') {
@@ -769,9 +770,14 @@ class Game {
 
   updateCamera() {
     const halfW = CANVAS_W / 2;
+    const halfH = CANVAS_H / 2;
     if (this.player.x < halfW) this.cameraX = 0;
     else if (this.player.x > WORLD_WIDTH - halfW) this.cameraX = WORLD_WIDTH - CANVAS_W;
     else this.cameraX = this.player.x - halfW;
+
+    // 玩家不能高于屏幕中线；继续上移时由相机跟随卷动地形
+    const playerCenterY = this.player.y + this.player.h / 2;
+    this.cameraY = Math.min(0, playerCenterY - halfH);
   }
 
   /** 玩家当前攻击力：手持武器的伤害，无武器为 1 */
@@ -910,7 +916,7 @@ class Game {
       }
     }
     const targetX = pick.col * TILE_SIZE + (TILE_SIZE - 16) / 2;
-    const tileTop = 360 - (pick.row + 1) * TILE_SIZE;
+    const tileTop = CANVAS_H - (pick.row + 1) * TILE_SIZE;
     const targetY = tileTop + TILE_SIZE * 0.25;
     return { x: targetX, y: targetY };
   }
@@ -992,7 +998,7 @@ class Game {
       if (tileType === T.NONE || tileType === undefined) continue;
 
       const tx = col * TILE_SIZE;
-      const ty = 360 - (row + 1) * TILE_SIZE;
+      const ty = CANVAS_H - (row + 1) * TILE_SIZE;
 
       // 鼠标必须落在这格范围内
       if (!(worldX >= tx && worldX < tx + TILE_SIZE && worldY >= ty && worldY < ty + TILE_SIZE)) {
@@ -1016,7 +1022,7 @@ class Game {
       if (!this.level.isBackgroundDecorationTile(tileType)) continue;
 
       const tx = col * TILE_SIZE;
-      const ty = 360 - (row + 1) * TILE_SIZE;
+      const ty = CANVAS_H - (row + 1) * TILE_SIZE;
       if (!(worldX >= tx && worldX < tx + TILE_SIZE && worldY >= ty && worldY < ty + TILE_SIZE)) continue;
       if (!this.isInReachZone(tx, ty, TILE_SIZE, TILE_SIZE)) continue;
 
@@ -1287,7 +1293,7 @@ tryPlantVineSeed(slotIndex) {
     const tileType = column[row];
     if (typeof tileType !== "number") continue;
 
-    const tileTop = 360 - (row + 1) * TILE_SIZE;
+    const tileTop = CANVAS_H - (row + 1) * TILE_SIZE;
     const tileBottom = tileTop + TILE_SIZE;
 
   const playerFeetY = this.player.y + this.player.h;
@@ -1387,7 +1393,7 @@ tryPlantVineSeed(slotIndex) {
   draw() {
     background(168, 193, 254);
     push();
-    translate(-this.cameraX, 0);
+    translate(-this.cameraX, -this.cameraY);
     this.level.draw();
     this.player.draw();
     drawDebugTerrainColumnIndexLabels();
@@ -1446,8 +1452,82 @@ class Level {
     this.items = [];
     this.terrainHeights = [];
     this.tileMap = Array.from({ length: TERRAIN_COLS }, () => []);
+    this.backgroundTileMap = Array.from({ length: TERRAIN_COLS }, () => []);
     this.terrainBlocks = Array.from({ length: TERRAIN_COLS }, () => []);  // [col][row] = Platform
     this.pollutants = []; 
+  }
+  setBackgroundTerrainTile(col, row, tileType) {
+    if (col < 0 || col >= TERRAIN_COLS || row < 0) return;
+    if (!this.backgroundTileMap[col]) this.backgroundTileMap[col] = [];
+    this.backgroundTileMap[col][row] = tileType;
+  }
+  isBackgroundTerrainRenderableTile(tile) {
+    if (tile === T.NONE || tile === undefined || tile === null) return false;
+    if (tile === T.WATER) return false;
+    return true;
+  }
+  getBackgroundDecorationImage(kind) {
+    const spriteMap = {
+      log: window.tile_oak_log,
+      leaves: window.tile_oak_leaves,
+      dandelion: window.tile_dandelion,
+      orange_tulip: window.tile_orange_tulip,
+      pink_tulip: window.tile_pink_tulip,
+      poppy: window.tile_poppy,
+      red_mushroom: window.tile_red_mushroom,
+      red_tulip: window.tile_red_tulip,
+      brown_mushroom: window.tile_brown_mushroom,
+      seagrass: window.tile_seagrass,
+      tall_seagrass_1: window.tile_tall_seagrass_1,
+      tall_seagrass_2: window.tile_tall_seagrass_2,
+      tube_coral: window.tile_tube_coral,
+      tube_coral_fan: window.tile_tube_coral_fan,
+      horn_coral: window.tile_horn_coral,
+      horn_coral_fan: window.tile_horn_coral_fan,
+      fire_coral: window.tile_fire_coral,
+      fire_coral_fan: window.tile_fire_coral_fan,
+      bubble_coral: window.tile_bubble_coral,
+      bubble_coral_fan: window.tile_bubble_coral_fan,
+      brain_coral: window.tile_brain_coral,
+      brain_coral_fan: window.tile_brain_coral_fan,
+      kelp_1: window.tile_kelp_1,
+      kelp_2: window.tile_kelp_2,
+      kelp_3: window.tile_kelp_3,
+      kelp_4: window.tile_kelp_4,
+      kelp_5: window.tile_kelp_5
+    };
+    return spriteMap[kind];
+  }
+  addBackgroundColumn(col, heightTiles, tiles) {
+    for (let i = 0; i < tiles.length; i++) {
+      const tile = tiles[i];
+      if (!this.isBackgroundTerrainRenderableTile(tile)) continue;
+      this.setBackgroundTerrainTile(col, i, tile);
+    }
+  }
+  drawBackgroundTerrainLayer() {
+    for (let col = 0; col < TERRAIN_COLS; col++) {
+      const column = this.backgroundTileMap[col];
+      if (!column) continue;
+      for (let row = 0; row < column.length; row++) {
+        const type = column[row];
+        if (type === T.NONE || type === undefined) continue;
+        const x = col * TILE_SIZE;
+        const y = CANVAS_H - (row + 1) * TILE_SIZE;
+        if (this.isBackgroundDecorationTile(type)) {
+          const img = this.getBackgroundDecorationImage(type);
+          if (img && img.width > 0) {
+            image(img, x, y, TILE_SIZE, TILE_SIZE);
+          } else {
+            noStroke();
+            fill(80, 150, 120, 230);
+            rect(x, y, TILE_SIZE, TILE_SIZE);
+          }
+        } else {
+          drawTile(type, x, y);
+        }
+      }
+    }
   }
   isBackgroundDecorationTile(tile) {
     return (
@@ -1709,6 +1789,135 @@ class ForestLevel extends Level {
       [118,2,[S,S]], 
       [119,3,[S,D,G]], 
     ];
+    const backgroundTerrain = [
+      // 第1屏 - 包含树木
+      [0,10,[X,X,X,X,S,S,G,N,'leaves','leaves']], 
+      [1,10,[X,X,S,S,G,'red_tulip','leaves','leaves','leaves','leaves']], 
+      [2,10,[X,X,S,D,G,'log','log','log','leaves','leaves']], 
+      [3,10,[X,S,S,G,N,N,'leaves','leaves','leaves','leaves']], 
+      [4,8,[X,S,D,G,'pink_tulip',N,'leaves','leaves']],
+      [5,5,[X,S,D,G,'pink_tulip']],  
+      [6,7,[X,S,S,N,N,D,G]], 
+      [7,6,[X,T.LAVA,N,N,N,G]], 
+      [8,2,[X,T.LAVA]],
+      [9,2,[X,T.LAVA]], 
+      [10,2,[X,T.LAVA]],
+      [11,2,[X,T.LAVA]],
+      [12,2,[X,T.LAVA]],
+      [13,2,[X,T.LAVA]],
+      [14,6,[X,S,S,N,'leaves','leaves']],
+      [15,8,[X,S,G,N,'leaves','leaves','leaves','leaves']], 
+      [16,8,[X,S,G,'log','log','log','leaves','leaves']], 
+      [17,8,[X,S,G,N,'leaves','leaves','leaves','leaves']],
+      [18,6,[X,S,G,N,'leaves','leaves']],
+      [19,7,[X,S,D,G,N,'leaves','leaves']],
+      // 第2屏
+      [20,9,[S,S,D,G,N,'leaves','leaves','leaves','leaves']], 
+      [21,9,[S,S,D,G,'log','log','log','leaves','leaves']], 
+      [22,9,[S,S,D,G,N,'leaves','leaves','leaves','leaves']], 
+      [23,7,[S,S,D,G,N,'leaves','leaves']],
+      [24,8,[S,S,S,D,D,D,D,G]],
+      [25,8,[S,S,S,D,D,D,D,G]], 
+      [26,3,[X,S,S]], 
+      [27,3,[X,S,S]], 
+      [28,5,[X,X,S,S,S]],
+      [29,3,[X,S,S]], 
+      [30,2,[S,S]],
+      [31,2,[X,T.LAVA]], 
+      [32,2,[X,T.LAVA]], 
+      [33,2,[X,T.LAVA]],
+      [34,2,[X,T.LAVA]], 
+      [35,2,[X,T.LAVA]], 
+      [36,7,[X,S,S,N,N,'leaves','leaves']], 
+      [37,9,[X,S,G,N,N,'leaves','leaves','leaves','leaves']], 
+      [38,9,[S,S,D,G,'log','log','log','leaves','leaves']], 
+      [39,9,[S,S,D,G,N,'leaves','leaves','leaves','leaves']],
+      // 第3屏
+      [40,7,[S,S,G,N,N,'leaves','leaves']], 
+      [41,3,[X,S,G]], 
+      [42,2,[S,S]], 
+      [43,2,[S,S]], 
+      [44,8,[S,S,Ir,N,N,N,'leaves','leaves']],
+      [45,10,[X,X,S,G,N,N,'leaves','leaves','leaves','leaves']], 
+      [46,10,[X,X,S,D,G,'log','log','log','leaves','leaves']], 
+      [47,10,[X,S,S,D,G,'leaves','leaves','leaves','leaves','leaves']], 
+      [48,9,[X,X,S,G,N,'leaves','leaves','leaves','leaves']], 
+      [49,9,[X,S,D,G,'log','log','log','leaves','leaves']], 
+      [50,9,[X,S,D,G,N,'leaves','leaves','leaves','leaves']], 
+      [51,7,[X,S,D,G,N,'leaves','leaves']],
+      [52,3,[S,S,G]], 
+      [53,3,[X,S,G]], 
+      [54,3,[X,S,G]], 
+      [55,3,[X,S,G]], 
+      [56,3,[X,S,G]],
+      [57,5,[X,D,G,'leaves','leaves']], 
+      [58,7,[S,G,N,'leaves','leaves','leaves','leaves']], 
+      [59,7,[S,G,'log','log','log','leaves','leaves']], 
+      // 第4屏
+      [60,7,[S,G,N,'leaves','leaves','leaves','leaves']], 
+      [61,5,[S,G,N,'leaves','leaves']],
+      [62,3,[S,S,G]], 
+      [63,2,[S,T.LAVA]], 
+      [64,2,[S,T.LAVA]], 
+      [65,2,[S,T.LAVA]], 
+      [66,2,[S,T.LAVA]],
+      [67,2,[S,T.LAVA]],
+      [68,2,[S,S]], 
+      [69,3,[S,D,G]], 
+      [70,3,[S,D,G]], 
+      [71,6,[S,D,G,N,N,G]],
+      [72,7,[S,G,'orange_tulip',N,N,S,G]], 
+      [73,7,[S,G,'red_tulip',N,N,S,G]], 
+      [74,7,[S,G,N,N,N,N,G]], 
+      [75,3,[X,S,G]],
+      [76,7,[X,S,G,'brown_mushroom',N,'leaves','leaves']], 
+      [77,9,[X,S,D,G,N,'leaves','leaves','leaves','leaves']], 
+      [78,9,[X,S,D,G,'log','log','log','leaves','leaves']], 
+      [79,9,[X,S,D,G,N,'leaves','leaves','leaves','leaves']], 
+      // 第5屏
+      [80,7,[X,S,D,G,N,'leaves','leaves']], 
+      [81,4,[X,S,D,G]],
+      [82,6,[X,S,G,N,'leaves','leaves']], 
+      [83,8,[X,S,G,'red_mushroom','leaves','leaves','leaves','leaves']], 
+      [84,8,[X,S,G,'log','log','log','leaves','leaves']], 
+      [85,8,[X,S,G,N,'leaves','leaves','leaves','leaves']], 
+      [86,6,[X,S,G,N,'leaves','leaves']],
+      [87,2,[S,G]], 
+      [88,2,[S,G]], 
+      [89,2,[S,G]], 
+      [90,7,[S,D,G,N,N,N,G]], 
+      [91,8,[S,D,G,N,N,N,D,G]],
+      [92,8,[S,D,G,'pink_tulip',N,N,D,G]], 
+      [93,8,[S,D,G,'pink_tulip',N,N,D,G]], 
+      [94,7,[S,D,G,N,N,N,G]], 
+      [95,4,[X,S,S,S]],
+      [96,6,[X,X,X,S,S,S]], 
+      [97,3,[X,Di,G]], 
+      [98,3,[X,S,G]], 
+      [99,4,[X,S,D,G]],
+      // 第6屏
+      [100,4,[X,S,D,G]], 
+      [101,4,[X,S,D,G]], 
+      [102,4,[X,S,D,G]], 
+      [103,7,[X,S,G,'orange_tulip',N,N,S]], 
+      [104,7,[X,S,G,'orange_tulip',N,N,S]],
+      [105,8,[X,S,G,N,N,N,S,G]], 
+      [106,8,[X,S,G,N,N,N,N,G]], 
+      [107,8,[X,S,G,N,N,N,N,G]], 
+      [108,4,[X,X,S,S]], 
+      [109,3,[X,S,S]], 
+      [110,5,[S,G,N,'leaves','leaves']], 
+      [111,7,[S,G,'brown_mushroom','leaves','leaves','leaves','leaves']],
+      [112,7,[S,G,'log','log','log','leaves','leaves']], 
+      [113,7,[S,G,N,'leaves','leaves','leaves','leaves']], 
+      [114,5,[S,T.LAVA,N,'leaves','leaves']], 
+      [115,2,[S,T.LAVA]], 
+      [116,2,[S,T.LAVA]],
+      [117,2,[S,T.LAVA]], 
+      [118,2,[S,S]], 
+      [119,3,[S,D,G]], 
+    ];
+    backgroundTerrain.forEach(([col, h, tiles]) => this.addBackgroundColumn(col, h, tiles));
     terrain.forEach(([col, h, tiles]) => this.addTerrainColumn(col, h, tiles));
 
     // 辅助函数：获取“最高地表” y 坐标（通常用于放置物体/敌人）
@@ -1968,12 +2177,15 @@ class ForestLevel extends Level {
   }
 
   draw() {
+    // 紧邻地形的一层背景（纯视觉层，无碰撞/交互）
+    this.drawBackgroundTerrainLayer();
+
     // 绘制地形（从 tileMap 读取，T.NONE 不绘制）
     for (let col = 0; col < TERRAIN_COLS; col++) {
       for (let row = 0; row < (this.tileMap[col]?.length || 0); row++) {
         const type = this.tileMap[col][row];
         if (type === T.NONE || type === undefined) continue;
-        const y = 360 - (row + 1) * TILE_SIZE; // 从底部往上
+        const y = CANVAS_H - (row + 1) * TILE_SIZE; // 从底部往上
         drawTile(type, col * TILE_SIZE, y);
       }
     }
@@ -2150,6 +2362,8 @@ class FactoryLevel extends ForestLevel {
       [118,12,[Bk,Bk,N,N,N,Bk,Bk,N,N,N,Bk,Bk]],
       [119,12,[Db,Bk,N,N,N,Bk,Bk,Bk,Bk,Bk,Bk,Bk]],
     ];
+    const backgroundTerrain = terrain.map(([col, h, tiles]) => [col, h, [...tiles]]);
+    backgroundTerrain.forEach(([col, h, tiles]) => this.addBackgroundColumn(col, h, tiles));
     terrain.forEach(([col, h, tiles]) => this.addTerrainColumn(col, h, tiles));
   }
 
@@ -2421,6 +2635,8 @@ class WaterLevel extends Level {
       [118,11,[V,SA,SA,W,W,W,W,W,W,W,W]],
       [119,11,[V,V,SA,SA,W,W,W,W,W,W,W]],
     ];
+    const backgroundTerrain = terrain.map(([col, h, tiles]) => [col, h, [...tiles]]);
+    backgroundTerrain.forEach(([col, h, tiles]) => this.addBackgroundColumn(col, h, tiles));
     terrain.forEach(([col, h, tiles]) => this.addTerrainColumn(col, h, tiles));
 
     // 辅助函数：获取“最高地表” y 坐标（通常用于放置物体/敌人）
@@ -2773,26 +2989,32 @@ class WaterLevel extends Level {
     const tileW = TILE_SIZE;
     const tileH = TILE_SIZE;
 
+    const cameraTop = game?.cameraY ?? 0;
+    const visibleTop = Math.floor(cameraTop / tileH) * tileH;
+    const visibleBottom = cameraTop + CANVAS_H + tileH;
     if (waterImg && waterImg.width > 0) {
-      // 用水贴图在整个关卡宽度范围内平铺
-      for (let y = 0; y < CANVAS_H; y += tileH) {
+      // 用水贴图在当前可视区域平铺，避免纵向卷动后露出空白
+      for (let y = visibleTop; y <= visibleBottom; y += tileH) {
         for (let x = 0; x < WORLD_WIDTH; x += tileW) {
           image(waterImg, x, y, tileW, tileH);
         }
       }
     } else {
-      // 贴图加载失败时，用纯色填充背景水层
+      // 贴图加载失败时，用纯色填充可视区域水层
       noStroke();
       fill(80, 140, 255);
-      rect(0, 0, WORLD_WIDTH, CANVAS_H);
+      rect(0, visibleTop, WORLD_WIDTH, visibleBottom - visibleTop);
     }
+
+    // ===== 上层：紧邻地形的背景层（纯视觉层，无碰撞/交互）=====
+    this.drawBackgroundTerrainLayer();
 
     // ===== 上层：正常地形（沙子/石头/水池等），逻辑与判定保持不变 =====
     for (let col = 0; col < TERRAIN_COLS; col++) {
       for (let row = 0; row < (this.tileMap[col]?.length || 0); row++) {
         const type = this.tileMap[col][row];
         if (type === T.NONE || type === undefined) continue;
-        const y = 360 - (row + 1) * TILE_SIZE; // 从底部往上
+        const y = CANVAS_H - (row + 1) * TILE_SIZE; // 从底部往上
         drawTile(type, col * TILE_SIZE, y);
       }
     }
