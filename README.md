@@ -45,8 +45,9 @@
 - [9. Individual Contribution](#9-individual-contribution)
 
 ---
-## Weekly Lab
 ## Weekly Labs
+
+<div align="center">
 
 | Week | Title                                                         | Documentation |
 |------|---------------------------------------------------------------|---------------|
@@ -59,9 +60,13 @@
 | 08   | Lab 8: HCI Evaluation — NASA-TLX & SUS                          | [README](link_to_readme_08) |
 | 09   | Lab 9: Quality Assurance — Black-Box & White-Box Testing       | [README](link_to_readme_09) |
 
+</div>
+
 ---
 
 ## 1. Team
+
+<div align="center">
 
 | **Role**                                                             | **Name**                | **Email**                          |
 |:--------------------------------------------------------------------:|:-----------------------:|:----------------------------------:|
@@ -71,6 +76,8 @@
 | Developer, UX Designer, Level Designer, Audio Designer               | Murphy – Jingyu Xiao    | zz25762@bristol.ac.uk              |
 | Lead Developer, UI Designer, Level Designer, Audio Designer          | Anna – Sirui Zhong      | vc25336@bristol.ac.uk              |
 | Developer, UX Designer, Level Designer, Repository Management        | Bella – Linjing Zhang   | sn25366@bristol.ac.uk              |
+
+</div>
 
 <p align="center">
   <img src="./docs/images/team-photo-with-name.jpg" alt="Team Photo" width="100%" />
@@ -404,20 +411,22 @@ In the end, we think this project was valuable not only because we made a playab
 
 ## 9. Individual Contribution
 
-We worked on the game collaboratively and did not experience major issues with teamwork. Each person had slightly different areas of focus, but overall we feel that the workload was shared fairly, so we report an equal contribution for all team members.
+## Individual Contributions
 
 <div align="center">
 
 | Name | Main Contribution | Contribution |
 |:---:|:---:|:---:|
-| Helen - Yitong Zheng | Development, UI, level layout, video editing | 1.00 |
-| Li - Li Shen | Development, level design, UX, repo workflow | 1.00 |
-| Alice - Xianwen Hu | Development, UI/UX, video editing | 1.00 |
-| Murphy - Jingyu Xiao | Development, UX, level design, audio | 1.00 |
-| Anna - Sirui Zhong | Core development, UI, level design, audio | 1.00 |
+| Helen - Yitong Zheng  | Development, UI, level layout, video editing | 1.00 |
+| Li - Li Shen          | Development, level design, UX, repo workflow | 1.00 |
+| Alice - Xianwen Hu    | Development, UI/UX, video editing            | 1.00 |
+| Murphy - Jingyu Xiao  | Development, UX, level design, audio         | 1.00 |
+| Anna - Sirui Zhong    | Core development, UI, level design, audio    | 1.00 |
 | Bella - Linjing Zhang | Development, UX, level design, repo workflow | 1.00 |
 
 </div>
+
+> We worked on the game collaboratively and did not experience major issues with teamwork. Each person had slightly different areas of focus, but overall we feel that the workload was shared fairly, so we report an equal contribution for all team members.
 
 ### Additional Marks
 
