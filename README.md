@@ -385,7 +385,7 @@ Another pattern we followed, at least by design, was **Avoid tracking unnecessar
 
 The fourth pattern, **Minimize main thread work**, was only partly addressed, but it is still relevant to our implementation. Browser games run much of their logic on the main thread, so unnecessary updates can quickly affect performance. In our code, some choices already move in this direction. For example, enemies are not fully active from the start; they are first activated only when the player enters a defined detection range. Decorative elements such as trees, coral, kelp, and water are also separated from full collision platforms, which reduces the amount of collision work the system needs to perform. Cooldown values and delayed attack checks are also used to stop certain actions from being processed every possible frame. These decisions do not eliminate main-thread pressure, but they do show an effort to keep repeated computations under control.
 
-
+---
 
 ## 8. Conclusion
 Overall, this project helped us understand how difficult it is to turn a simple game idea into a working product. At the start, Super Cat and Steve seemed like a fairly straightforward platform game with an environmental theme. However, once we started building it, we realised that many small ideas were much harder to implement than expected. This was one of the biggest lessons from the whole project: in game development, even simple mechanics can become complicated when they interact with physics, level design, and player control.
