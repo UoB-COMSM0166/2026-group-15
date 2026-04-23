@@ -50,7 +50,7 @@
 
 <div align="center">
 
-| **Week** | **Title** | **Documentation** |
+| ** Week ** | ** Title ** | ** Documentation ** |
 |:--------:|:---------------------------------------------------------|:---------------:|
 | 01       | Lab 1: Game Ideas                                        | [README](https://github.com/UoB-COMSM0166/2026-group-15/tree/main/Homework_Week1_GameIdeas) |
 | 02       | Lab 2: Spray Fun and Brainstorm                          | [README](https://github.com/UoB-COMSM0166/2026-group-15/tree/main/Homework_Week2_SprayFun) |
