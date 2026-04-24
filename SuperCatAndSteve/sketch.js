@@ -2217,6 +2217,8 @@ class FactoryLevel extends ForestLevel {
       [119,12,[Db,Bk,N,N,N,Bk,Bk,Bk,Bk,Bk,Bk,Bk]],
     ];
     terrain.forEach(([col, h, tiles]) => this.addTerrainColumn(col, h, tiles));
+    const groundY = (col) => this.terrainHeights[col];
+    this.enemies.push(new Vex(10 * TILE_SIZE, 180, 40, 22));
   }
 
   addTerrainColumn(col, heightTiles, tiles) {
@@ -3467,6 +3469,99 @@ class Enemy extends Entity {
   draw() {
     fill(200, 50, 50);
     rect(this.x, this.y, this.w, this.h);
+  }
+}
+
+
+class Vex extends Enemy {
+  constructor(x, y, w = 40, h = 22, health = ENEMY_DEFAULT_HEALTH) {
+    super(x, y, w, h, health);
+    this.facingRight = false; // 贴图原始朝左
+    this.patrolOriginX = x;
+    this.patrolRange = 4 * TILE_SIZE; // 出生点左右各 2*TILE_SIZE
+    this.patrolDir = -1;
+    this.collisionW = 8;
+    this.collisionH = 22;
+    this.collisionOffsetX = (this.w - this.collisionW) / 2;
+    this.collisionOffsetY = (this.h - this.collisionH) / 2;
+  }
+
+  update(player, platforms, level = null) {
+    if (this.isDead) return;
+
+    const px = player.x + player.w / 2;
+    const ex = this.x + this.w / 2;
+    const ey = this.y + this.h / 2;
+    const py = player.y + player.h / 2;
+    const distance = Math.hypot(px - ex, py - ey);
+    this.updateActivation(distance);
+
+    if (this.activated) {
+      if (px < ex - 5) {
+        this.vx = -ENEMY_SPEED;
+        this.facingRight = false;
+      } else if (px > ex + 5) {
+        this.vx = ENEMY_SPEED;
+        this.facingRight = true;
+      } else {
+        this.vx = 0;
+      }
+
+      const flySpeedY = ENEMY_SPEED * 0.85;
+      if (py < ey - 4) {
+        this.vy = -flySpeedY;
+      } else if (py > ey + 4) {
+        this.vy = flySpeedY;
+      } else {
+        this.vy = 0;
+      }
+    } else {
+      const minX = this.patrolOriginX - 2 * TILE_SIZE;
+      const maxX = this.patrolOriginX + 2 * TILE_SIZE;
+      const patrolSpeed = ENEMY_SPEED * 0.85;
+      this.vx = patrolSpeed * this.patrolDir;
+
+      if (this.x <= minX) {
+        this.x = minX;
+        this.patrolDir = 1;
+      } else if (this.x >= maxX) {
+        this.x = maxX;
+        this.patrolDir = -1;
+      }
+      this.facingRight = this.patrolDir > 0;
+      this.vy = 0;
+    }
+
+    // Vex 可飞行：不受重力影响（vy 由飞行追踪逻辑决定）
+    this.x += this.vx;
+    this.resolveCollision(platforms, true);
+    this.y += this.vy;
+    this.onGround = false;
+    this.resolveCollision(platforms, false);
+
+    const maxY = CANVAS_H - this.h;
+    if (this.y > maxY) {
+      this.y = maxY;
+      this.vy = 0;
+      this.onGround = true;
+    }
+  }
+
+  draw() {
+    const frames = [window.vexSprite0, window.vexSprite1];
+    const frameDurationMs = 180;
+    const frame = frames[Math.floor(millis() / frameDurationMs) % frames.length];
+    if (frame && frame.width > 0) {
+      push();
+      imageMode(CENTER);
+      translate(this.x + this.w / 2, this.y + this.h / 2);
+      // vex 默认朝左，朝右时镜像
+      scale(this.facingRight ? -1 : 1, 1);
+      image(frame, 0, 0, this.w, this.h);
+      pop();
+    } else {
+      super.draw();
+    }
   }
 }
 
@@ -4837,7 +4932,8 @@ class UIManager {
         ],
         [],
         [
-          [window.slimeSprite, t("Slime", "史莱姆"), t("Press F to attack", "按 F 攻击")]
+          [window.slimeSprite, t("Slime", "史莱姆"), t("Press F to attack", "按 F 攻击")],
+          [window.vexSprite0, t("Vex", "怨灵"), t("Keep distance or attack", "保持距离或攻击")]
         ]
       ];
     }
@@ -4985,6 +5081,8 @@ function setup() {
   load('assets/pic/enemy/shark_up.png', 'sharkSpriteUp');
   load('assets/pic/enemy/shark_down.png', 'sharkSpriteDown');
   load("assets/pic/enemy/slime.png", "slimeSprite");
+  load('assets/pic/enemy/vex_0.png', 'vexSprite0');
+  load('assets/pic/enemy/vex_1.png', 'vexSprite1');
 
   // 工具（assets/pic/item/tool 中全部，新增图片时在此数组加入文件名不含 .png）
   ['scissor', 'limestone', 'enlarged_water_bucket', 'wrench'].forEach(name =>load(`assets/pic/item/tool/${name}.png`, `tool_${name}`));
