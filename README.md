@@ -310,8 +310,6 @@ We conducted a structured usability and workload evaluation with **10 participan
 
 #### 7.2.2 Data Summary and Statistical Results
 
-Raw SUS and NASA‑TLX scores for both difficulty levels are shown in the figures below.
-
 <p align="center">
   <img width="612" height="255" alt="SUS_raw" src="https://github.com/user-attachments/assets/26061f49-1f60-474f-87bb-11c12a449000" />
 </p>
@@ -324,7 +322,9 @@ Raw SUS and NASA‑TLX scores for both difficulty levels are shown in the figure
   <img width="833" height="570" alt="TLX_raw" src="https://github.com/user-attachments/assets/b504fd59-07d3-47c9-90cd-2e7c486ff82d" />
 </p>
 
-**Data summary**
+> Raw SUS and NASA‑TLX scores for both difficulty levels are shown in the figures above.
+
+**Summary**
 
 <p align="center">
 
@@ -337,13 +337,13 @@ Raw SUS and NASA‑TLX scores for both difficulty levels are shown in the figure
 
 #### 7.2.3 Key Findings
 
-##### System Usability Scale (SUS)
+**System Usability Scale (SUS)**
 
 The SUS score decreased from **86.0** (Grade A – excellent usability) at Level 1 to **55.0** (Grade F – poor usability) at Level 2, and this difference was statistically significant ($p < 0.01$).
 
 - **Interpretation:** As difficulty increases, players perceive the game as noticeably less usable. This suggests that elements of the mechanics or interface in the Hard mode reduce the sense of control or clarity, and should be reviewed in future iterations.
 
-##### NASA Task Load Index (NASA‑TLX)
+**NASA Task Load Index (NASA‑TLX)**
 
 NASA‑TLX scores did **not** show a statistically significant difference between Level 1 and Level 2 ($p > 0.05$).
 
