@@ -88,10 +88,232 @@
 **Super Cat and Steve** is an environmental-themed platform adventure built around three different worlds: forest, ocean, and factory.
 
 Each level shares the same core. Move forward, jump across platforms, avoid danger, and stay alive. But the goal is not just to reach the end. Players also collect pollutants, use tools, rescue trapped animals, and deal with enemies such as zombies along the way.
+## What Makes It Original
 
-The game takes its starting point from two familiar sources. From Mario, it borrows platform movement and obstacle-based progression. From Minecraft, it takes inspiration from pixel-art visuals and resource mining. These influences shape the basic form of the game, but the project tries to push them in a different direction.
+*Super Cat and Steve* begins with the structure of a classic pixel-art platform game, but the team wanted it to do more than just ask the player to jump, fight, and survive. The environmental theme shaped the game from an early stage, so the player is asked not only to move through the world, but also to repair it, protect wildlife, and respond to different kinds of hazards in different settings.
 
-What makes Super Cat and Steve distinctive is the way the environment affects play. In the ocean level, buoyancy changes how the player moves. In the factory level, pipes open up new routes. The result is a game where environmental protection is not only the theme, but also part of what the player actually does.
+This changes the purpose of play. Progress is not only about reaching the end of a level. The player must also rescue trapped animals, use tools correctly, recover health when needed, adapt to new environmental mechanics, and survive a range of enemies and dangerous terrain. In this way, environmental protection becomes part of the gameplay itself rather than just part of the game’s background.
+
+## Characters
+
+<div align="center">
+
+<table border="1" cellpadding="12" cellspacing="0">
+  <tr>
+    <td align="center" width="50%">
+      <img src="./SuperCatAndSteve/assets/pic/player_cat/Steve_right.png" width="120" alt="Steve"><br><br>
+      <strong>Steve</strong><br>
+      Steve is the main playable character. The player controls Steve to move through different levels, fight enemies, use tools, rescue wildlife, and survive environmental hazards.
+    </td>
+    <td align="center" width="50%">
+      <img src="./SuperCatAndSteve/assets/pic/player_cat/cat_right.png" width="120" alt="Cat"><br><br>
+      <strong>Cat</strong><br>
+      The cat is Steve’s companion and an important part of the game’s identity. It helps make the world feel more lively and gives the adventure a more recognisable character.
+    </td>
+  </tr>
+</table>
+
+</div>
+
+<br>
+
+## Main Tasks
+
+<div align="center">
+
+<table border="1" cellpadding="12" cellspacing="0">
+  <tr>
+    <td align="center" width="20%"><strong>Rescue animals</strong></td>
+    <td align="center" width="20%"><strong>Use tools</strong></td>
+    <td align="center" width="20%"><strong>Fight enemies</strong></td>
+    <td align="center" width="20%"><strong>Mine and explore</strong></td>
+    <td align="center" width="20%"><strong>Recover health</strong></td>
+  </tr>
+  <tr>
+    <td align="center">Free trapped animals and help restore the environment.</td>
+    <td align="center">Use the correct tool in the correct situation to clear hazards or unlock progress.</td>
+    <td align="center">Defeat enemies such as zombies, drowned enemies, sharks, slimes, and vexes while moving through each stage.</td>
+    <td align="center">Explore the world, move across different terrain, and mine useful blocks to improve equipment.</td>
+    <td align="center">Collect healing items such as apples and golden apples to restore health.</td>
+  </tr>
+</table>
+
+</div>
+
+<br>
+
+## Tools and Useful Items
+
+<div align="center">
+
+<table border="1" cellpadding="12" cellspacing="0">
+  <tr>
+    <td align="center" width="16.6%">
+      <img src="./SuperCatAndSteve/assets/pic/item/tool/scissor.png" width="90" alt="Scissors"><br><br>
+      <strong>Scissors</strong><br>
+      Used to cut traps and rescue birds.
+    </td>
+    <td align="center" width="16.6%">
+      <img src="./SuperCatAndSteve/assets/pic/item/tool/enlarged_water_bucket.png" width="90" alt="Water Bucket"><br><br>
+      <strong>Water Bucket</strong><br>
+      Used to deal with environmental hazards such as lava.
+    </td>
+    <td align="center" width="16.6%">
+      <img src="./SuperCatAndSteve/assets/pic/item/tool/limestone.png" width="90" alt="Limestone"><br><br>
+      <strong>Limestone</strong><br>
+      Used to neutralise acid pools.
+    </td>
+    <td align="center" width="16.6%">
+      <img src="./SuperCatAndSteve/assets/pic/item/tool/vine_seed.png" width="90" alt="Vine Seed"><br><br>
+      <strong>Vine Seed</strong><br>
+      Used to grow a climbable vine in the forest level.
+    </td>
+    <td align="center" width="16.6%">
+      <img src="./SuperCatAndSteve/assets/pic/item/tool/vine.png" width="90" alt="Vine"><br><br>
+      <strong>Vine</strong><br>
+      Created after using the vine seed. It works as a ladder and helps the player reach higher platforms.
+    </td>
+    <td align="center" width="16.6%">
+      <img src="./SuperCatAndSteve/assets/pic/item/tool/wrench.png" width="90" alt="Wrench"><br><br>
+      <strong>Wrench</strong><br>
+      An additional environmental tool that fits the game’s industrial and repair-based setting.
+    </td>
+  </tr>
+</table>
+
+</div>
+
+<br>
+
+## Healing Items
+
+<div align="center">
+
+<table border="1" cellpadding="12" cellspacing="0">
+  <tr>
+    <td align="center" width="50%">
+      <img src="./SuperCatAndSteve/assets/pic/item/hp/apple.png" width="90" alt="Apple"><br><br>
+      <strong>Apple</strong><br>
+      Restores health when collected.
+    </td>
+    <td align="center" width="50%">
+      <img src="./SuperCatAndSteve/assets/pic/item/hp/golden_apple.png" width="90" alt="Golden Apple"><br><br>
+      <strong>Golden Apple</strong><br>
+      A stronger healing item that restores more health than a normal apple.
+    </td>
+  </tr>
+</table>
+
+</div>
+
+<br>
+
+## Rescue Animals
+
+<div align="center">
+
+<table border="1" cellpadding="12" cellspacing="0">
+  <tr>
+    <td align="center" width="33%">
+      <img src="./SuperCatAndSteve/assets/pic/animals/bird.png" width="100" alt="Bird"><br><br>
+      <strong>Bird</strong><br>
+      A rescue target that can be freed with scissors.
+    </td>
+    <td align="center" width="33%">
+      <img src="./SuperCatAndSteve/assets/pic/animals/turtle_0.png" width="100" alt="Turtle"><br><br>
+      <strong>Turtle</strong><br>
+      One of the animals associated with the ocean level and its rescue theme.
+    </td>
+    <td align="center" width="33%">
+      <img src="./SuperCatAndSteve/assets/pic/animals/fish.png" width="100" alt="Fish"><br><br>
+      <strong>Fish</strong><br>
+      Another ocean animal that supports the wildlife rescue focus of the game.
+    </td>
+  </tr>
+</table>
+
+</div>
+
+<br>
+
+## Enemies and Hazards
+
+<div align="center">
+
+<table border="1" cellpadding="12" cellspacing="0">
+  <tr>
+    <td align="center" width="12.5%">
+      <img src="./SuperCatAndSteve/assets/pic/enemy/zombie_right.png" width="80" alt="Zombie"><br><br>
+      <strong>Zombie</strong><br>
+      A ground enemy that blocks progress.
+    </td>
+    <td align="center" width="12.5%">
+      <img src="./SuperCatAndSteve/assets/pic/enemy/drowned.png" width="80" alt="Drowned"><br><br>
+      <strong>Drowned</strong><br>
+      An underwater enemy connected to the ocean stage.
+    </td>
+    <td align="center" width="12.5%">
+      <img src="./SuperCatAndSteve/assets/pic/enemy/shark_still.png" width="80" alt="Shark"><br><br>
+      <strong>Shark</strong><br>
+      A marine enemy that adds danger to the ocean world.
+    </td>
+    <td align="center" width="12.5%">
+      <img src="./SuperCatAndSteve/assets/pic/enemy/slime.png" width="80" alt="Slime"><br><br>
+      <strong>Slime</strong><br>
+      A hostile creature that adds variety to enemy encounters.
+    </td>
+    <td align="center" width="12.5%">
+      <img src="./SuperCatAndSteve/assets/pic/enemy/vex_0.png" width="80" alt="Vex"><br><br>
+      <strong>Vex</strong><br>
+      A flying enemy type that increases combat variety.
+    </td>
+    <td align="center" width="12.5%">
+      <img src="./SuperCatAndSteve/assets/pic/ground/acid.png" width="80" alt="Acid Pool"><br><br>
+      <strong>Acid Pool</strong><br>
+      A dangerous environmental hazard that must be treated correctly.
+    </td>
+    <td align="center" width="12.5%">
+      <img src="./SuperCatAndSteve/assets/pic/ground/lava.png" width="80" alt="Lava"><br><br>
+      <strong>Lava</strong><br>
+      A lethal hazard that can kill the player instantly.
+    </td>
+    <td align="center" width="12.5%">
+      <img src="./SuperCatAndSteve/assets/pic/item/pollutant/tnt_side.png" width="80" alt="TNT"><br><br>
+      <strong>TNT</strong><br>
+      A dangerous object that the player should avoid.
+    </td>
+  </tr>
+</table>
+
+</div>
+
+<br>
+## Worlds and Environments
+
+<div align="center">
+
+<table border="1" cellpadding="12" cellspacing="0">
+  <tr>
+    <td align="center" width="33%">
+      <img src="https://github.com/user-attachments/assets/53dc3e64-583d-4227-af3f-e7df28cff9a4" width="220" alt="Forest World"><br><br>
+      <strong>Forest</strong><br>
+      The forest world focuses on platforming, rescue, exploration, and early environmental tasks.
+    </td>
+    <td align="center" width="33%">
+      <img src="https://github.com/user-attachments/assets/b6d7fee6-94b6-46de-b9f5-eb1bedb8daf8" width="220" alt="Ocean World"><br><br>
+      <strong>Ocean</strong><br>
+      The ocean world introduces underwater movement and marine life, with seagrass, coral, kelp, and aquatic enemies.
+    </td>
+    <td align="center" width="33%">
+      <img src="https://github.com/user-attachments/assets/1d19e4f9-eeb3-4e7b-9e26-9440188359a4" width="220" alt="Factory World"><br><br>
+      <strong>Factory</strong><br>
+      The factory world uses industrial tiles, pipes, and harsher hazards to create a more mechanical and polluted environment.
+    </td>
+  </tr>
+</table>
+
+
+</div>
 
 ---
 
