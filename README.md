@@ -574,6 +574,14 @@ NASA‑TLX scores did **not** show a statistically significant difference betwee
 
 - **Interpretation:** Although players rated the Hard mode as less usable in SUS, their overall perceived workload (mental and physical effort) remained at a similar level. This may be influenced by the small effective sample size (ties reduced the number of usable pairs to $n = 6$) and by players reaching a stable effort level early in the task rather than increasing effort further in the Hard condition.
 
+#### 7.2.4 Follow‑up Changes
+
+The numbers suggested that our Hard mode had more of a usability issue than a workload issue. SUS scores dropped from 86.0 (Grade A) to 55.0 (Grade F) with a clear effect (W = 0, p < 0.01), while NASA‑TLX scores stayed at a similar level and did not show a significant difference (27.6 vs 21.9, W = 8.5, p > 0.05, effective n = 6).
+
+We read this as players not necessarily working harder in the Hard mode, but feeling that it was **less clear and less under their control**. In response, we did not simply make the level easier. Instead, we adjusted enemy placement, jump distances and rock collision boxes so that jumps which looked possible were actually possible in the physics, and we tweaked some hazard timings to avoid “I couldn’t see that coming” moments.
+
+We also improved feedback in the interface by making hit reactions, health changes and tool behaviour easier to read. The goal was to keep the challenge, but reduce frustration caused by unclear situations rather than by genuine difficulty.
+
 ***
 
 ### 7.3 Testing
