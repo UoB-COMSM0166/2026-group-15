@@ -583,7 +583,7 @@ NASA‑TLX scores did **not** show a statistically significant difference betwee
 We used black-box testing to evaluate whether the main gameplay features behaved as expected from the player’s point of view, without focusing on the internal code structure. The tests covered core interactions such as movement, digging, combat, item collection, rescue actions, damage, death conditions, UI buttons, and map boundaries. This helped us check whether the visible behaviour of the game matched the intended design and whether key mechanics were understandable and reliable during play.
 
 | Test Group | Precondition | Test Steps | Expected Result |
-|---|---|---|---|
+|:---:|---|---|---|
 | Dig | The player is close to a terrain tile. | Long press on the tile. | The tile disappears. |
 | Dig | The player is close to an iron ore tile. | Long press on the tile. | The tile disappears, and the sword is upgraded to an iron sword. |
 | Move | None. | Press **A**. | The player moves to the left. |
