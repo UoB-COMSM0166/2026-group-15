@@ -156,7 +156,7 @@ This changes the purpose of play. Progress is not only about reaching the end of
     <td align="center" width="16.6%">
       <img src="./SuperCatAndSteve/assets/pic/item/tool/scissor.png" width="90" alt="Scissors"><br><br>
       <strong>Scissors</strong><br>
-      Used to cut traps and rescue birds.
+      Cut traps and nests. Used to rescue birds and fish.
     </td>
     <td align="center" width="16.6%">
       <img src="./SuperCatAndSteve/assets/pic/item/tool/enlarged_water_bucket.png" width="90" alt="Water Bucket"><br><br>
@@ -181,7 +181,7 @@ This changes the purpose of play. Progress is not only about reaching the end of
     <td align="center" width="16.6%">
       <img src="./SuperCatAndSteve/assets/pic/item/tool/wrench.png" width="90" alt="Wrench"><br><br>
       <strong>Wrench</strong><br>
-      An additional environmental tool that fits the game’s industrial and repair-based setting.
+      Used to break iron cage and rescue turtles.
     </td>
   </tr>
 </table>
@@ -199,7 +199,7 @@ This changes the purpose of play. Progress is not only about reaching the end of
     <td align="center" width="50%">
       <img src="./SuperCatAndSteve/assets/pic/item/hp/apple.png" width="90" alt="Apple"><br><br>
       <strong>Apple</strong><br>
-      Restores health when collected.
+      A healing item that Restores health when collected.
     </td>
     <td align="center" width="50%">
       <img src="./SuperCatAndSteve/assets/pic/item/hp/golden_apple.png" width="90" alt="Golden Apple"><br><br>
@@ -213,7 +213,7 @@ This changes the purpose of play. Progress is not only about reaching the end of
 
 <br>
 
-#### Rescue Animals
+#### Trapped Animals
 
 <div align="center">
 
@@ -222,17 +222,17 @@ This changes the purpose of play. Progress is not only about reaching the end of
     <td align="center" width="33%">
       <img src="./SuperCatAndSteve/assets/pic/animals/bird.png" width="100" alt="Bird"><br><br>
       <strong>Bird</strong><br>
-      A rescue target that can be freed with scissors.
+      It is caught in a trap and can be freed with scissors.
     </td>
     <td align="center" width="33%">
       <img src="./SuperCatAndSteve/assets/pic/animals/turtle_0.png" width="100" alt="Turtle"><br><br>
       <strong>Turtle</strong><br>
-      One of the animals associated with the ocean level and its rescue theme.
+      It is trapped in an iron cage and can be freed with wrenches.
     </td>
     <td align="center" width="33%">
       <img src="./SuperCatAndSteve/assets/pic/animals/fish.png" width="100" alt="Fish"><br><br>
       <strong>Fish</strong><br>
-      Another ocean animal that supports the wildlife rescue focus of the game.
+      It is trapped in a nest and can be freed with scissors.
     </td>
   </tr>
 </table>
@@ -249,42 +249,42 @@ This changes the purpose of play. Progress is not only about reaching the end of
     <td align="center" width="12.5%">
       <img src="./SuperCatAndSteve/assets/pic/enemy/zombie_right.png" width="80" alt="Zombie"><br><br>
       <strong>Zombie</strong><br>
-      A ground enemy that blocks progress.
+      A ground enemy that can hurt player and make player lose health.
     </td>
     <td align="center" width="12.5%">
       <img src="./SuperCatAndSteve/assets/pic/enemy/drowned.png" width="80" alt="Drowned"><br><br>
       <strong>Drowned</strong><br>
-      An underwater enemy connected to the ocean stage.
+      An underwater enemy that can hurt player and make player lose health.
     </td>
     <td align="center" width="12.5%">
       <img src="./SuperCatAndSteve/assets/pic/enemy/shark_still.png" width="80" alt="Shark"><br><br>
       <strong>Shark</strong><br>
-      A marine enemy that adds danger to the ocean world.
+      A marine enemy gliding undersea. It can also hurt player. More dangerours than drowned.
     </td>
     <td align="center" width="12.5%">
       <img src="./SuperCatAndSteve/assets/pic/enemy/slime.png" width="80" alt="Slime"><br><br>
       <strong>Slime</strong><br>
-      A hostile creature that adds variety to enemy encounters.
+      A sticky and hostile creature that adds variety to enemy encounters.
     </td>
     <td align="center" width="12.5%">
       <img src="./SuperCatAndSteve/assets/pic/enemy/vex_0.png" width="80" alt="Vex"><br><br>
       <strong>Vex</strong><br>
-      A flying enemy type that increases combat variety.
+      A flying enemy type. 
     </td>
     <td align="center" width="12.5%">
       <img src="./SuperCatAndSteve/assets/pic/ground/acid.png" width="80" alt="Acid Pool"><br><br>
       <strong>Acid Pool</strong><br>
-      A dangerous environmental hazard that must be treated correctly.
+      A lethal environmental hazard that must be neutralized by limestone.
     </td>
     <td align="center" width="12.5%">
       <img src="./SuperCatAndSteve/assets/pic/ground/lava.png" width="80" alt="Lava"><br><br>
       <strong>Lava</strong><br>
-      A lethal hazard that can kill the player instantly.
+      A lethal hazard that can kill the player instantly. Lava can be treated by buckets of water
     </td>
     <td align="center" width="12.5%">
       <img src="./SuperCatAndSteve/assets/pic/item/pollutant/tnt_side.png" width="80" alt="TNT"><br><br>
       <strong>TNT</strong><br>
-      A dangerous object that the player should avoid.
+      A dangerous object that the player should avoid. Will not explode instantly.
     </td>
   </tr>
 </table>
