@@ -587,7 +587,7 @@ We also improved feedback in the interface by making hit reactions, health chang
 ### 7.3 Testing
 - Description of how code was tested.
 
-### 7.3.1 Black-Box Testing
+#### 7.3.1 Black-Box Testing
 
 We used black-box testing to evaluate whether the main gameplay features behaved as expected from the player’s point of view, without focusing on the internal code structure. The tests covered core interactions such as movement, digging, combat, item collection, rescue actions, damage, death conditions, UI buttons, and map boundaries. This helped us check whether the visible behaviour of the game matched the intended design and whether key mechanics were understandable and reliable during play.
 
