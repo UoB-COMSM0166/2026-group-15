@@ -168,7 +168,7 @@ This changes the purpose of play. Progress is not only about reaching the end of
       Used to neutralise acid pools.
     </td>
     <td align="center" width="16.6%">
-      <img src="./SuperCatAndSteve/assets/pic/item/tool/vine_seed.png" width="90" alt="Vine Seed"><br><br>
+      <img src="./SuperCatAndSteve/assets/pic/item/tool/seed.png" width="90" alt="Vine Seed"><br><br>
       <strong>Vine Seed</strong><br>
       Used to grow a climbable vine in the forest level.
     </td>
