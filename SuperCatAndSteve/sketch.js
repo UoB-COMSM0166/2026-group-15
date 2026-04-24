@@ -2217,6 +2217,36 @@ class FactoryLevel extends ForestLevel {
       [119,12,[Db,Bk,N,N,N,Bk,Bk,Bk,Bk,Bk,Bk,Bk]],
     ];
     terrain.forEach(([col, h, tiles]) => this.addTerrainColumn(col, h, tiles));
+    this.pipeFlowColumns = [];
+    for (let col = 0; col < TERRAIN_COLS; col++) {
+      const tile = this.tileMap[col]?.[1];
+      if (
+        tile &&
+        typeof tile === 'object' &&
+        tile.textureKey === 'tile_pipe_wide' &&
+        tile.rotation === -HALF_PI
+      ) {
+        this.pipeFlowColumns.push(col);
+      }
+    }
+    this.pipeFlowRuns = [];
+    let currentRun = [];
+    for (let i = 0; i < this.pipeFlowColumns.length; i++) {
+      const col = this.pipeFlowColumns[i];
+      if (currentRun.length === 0 || col === currentRun[currentRun.length - 1] + 1) {
+        currentRun.push(col);
+      } else {
+        this.pipeFlowRuns.push(currentRun);
+        currentRun = [col];
+      }
+    }
+    if (currentRun.length > 0) this.pipeFlowRuns.push(currentRun);
+
+    this.pipeFlowStartMs = null;
+    this.pipeFlowStepMs = 500;
+    this.pipeFlowVisibleMs = 3000;
+    this.pipeFlowSquareVisibleMs = 3000;
+    this.pipeFlowHeight = 26;
     const groundY = (col) => this.terrainHeights[col];
     this.enemies.push(new Vex(10 * TILE_SIZE, 180, 40, 22));
   }
@@ -2292,6 +2322,90 @@ class FactoryLevel extends ForestLevel {
       if (!this.terrainBlocks[col]) this.terrainBlocks[col] = [];
       this.terrainBlocks[col][row] = platform;
     }
+  }
+
+  draw() {
+    super.draw();
+
+    const flowState = this.getPipeFlowState();
+    if (!flowState) return;
+    noStroke();
+    fill(70, 150, 255, 230);
+
+    for (const zone of this.getActivePipeFlowZones(flowState)) {
+      rect(zone.x, zone.y, zone.w, zone.h);
+    }
+  }
+
+  getPipeFlowState() {
+    if (!this.pipeFlowRuns || this.pipeFlowRuns.length === 0) return null;
+    if (this.pipeFlowStartMs === null) this.pipeFlowStartMs = millis();
+
+    return { elapsedMs: millis() - this.pipeFlowStartMs };
+  }
+
+  getActivePipeFlowZones(flowState = null) {
+    const s = flowState || this.getPipeFlowState();
+    if (!s) return [];
+
+    const zones = [];
+    const y = 360 - 2 * TILE_SIZE; // row=1 对应 tile 的上边缘
+    const stepMs = this.pipeFlowStepMs;
+
+    for (const run of this.pipeFlowRuns) {
+      const pipeCount = run.length;
+      if (pipeCount <= 0) continue;
+      const lastPipeAppearMs = (pipeCount - 1) * stepMs;
+      const square1AppearMs = lastPipeAppearMs + stepMs;
+      const square2AppearMs = square1AppearMs + stepMs;
+      const square3AppearMs = square2AppearMs + stepMs;
+      const firstPipeDisappearMs = square3AppearMs + this.pipeFlowSquareVisibleMs;
+      const firstSquareDisappearMs = firstPipeDisappearMs + pipeCount * stepMs;
+      const square1DisappearMs = firstSquareDisappearMs;
+      const square2DisappearMs = firstSquareDisappearMs + stepMs;
+      const square3DisappearMs = firstSquareDisappearMs + 2 * stepMs;
+      const totalCycleMs = square3DisappearMs + stepMs;
+      if (totalCycleMs <= 0) continue;
+      const cycleElapsedMs = s.elapsedMs % totalCycleMs;
+
+      for (let i = 0; i < pipeCount; i++) {
+        const appearMs = i * stepMs;
+        const disappearMs = firstPipeDisappearMs + i * stepMs;
+        if (cycleElapsedMs >= appearMs && cycleElapsedMs < disappearMs) {
+          zones.push({
+            x: run[i] * TILE_SIZE,
+            y,
+            w: TILE_SIZE,
+            h: this.pipeFlowHeight
+          });
+        }
+      }
+
+      const lastCol = run[pipeCount - 1];
+      const squareBaseX = lastCol * TILE_SIZE + 64;
+      const squareBaseY = y;
+      if (cycleElapsedMs >= square1AppearMs && cycleElapsedMs < square1DisappearMs) {
+        zones.push({ x: squareBaseX - TILE_SIZE, y: squareBaseY, w: TILE_SIZE, h: TILE_SIZE });
+      }
+      if (cycleElapsedMs >= square2AppearMs && cycleElapsedMs < square2DisappearMs) {
+        zones.push({ x: squareBaseX, y: squareBaseY, w: TILE_SIZE, h: TILE_SIZE });
+      }
+      if (cycleElapsedMs >= square3AppearMs && cycleElapsedMs < square3DisappearMs) {
+        zones.push({ x: squareBaseX, y: squareBaseY + TILE_SIZE, w: TILE_SIZE, h: TILE_SIZE });
+      }
+    }
+    return zones;
+  }
+
+  applyBlueFlowForceToPlayer(player) {
+    if (!player || typeof player.getCollisionBox !== 'function') return;
+    const box = player.getCollisionBox();
+    const zones = this.getActivePipeFlowZones();
+    const touchingBlueZone = zones.some((z) => rectCollision(box.x, box.y, box.w, box.h, z.x, z.y, z.w, z.h));
+    if (!touchingBlueZone) return;
+
+    player.vx += 0.45; // 额外向右推力
+    player.vy += 0.35; // 额外向下推力
   }
 }
 
@@ -3100,6 +3214,10 @@ class Player extends Entity {
       this.vy = constrain(this.vy, -1.8, 1.8);
     } else {
       this.vy += this.gravity;
+    }
+
+    if (level && typeof level.applyBlueFlowForceToPlayer === 'function') {
+      level.applyBlueFlowForceToPlayer(this);
     }
 
     // 水平移动：分步移动防止穿墙
