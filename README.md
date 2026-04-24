@@ -88,13 +88,14 @@
 **Super Cat and Steve** is an environmental-themed platform adventure built around three different worlds: forest, ocean, and factory.
 
 Each level shares the same core. Move forward, jump across platforms, avoid danger, and stay alive. But the goal is not just to reach the end. Players also collect pollutants, use tools, rescue trapped animals, and deal with enemies such as zombies along the way.
-## What Makes It Original
+
+### What Makes It Original
 
 *Super Cat and Steve* begins with the structure of a classic pixel-art platform game, but the team wanted it to do more than just ask the player to jump, fight, and survive. The environmental theme shaped the game from an early stage, so the player is asked not only to move through the world, but also to repair it, protect wildlife, and respond to different kinds of hazards in different settings.
 
 This changes the purpose of play. Progress is not only about reaching the end of a level. The player must also rescue trapped animals, use tools correctly, recover health when needed, adapt to new environmental mechanics, and survive a range of enemies and dangerous terrain. In this way, environmental protection becomes part of the gameplay itself rather than just part of the game’s background.
 
-## Characters
+#### Characters
 
 <div align="center">
 
@@ -117,7 +118,7 @@ This changes the purpose of play. Progress is not only about reaching the end of
 
 <br>
 
-## Main Tasks
+#### Main Tasks
 
 <div align="center">
 
@@ -142,7 +143,7 @@ This changes the purpose of play. Progress is not only about reaching the end of
 
 <br>
 
-## Tools and Useful Items
+#### Tools and Useful Items
 
 <div align="center">
 
@@ -185,7 +186,7 @@ This changes the purpose of play. Progress is not only about reaching the end of
 
 <br>
 
-## Healing Items
+#### Healing Items
 
 <div align="center">
 
@@ -208,7 +209,7 @@ This changes the purpose of play. Progress is not only about reaching the end of
 
 <br>
 
-## Rescue Animals
+#### Rescue Animals
 
 <div align="center">
 
@@ -233,10 +234,9 @@ This changes the purpose of play. Progress is not only about reaching the end of
 </table>
 
 </div>
-
 <br>
 
-## Enemies and Hazards
+#### Enemies and Hazards
 
 <div align="center">
 
@@ -287,8 +287,7 @@ This changes the purpose of play. Progress is not only about reaching the end of
 
 </div>
 
-<br>
-## Worlds and Environments
+#### Worlds and Environments
 
 <div align="center">
 
