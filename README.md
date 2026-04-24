@@ -354,6 +354,27 @@ NASA‑TLX scores did **not** show a statistically significant difference betwee
 ### 7.3 Testing
 - Description of how code was tested.
 
+### 7.3.1 Black-Box Testing
+
+We used black-box testing to evaluate whether the main gameplay features behaved as expected from the player’s point of view, without focusing on the internal code structure. The tests covered core interactions such as movement, digging, combat, item collection, rescue actions, damage, death conditions, UI buttons, and map boundaries. This helped us check whether the visible behaviour of the game matched the intended design and whether key mechanics were understandable and reliable during play.
+
+| Test Group | Precondition | Test Steps | Expected Result |
+|---|---|---|---|
+| Dig | The player is close to a terrain tile. | Long press on the tile. | The tile disappears. |
+| Dig | The player is close to an iron ore tile. | Long press on the tile. | The tile disappears, and the sword is upgraded to an iron sword. |
+| Move | None. | Press **A**. | The player moves to the left. |
+| Move | None. | Press **D**. | The player moves to the right. |
+| Move | None. | Press **W**. | The player jumps or moves upward. |
+| Move | None. | Press **S**. | The player squats. |
+| Attack | The player is close to an enemy. | Press **F**. | The enemy disappears after 3 attacks. |
+| Save | The player is close to the scissors and a trapped bird. | Move to the scissors, collect them, and then move close to the bird. | The scissors are collected and the bird is saved. |
+| Collect | The player is close to an item. | Move to the item. | The item is collected and added to the inventory. |
+| Injure | The player is close to an apple. | Touch the apple. | The player gains health. |
+| Die | The player is in a dangerous situation. | 1. Fall into lava; 2. Step on TNT; 3. Be attacked by an enemy. | The player dies immediately. |
+| Quit during playing | None. | Click the exit button. | The game returns to the start page. |
+| Menu during playing | None. | Click the menu button. | The game shows the pollutants, animals, and tools in the current frame. |
+| Boundary | None. | Hold **W** long enough to touch the upper boundary. | The player moves out of the visible canvas; when the key is released, the player falls back down. |
+| Boundary | None. | Touch the lower boundary. | The player dies. |
 ---
 
 ## 8. Process
