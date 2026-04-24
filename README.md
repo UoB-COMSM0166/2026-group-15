@@ -584,21 +584,30 @@ We used black-box testing to evaluate whether the main gameplay features behaved
 
 | Test Group | Precondition | Test Steps | Expected Result |
 |:---:|---|---|---|
-| Dig | The player is close to a terrain tile. | Long press on the tile. | The tile disappears. |
-| Dig | The player is close to an iron ore tile. | Long press on the tile. | The tile disappears, and the sword is upgraded to an iron sword. |
+| Start game | The game has been loaded successfully. | Press **Enter** on the start screen. | The game enters the level selection screen. |
+| Level select | The player is on the level selection screen. | Press **1**, **2**, or **3**. | The selected level starts and the game enters playing state. |
 | Move | None. | Press **A**. | The player moves to the left. |
 | Move | None. | Press **D**. | The player moves to the right. |
-| Move | None. | Press **W**. | The player jumps or moves upward. |
-| Move | None. | Press **S**. | The player squats. |
-| Attack | The player is close to an enemy. | Press **F**. | The enemy disappears after 3 attacks. |
-| Save | The player is close to the scissors and a trapped bird. | Move to the scissors, collect them, and then move close to the bird. | The scissors are collected and the bird is saved. |
-| Collect | The player is close to an item. | Move to the item. | The item is collected and added to the inventory. |
-| Injure | The player is close to an apple. | Touch the apple. | The player gains health. |
-| Die | The player is in a dangerous situation. | 1. Fall into lava; 2. Step on TNT; 3. Be attacked by an enemy. | The player dies immediately. |
-| Quit during playing | None. | Click the exit button. | The game returns to the start page. |
-| Menu during playing | None. | Click the menu button. | The game shows the pollutants, animals, and tools in the current frame. |
-| Boundary | None. | Hold **W** long enough to touch the upper boundary. | The player moves out of the visible canvas; when the key is released, the player falls back down. |
-| Boundary | None. | Touch the lower boundary. | The player dies. |
+| Move | The player is on the ground. | Press **W**. | The player jumps upward. |
+| Move | The player is in water. | Hold **W**. | The player rises upward in water. |
+| Move | The player is in water or in a level section where downward movement is possible. | Press **S**. | The player moves downward or performs the downward movement action correctly. |
+| Dig | The player is close to a terrain tile and keeps the mouse pressed long enough. | Long press on the tile. | The tile disappears. |
+| Dig | The player is close to an ore tile such as iron ore and keeps the mouse pressed long enough. | Long press on the tile. | The tile disappears, and the weapon is upgraded if the mined ore gives a stronger sword. |
+| Attack | The player is close enough to an enemy. | Press **F** repeatedly. | The enemy takes damage and disappears after enough successful attacks. |
+| Save | The player is close to the scissors and also close enough to a trapped bird. | Collect the scissors, select them in the inventory, and use them near the bird. | The scissors are consumed, the bird is rescued, and the score increases. |
+| Collect | The player is close to a collectible item. | Move to the item. | The item is collected and added to the inventory if it is a tool or pollutant. |
+| Heal | The player is close to an apple. | Touch the apple. | The player gains health. |
+| Heal | The player is close to a golden apple. | Touch the golden apple. | The player gains more health than from a normal apple. |
+| Die | The player falls into lava or acid. | Step into the hazard. | The player dies and the game enters the game-over state. |
+| Die | The player steps on TNT. | Touch the TNT and wait for the explosion. | The TNT is triggered and the player dies if caught in the blast. |
+| Die | The player remains in contact with an enemy until health is depleted. | Stay near the enemy for repeated damage. | The player’s health reaches zero and the game enters the game-over state. |
+| Quit during playing | The game is in playing state. | Click the exit button. | The game returns to the start page. |
+| Menu during playing | The game is in playing state. | Click the menu button. | The field guide / menu opens and shows the pollutants, animals, tools, or hazards for the current game. |
+| Boundary | The player is in the water level and continues rising upward. | Hold **W** long enough to reach the upper boundary. | The player can move out of the visible canvas temporarily; when upward input stops, the player falls or sinks back down. |
+| Boundary | The player reaches the lower death boundary or falls into a lethal lower hazard. | Move downward until reaching the lower fatal area. | The player dies and the game enters the game-over state. |
+| Restart after fail | The game is in the game-over state. | Press **Enter**. | The game returns to the start screen. |
+| Restart after victory | The game is in the victory state. | Press **Enter**. | The game returns to the start screen. |
+
 ---
 
 ## 8. Process
