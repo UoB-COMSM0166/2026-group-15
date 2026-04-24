@@ -68,6 +68,12 @@ const TROPHY_SLOTS_BY_LEVEL = {
 const TROPHY_SIZE = HEART_SIZE;
 /** 奖杯栏相对画布上、右内边距（整条栏的顶边与最右格右缘） */
 const TROPHY_UI_INSET = 4;
+/** 顶部居中游戏进度条 */
+const TOP_PROGRESS_BAR_W = 200;
+const TOP_PROGRESS_BAR_H = 14;
+const TOP_PROGRESS_BAR_Y = HEART_UI_INSET + HEART_SIZE - TOP_PROGRESS_BAR_H;
+const TOP_PROGRESS_FILL_W = 196;
+const TOP_PROGRESS_FILL_H = 10;
 /** 退出按钮相对画布左、下边距（左缘、下缘各距屏幕边缘） */
 const EXIT_BTN_SCREEN_INSET = 2;
 /** 菜单按钮下缘与退出按钮上缘的间距 */
@@ -1425,15 +1431,12 @@ tryPlantVineSeed(slotIndex) {
   drawTopCenterHint() {
     if (!this.toolHintMessage || millis() > this.toolHintUntil) return;
     push();
-    textAlign(CENTER, BOTTOM);
+    textAlign(CENTER, TOP);
     textSize(14);
     noStroke();
     fill(245, 248, 255);
-    const topUiBottom = Math.max(
-      HEART_UI_INSET + HEART_SIZE,
-      TROPHY_UI_INSET + TROPHY_SIZE
-    );
-    text(this.toolHintMessage, width / 2, topUiBottom);
+    const hintY = TOP_PROGRESS_BAR_Y + TOP_PROGRESS_BAR_H + 4;
+    text(this.toolHintMessage, width / 2, hintY);
     pop();
   }
 }
@@ -4598,22 +4601,56 @@ class UIManager {
       }
     }
 
+      // 顶部居中游戏进度条（显示本局到达过的最远进度）
+      const topProgress = constrain(game?.displayedCatProgress ?? 0, 0, 1);
+      const progressBarX = (width - TOP_PROGRESS_BAR_W) / 2;
+      const progressFrameImg = window.uiProgress;
+      if (progressFrameImg && progressFrameImg.width > 0) {
+        image(progressFrameImg, progressBarX, TOP_PROGRESS_BAR_Y, TOP_PROGRESS_BAR_W, TOP_PROGRESS_BAR_H);
+      } else {
+        noStroke();
+        fill(0, 0, 0, 255);
+        rect(progressBarX, TOP_PROGRESS_BAR_Y, TOP_PROGRESS_BAR_W, TOP_PROGRESS_BAR_H);
+      }
+      noStroke();
+      const topProgressFillW = TOP_PROGRESS_FILL_W * topProgress;
+      const progressFillX = progressBarX + 2;
+      const progressFillY = TOP_PROGRESS_BAR_Y + 2;
+      fill(23, 221, 98);
+      rect(
+        progressFillX,
+        progressFillY,
+        topProgressFillW,
+        TOP_PROGRESS_FILL_H
+      );
+      if (topProgressFillW >= 4) {
+        fill(219, 255, 235);
+        rect(progressFillX + 2, progressFillY + 2, 2, 2);
+      }
+      if (topProgressFillW >= 6) {
+        fill(175, 253, 205);
+        rect(progressFillX + 4, progressFillY + 2, 2, 2);
+      }
+      if (topProgressFillW >= 4) {
+        fill(175, 253, 205);
+        rect(progressFillX + 2, progressFillY + 4, 2, 2);
+      }
+      if (topProgressFillW > 0) {
+        fill(0);
+        rect(
+          progressFillX + Math.max(0, topProgressFillW - 2),
+          progressFillY,
+          2,
+          TOP_PROGRESS_FILL_H
+        );
+      }
+
       const topRight = this.getTopRightButtons();
       this.drawTopRightIcon(topRight.menuRect, window.uiMenu, [240, 210, 80]);
       this.drawTopRightIcon(topRight.exitRect, window.uiExit, [240, 120, 90]);
 
       // 背包 - 使用背包贴图（10格）
       const invX = (width - INV_BAR_W) / 2, invY = height - INV_BAR_H;
-
-      // 进度猫：显示本局到达过的最远进度，并用轻微缓动追上目标位置
-      const playerProgress = constrain(game?.displayedCatProgress ?? 0, 0, 1);
-      const catTrackWidth = INV_BAR_W - INVENTORY_PROGRESS_CAT_W;
-      const catX = invX + playerProgress * catTrackWidth;
-      const catY = invY - INVENTORY_PROGRESS_CAT_H;
-      const progressCatImg = window.inventoryProgressCat;
-      if (progressCatImg && progressCatImg.width > 0) {
-        image(progressCatImg, catX, catY, INVENTORY_PROGRESS_CAT_W, INVENTORY_PROGRESS_CAT_H);
-      }
 
       // 画背包贴图作为背景
       const invContainerImg = window.invContainer;
@@ -4895,6 +4932,7 @@ function setup() {
   load('assets/pic/ui/heart_fill.png', 'heartFill');
   load('assets/pic/ui/trophy_container.png', 'trophyContainer');
   load('assets/pic/ui/trophy_fill.png', 'trophyFill');
+  load('assets/pic/ui/progress.png', 'uiProgress');
   load('assets/pic/ui/inventory_container.png', 'invContainer');
   load('assets/pic/player_cat/cat_right.png', 'inventoryProgressCat');
   load('assets/pic/ui/menu.png', 'uiMenu');
