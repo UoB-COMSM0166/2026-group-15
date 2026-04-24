@@ -138,7 +138,7 @@ To make our requirements clearer, we used the approach introduced in the require
 The player was still the main stakeholder, so most of our functional requirements were written around the player’s actions. A player should be able to choose a level, move through the environment, avoid or attack enemies, collect pollutants, use tools, rescue animals, and complete the level by earning enough points. However, writing these requirements as user stories made them more precise. Instead of saying that the game should be “interesting” or “educational”, we had to describe exactly what the user would do and what the system should return in response. The acceptance criteria were especially helpful because they gave us a simple way to decide whether a feature worked properly or not.
 
 <p align="center">
-<img width="1536" height="1024" alt="onion model" src="https://github.com/user-attachments/assets/b7c967ee-8189-4378-b14c-9797fc61944e" />
+<img src="./docs/images/onion model.png" alt="onion model" width="100%" />
 </p>
 
 ### 4.3 Use Case Diagram
@@ -148,7 +148,7 @@ This use case diagram shows the main ways the player interacts with Super Cat an
 We placed Explore Level at the centre of the diagram because it is the core activity of the game. Most of the important gameplay actions happen during exploration, while Complete Level represents the final objective. In our game, finishing a level is closely connected to environmental tasks, especially pollutant collection and animal rescue. For this reason, these two actions are shown as key parts of level completion. Overall, the diagram highlights that environmental protection is built into the gameplay itself rather than added only as background theme.
 
 <p align="center">
-<img width="725" height="515" alt="case diagram" src="https://github.com/user-attachments/assets/d1997d90-a505-403e-b446-0775469490f4" />
+<img src="./docs/images/case diagram.png" alt="case diagram" width="100%" />
 </p>
 
 ### 4.4 User Stories and Acceptance Criteria
