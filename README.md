@@ -448,7 +448,7 @@ In the end, we think this project was valuable not only because we made a playab
 
 </div>
 
-> We worked on the game collaboratively and did not experience major issues with teamwork. Each person had slightly different areas of focus, but overall we feel that the workload was shared fairly, so we report an equal contribution for all team members.
+> We worked on the game collaboratively, and each of us had slightly different areas of focus. Overall, the workload was shared fairly, so we report an equal contribution for all team members.
 
 ### Additional Marks
 
