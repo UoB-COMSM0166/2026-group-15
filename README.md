@@ -105,7 +105,7 @@ This changes the purpose of play. Progress is not only about reaching the end of
 <table border="1" cellpadding="12" cellspacing="0">
   <tr>
     <td align="center" width="50%">
-      <img src="./SuperCatAndSteve/assets/pic/player_cat/Steve_right.png" width="120" alt="Steve"><br><br>
+      <img src="./SuperCatAndSteve/assets/pic/player_cat/Alex_right.png" width="120" alt="Steve"><br><br>
       <strong>Steve</strong><br>
       Steve is the main playable character. The player controls Steve to move through different levels, fight enemies, use tools, rescue wildlife, and survive environmental hazards.
     </td>
