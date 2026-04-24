@@ -201,7 +201,7 @@ Write here.
 
 ## 6. Implementation
 
-When we started building *Super Cat and Steve*, we quickly realised that most of our time would be spent on two things: getting the movement to feel right across different environments, and making the item system actually match the environmental story we wanted to tell. On slides these sound like two neat bullet points; in code they turned into a lot of small decisions, broken prototypes and parameter tweaking.
+When we started building our game, we quickly realised that most of our time would be spent on two things: getting the movement to feel right across different environments, and making the item system actually match the environmental story we wanted to tell. On slides these sound like two neat bullet points; in code they turned into a lot of small decisions, broken prototypes and parameter tweaking.
 
 ### Challenge 1: Force-Based Movement across Land, Water and Pipes
 
