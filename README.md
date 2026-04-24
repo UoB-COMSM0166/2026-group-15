@@ -329,7 +329,7 @@ We conducted a structured usability and workload evaluation with **10 participan
 <p align="center">
 
 | Metric         | Level 1 Mean (SD) | Level 2 Mean (SD) | Wilcoxon Statistic | P‑value   | Significant? |
-| :------------- | :---------------: | :---------------: | :----------------: | :-------: | :----------: |
+| :------------: | :---------------: | :---------------: | :----------------: | :-------: | :----------: |
 | **SUS score**  | 86.0              | 55.0              | $W = 0$            | $p < 0.01$| **Yes**      |
 | **NASA‑TLX**   | 27.6              | 21.9              | $W = 8.5$          | $p > 0.05$| **No**       |
 
