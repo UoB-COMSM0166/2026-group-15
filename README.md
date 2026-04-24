@@ -156,7 +156,7 @@ This changes the purpose of play. Progress is not only about reaching the end of
     <td align="center" width="16.6%">
       <img src="./SuperCatAndSteve/assets/pic/item/tool/scissor.png" width="90" alt="Scissors"><br><br>
       <strong>Scissors</strong><br>
-      Cut traps and nests. Used to rescue birds and fish.
+      Cut traps and nets. Used to rescue birds and fish.
     </td>
     <td align="center" width="16.6%">
       <img src="./SuperCatAndSteve/assets/pic/item/tool/enlarged_water_bucket.png" width="90" alt="Water Bucket"><br><br>
@@ -232,7 +232,7 @@ This changes the purpose of play. Progress is not only about reaching the end of
     <td align="center" width="33%">
       <img src="./SuperCatAndSteve/assets/pic/animals/fish.png" width="100" alt="Fish"><br><br>
       <strong>Fish</strong><br>
-      It is trapped in a nest and can be freed with scissors.
+      It is trapped in a net and can be freed with scissors.
     </td>
   </tr>
 </table>
@@ -240,7 +240,7 @@ This changes the purpose of play. Progress is not only about reaching the end of
 </div>
 <br>
 
-#### Enemies and Hazards
+#### Enemies and Dangers
 
 <div align="center">
 
@@ -279,7 +279,7 @@ This changes the purpose of play. Progress is not only about reaching the end of
     <td align="center" width="12.5%">
       <img src="./SuperCatAndSteve/assets/pic/ground/lava.png" width="80" alt="Lava"><br><br>
       <strong>Lava</strong><br>
-      A lethal hazard that can kill the player instantly. Lava can be treated by buckets of water
+      A lethal hazard that can kill the player instantly. It must be treated by buckets of water
     </td>
     <td align="center" width="12.5%">
       <img src="./SuperCatAndSteve/assets/pic/item/pollutant/tnt_side.png" width="80" alt="TNT"><br><br>
