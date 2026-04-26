@@ -6149,12 +6149,74 @@ function getSettingsRects() {
 
 // ====== startscreen ======
 function drawStartScreen() {
+  imageMode(CORNER);
   if (window.startBg && window.startBg.width > 0) {
-    image(window.startBg, 0, 0, width, height);
+    image(window.startBg, 0, 0, CANVAS_W, CANVAS_H);
   } else {
     background(50, 50, 100);
   }
-  
+
+  // Top-center game title on the start screen.
+  textAlign(CENTER, TOP);
+  textSize(48);
+  textStyle(BOLD);
+  const titleY = 56;
+  const titleGap = 14;
+  const titleWords = [
+    { text: "SUPER", topColor: [253, 184, 0], bottomColor: [234, 124, 0] },
+    { text: "CAT", topColor: [253, 184, 0], bottomColor: [234, 124, 0] },
+    { text: "&", topColor: [122, 214, 252], bottomColor: [73, 140, 253] },
+    { text: "STEVE", topColor: [253, 184, 0], bottomColor: [234, 124, 0] }
+  ];
+  const totalTitleWidth = titleWords.reduce((sum, word, index) => {
+    const gap = index < titleWords.length - 1 ? titleGap : 0;
+    return sum + textWidth(word.text) + gap;
+  }, 0);
+
+  const drawSplitTitleWord = (wordText, centerX, topY, topColor, bottomColor) => {
+    const w = textWidth(wordText);
+    const h = textAscent() + textDescent();
+    const splitY = topY + h * 0.5;
+    const pad = 10;
+    const outlineOffsetY = 2;
+
+    // Draw a dark base first, then paint split colors on top.
+    stroke(0, 0, 0, 255);
+    strokeWeight(10);
+    fill(0, 0, 0, 255);
+    text(wordText, centerX, topY + outlineOffsetY);
+
+    // Draw top half color.
+    drawingContext.save();
+    drawingContext.beginPath();
+    drawingContext.rect(centerX - w / 2 - pad, topY - pad, w + pad * 2, (splitY - topY) + pad);
+    drawingContext.clip();
+    noStroke();
+    fill(topColor[0], topColor[1], topColor[2]);
+    text(wordText, centerX, topY);
+    drawingContext.restore();
+
+    // Draw bottom half color.
+    drawingContext.save();
+    drawingContext.beginPath();
+    drawingContext.rect(centerX - w / 2 - pad, splitY, w + pad * 2, (topY + h - splitY) + pad);
+    drawingContext.clip();
+    noStroke();
+    fill(bottomColor[0], bottomColor[1], bottomColor[2]);
+    text(wordText, centerX, topY);
+    drawingContext.restore();
+  };
+
+  let titleX = width / 2 - totalTitleWidth / 2;
+  for (const word of titleWords) {
+    const w = textWidth(word.text);
+    drawSplitTitleWord(word.text, titleX + w / 2, titleY, word.topColor, word.bottomColor);
+    titleX += w + titleGap;
+  }
+  textStyle(NORMAL);
+  noStroke();
+  fill(255);
+
   fill(255);
   textAlign(CENTER, CENTER);
   
