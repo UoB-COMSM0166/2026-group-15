@@ -41,6 +41,16 @@ function drawDebugTerrainColumnIndexLabels() {
 const WATER_GRAVITY = 0.1;   // 基础重力
 const WATER_BUOYANCY = 0.08; // 浮力（抵消部分重力）
 const WATER_DRAG = 0.8;     // 水中阻力系数
+// 海豚道具强化效果：磁铁功能 
+const DOLPHIN_START_COL = 40;
+const DOLPHIN_END_COL = 70;
+const DOLPHIN_W = 96;
+const DOLPHIN_H = 32;
+const DOLPHIN_MAGNET_RADIUS = 150;
+const DOLPHIN_MAGNET_STRENGTH = 0.14;
+
+// 两张海豚图切换速度：数值越小越快
+const DOLPHIN_ANIM_FRAME_MS = 90;
 
 // 贴图类型（地面/平台可选 assets/pic/ground 中任意图片）
 const T = {
@@ -189,7 +199,26 @@ const I18N_BY_EN = {
   'Grow a ladder to climb': { FR: 'Fait pousser une échelle', RU: 'Выращивает лестницу', JA: 'つるのはしごを作る', KO: '덩굴 사다리를 만든다' },
   'Vine ladder grown': {FR: 'Échelle de liane créée',RU: 'Лестница из лозы создана',JA: 'つるのはしごを作った',KO: '덩굴 사다리가 생성되었습니다'},
   'Cannot plant vine here': {FR: 'Impossible de planter ici',RU: 'Здесь нельзя посадить лозу',JA: 'ここには植えられない',KO: '여기에는 심을 수 없습니다'},
-  'Vine seed must be planted on nearby ground': {FR: 'La graine doit être plantée sur un sol proche',RU: 'Семя лозы можно сажать только на ближайшей земле',JA: '近くの地面にしか植えられない',KO: '가까운地面にのみ植えられます'}
+  'Vine seed must be planted on nearby ground': {FR: 'La graine doit être plantée sur un sol proche',RU: 'Семя лозы можно сажать только на ближайшей земле',JA: '近くの地面にしか植えられない',KO: '가까운地面にのみ植えられます'},
+  'Move with W/S/A/D, press F to attack, click inventory items to use them': {FR: 'Déplacez-vous avec W/S/A/D, appuyez sur F pour attaquer, cliquez sur les objets de l’inventaire pour les utiliser',RU: 'Двигайтесь с W/S/A/D, нажмите F для атаки, щёлкните предметы в инвентаре, чтобы использовать их',JA: 'W/S/A/Dで移動、Fキーで攻撃、インベントリ内のアイテムをクリックして使用',KO: 'W/S/A/D로 이동, F 키로 공격, 인벤토리의 아이템을 클릭해 사용'},
+  'Lava ahead. Try picking up the bucket and using it.': {FR: 'De la lave devant vous. Essayez de ramasser le seau et de l’utiliser.',RU: 'Впереди лава. Попробуйте подобрать ведро и использовать его.',JA: '前方に溶岩があります。バケツを拾って使ってみましょう。',KO: '앞에 용암이 있습니다. 양동이를 주워 사용해 보세요.'},
+  'Great! Water and fire reacted chemically. You can pass now.': {FR: 'Super ! L’eau et le feu ont réagi chimiquement. Vous pouvez passer maintenant.',RU: 'Отлично! Вода и огонь вступили в химическую реакцию. Теперь можно пройти.',JA: 'すごい！水と火が化学反応を起こしました。もう通れます。',KO: '좋아요! 물과 불이 화학 반응을 일으켰습니다. 이제 지나갈 수 있습니다.'},
+  'It\'s a zombie! Quickly press F to attack it.': {FR: 'C’est un zombie ! Appuyez vite sur F pour l’attaquer.',RU: 'Это зомби! Быстро нажмите F, чтобы атаковать его.',JA: 'ゾンビです！すぐにFキーで攻撃しましょう。',KO: '좀비입니다! 빨리 F 키로 공격하세요.'},
+  'It\'s a magic seed. It will grow into a vine ladder.': {FR: 'C’est une graine magique. Elle deviendra une échelle de lianes.',RU: 'Это волшебное семя. Оно вырастет в лиановую лестницу.',JA: '魔法の種です。つるのはしごに成長します。',KO: '마법의 씨앗입니다. 덩굴 사다리로 자랍니다.'},
+  'A pair of scissors! You can use them to rescue trapped animals.': {FR: 'Une paire de ciseaux ! Vous pouvez les utiliser pour sauver les animaux piégés.',RU: 'Ножницы! Их можно использовать, чтобы спасти пойманных животных.',JA: 'ハサミです！捕まった動物を助けるのに使えます。',KO: '가위입니다! 갇힌 동물을 구하는 데 사용할 수 있습니다.'},
+  'Oh no, a slime is blocking the way!': {FR: 'Oh non, un slime bloque le passage !',RU: 'О нет, слизень преградил путь!',JA: 'しまった、スライムが道をふさいでいる！',KO: '이런, 슬라임이 길을 막고 있어요!'},
+  'Apples are a gift from the forest. Eat them for a pleasant surprise.': {FR: 'Les pommes sont un cadeau de la forêt. Mangez-les pour une agréable surprise.',RU: 'Яблоки — дар леса. Съешьте их, и вас ждёт приятный сюрприз.',JA: 'リンゴは森からの贈り物です。食べると嬉しい効果があります。',KO: '사과는 숲의 선물입니다. 먹으면 기분 좋은 효과가 있습니다.'},
+  'Poor little bird is trapped in a net. Maybe we can help it.': {FR: 'Le pauvre petit oiseau est piégé dans un filet. Nous pouvons peut-être l’aider.',RU: 'Бедная маленькая птица попала в сеть. Возможно, мы сможем ей помочь.',JA: 'かわいそうな小鳥が網に捕まっています。助ける方法があるかもしれません。',KO: '불쌍한 작은 새가 그물에 갇혔어요. 우리가 도울 방법이 있을지도 몰라요.'},
+  'It\'s dynamite. Do not touch it!': {FR: 'C’est de la dynamite. N’y touchez pas !',RU: 'Это динамит. Не трогайте его!',JA: 'ダイナマイトです。触らないでください！',KO: '다이너마이트입니다. 절대 만지지 마세요!'},
+  'There seems to be treasure buried in the seabed gravel ahead. Click to mine it.': {FR: 'Il semble y avoir un trésor enfoui dans le gravier du fond marin. Cliquez pour le miner.',RU: 'Похоже, в морском гравии впереди спрятано сокровище. Нажмите, чтобы добыть его.',JA: '前方の海底の砂利には宝が埋まっているようです。クリックして採掘しましょう。',KO: '앞쪽 해저 자갈에 보물이 묻혀 있는 것 같습니다. 클릭하여 채굴하세요.'},
+  'Magic seashell! Maybe, like apples, it is a gift from nature.': {FR: 'Coquillage magique ! Peut-être, comme les pommes, est-ce un cadeau de la nature.',RU: 'Волшебная ракушка! Возможно, как и яблоки, это дар природы.',JA: '魔法の貝殻！リンゴのように自然からの贈り物かもしれません。',KO: '마법의 조개입니다! 사과처럼 자연이 준 선물일지도 모릅니다.'},
+  'Meow! Steve, there is a turtle that has lost its freedom.': {FR: 'Miaou ! Steve, il y a une tortue qui a perdu sa liberté.',RU: 'Мяу! Стив, там черепаха, которая лишилась свободы.',JA: 'ニャー！スティーブ、自由を失ったカメがいるよ。',KO: '야옹! 스티브, 자유를 잃은 거북이가 있어요.'},
+  'Meow! I’ve never seen such a big fish! Be careful in the deep sea.': {FR: 'Miaou ! Je n’ai jamais vu un poisson aussi grand ! Fais attention dans les profondeurs.',RU: 'Мяу! Я никогда не видел такую большую рыбу! Будь осторожен в глубоком море.',JA: 'ニャー！こんなに大きな魚は初めて見た！深海では気をつけて。',KO: '야옹! 이렇게 큰 물고기는 처음 봐요! 깊은 바다에서는 조심하세요.'},
+  'Another glowing treasure! We are really lucky.': {FR: 'Encore un trésor lumineux ! Nous avons vraiment de la chance.',RU: 'Ещё одно светящееся сокровище! Нам действительно повезло.',JA: 'また光る宝物だ！本当に運がいいね。',KO: '또 빛나는 보물이야! 정말 운이 좋네요.'},
+  'My excellent sense of smell tells me that green potion is something good.': {FR: 'Mon excellent odorat me dit que cette potion verte est une bonne chose.',RU: 'Моё отличное обоняние подсказывает, что это зелёное зелье — хорошая вещь.',JA: '優れた嗅覚によると、あの緑の薬は良いものみたいです。',KO: '제 뛰어난 후각으로 보아 저 초록 물약은 좋은 것 같아요.'},
+  'City pipes… I really don’t like water. Can we go somewhere else, meow?': {FR: 'Les tuyaux de la ville… je n’aime vraiment pas l’eau. On peut aller ailleurs, miaou ?',RU: 'Городские трубы… я правда не люблю воду. Может, пойдём в другое место, мяу?',JA: '街の配管…水は本当に苦手。別のところに行ける？ニャー？',KO: '도시의 파이프… 저는 물이 정말 싫어요. 다른 데로 갈 수 있을까요? 야옹?'},
+  'The dolphin attracts nearby tools and seashells!': {FR: 'Le dauphin attire les outils et les coquillages proches !',RU: 'Дельфин притягивает ближайшие инструменты и ракушки!',JA: 'イルカが近くの道具や貝殻を引き寄せます！',KO: '돌고래가 근처의 도구와 조개를 끌어당깁니다!'},
+
 };
 let activeFont;
 
@@ -488,6 +517,12 @@ class Game {
     this.scoreToastUntil = 0;        // 提示显示截止时间戳（millis）
     this.toolHintMessage = null;     // 工具使用结果提示（背包上方居中）
     this.toolHintUntil = 0;          // 工具提示显示截止时间戳（millis）
+
+    this.tutorialHintMessage = null;
+    this.tutorialHintUntil = 0;
+    this.triggeredTutorialHints = new Set();
+    this.bucketPourAnim = null;      // 水桶动画
+    this.healEffectUntil = 0;        // 恢复动画
     this.maxPlayerProgress = 0;      // 本局已到达的最远进度（用于背包上的进度猫）
     this.displayedCatProgress = 0;   // HUD 中小猫当前显示的进度（带一点缓动）
     this.playerBottomCenterTrace = [];
@@ -624,6 +659,87 @@ class Game {
     pop();
   }
 
+drawBucketPourAnim(now) {
+  if (!this.bucketPourAnim) return;
+
+  const a = this.bucketPourAnim;
+  const progress = constrain((now - a.start) / a.duration, 0, 1);
+
+  if (progress >= 1) {
+    this.bucketPourAnim = null;
+    return;
+  }
+
+  const bucketImg = window.tool_enlarged_water_bucket;
+  const waterImg = window.effect_water_stream;
+
+  const rotateEnd = 0.55;
+  const rotateProgress = constrain(progress / rotateEnd, 0, 1);
+
+  const fadeStart = 0.8;
+  const fadeProgress = constrain((progress - fadeStart) / (1 - fadeStart), 0, 1);
+  const alpha = 255 * (1 - fadeProgress);
+
+  const bucketAngle = lerp(-PI / 8, PI / 2.3, rotateProgress);
+  const bucketBobY = sin(rotateProgress * PI) * -5;
+
+  push();
+  tint(255, alpha);
+
+  // 水桶：先旋转到倾倒角度，然后保持倾倒状态直到淡出
+  if (bucketImg && bucketImg.width > 0) {
+    push();
+    imageMode(CENTER);
+    translate(a.x, a.y + bucketBobY);
+    rotate(bucketAngle);
+    image(bucketImg, 0, 0, 32, 32);
+    pop();
+  }
+
+  // 水柱：水桶旋转完毕后，完整水流直接出现，不做向下延伸
+  if (progress >= rotateEnd && waterImg && waterImg.width > 0) {
+    push();
+    imageMode(CENTER);
+    translate(a.x + 10, a.y + 44);
+    image(waterImg, 0, 0, 68, 68);
+    pop();
+  }
+
+  noTint();
+  pop();
+}
+
+  showHealEffect(durationMs = 700) {
+  this.healEffectUntil = millis() + durationMs;
+}
+
+//恢复特效
+drawHealEffect(now) {
+  if (!this.player || now > this.healEffectUntil) return;
+
+  const img = window.effect_heal;
+  const box = this.player.getCollisionBox();
+
+  const duration = 700;
+  const progress = constrain(1 - (this.healEffectUntil - now) / duration, 0, 1);
+  const alpha = 255 * (1 - progress);
+  const bobY = sin(progress * PI) * -6;
+
+  push();
+  imageMode(CENTER);
+  tint(255, alpha);
+
+  const x = box.x + box.w / 2;
+  const y = box.y - 18 + bobY;
+
+  if (img && img.width > 0) {
+    image(img, x, y, 24, 24);
+  }
+
+  noTint();
+  pop();
+}
+
   resetGameToState(state) {
     game = createGameWithSameSettings(this.levelType, this.settings);
     game.setup();
@@ -661,12 +777,18 @@ class Game {
     this.scoreToastUntil = 0;
     this.toolHintMessage = null;
     this.toolHintUntil = 0;
+
+    this.tutorialHintMessage = null;
+    this.tutorialHintUntil = 0;
+    this.triggeredTutorialHints = new Set();
 }
 
   update() {
     this.player.update(this.level.platforms, this.level);
+    this.updateDolphinMagnet();
     this.recordPlayerBottomCenter(millis());
     this.updateCamera();
+    this.checkTutorialHintZones();  //实现区域触发
 
     const playerCenterX = this.player.x + this.player.w / 2;
     const playerProgress = constrain(playerCenterX / WORLD_WIDTH, 0, 1);
@@ -692,9 +814,9 @@ class Game {
       } else if (item instanceof Ladder) {
         // 梯子是放置物，不受重力影响
         continue;
-      } else if (item instanceof Item || item instanceof Animal) {
-        item.update(this.level.platforms, this.level);
-      }
+        } else if (item instanceof Item || item instanceof Animal || item instanceof Dolphin) {
+          item.update(this.level.platforms, this.level);
+        }
     }
     this.checkCollisions();
     this.updateMining();
@@ -880,8 +1002,10 @@ class Game {
   }
 
   getHpHealAmount(hpType) {
-    if (hpType === 'apple') return 1;
-    if (hpType === 'golden_apple') return 3;
+    if (hpType === 'apple') return 1;  //第一关恢复道具
+    if (hpType === 'golden_apple') return 3;  //第一关恢复道具，强化版
+    if (hpType === 'seashell') return 1; // 第二关恢复道具
+    if (hpType === 'potion_bottle') return 1;      // 第三关恢复道具
     return 0;
   }
 
@@ -1274,12 +1398,32 @@ tryUseWaterBucket() {
   convertLine(targetCol, targetRow, -1); // 向左
   convertLine(targetCol + 1, targetRow, 1); // 向右（从右边一格开始，避免重复）
 
-  if (changed > 0) {
-    this.consumeSelectedTool('enlarged_water_bucket');
-    return true;
-  }
+if (changed > 0) {
+  // 第一关才播放水桶倾倒动画
+  if (this.level instanceof ForestLevel) {
+    const lavaX = targetCol * TILE_SIZE;
+    const lavaY = 360 - (targetRow + 1) * TILE_SIZE;
 
-  return false;
+    this.bucketPourAnim = {
+      start: millis(),
+      duration: 1500,
+      x: lavaX + TILE_SIZE * 0.75,
+      y: lavaY - TILE_SIZE * 2
+    };
+  }
+  if (!this.triggeredTutorialHints.has('forest_water_lava_reaction_done')) {
+    this.tutorialHintMessage = t(
+      'Great! Water and fire reacted chemically. You can pass now.',
+      '太棒了！水火发生化学反应，可以正常通行了'
+    );
+    this.tutorialHintUntil = millis() + 5000;
+    this.triggeredTutorialHints.add('forest_water_lava_reaction_done');
+  }
+  this.consumeSelectedTool('enlarged_water_bucket');
+  return true;
+}
+
+return false;
 }
 
 tryUseLimestone() {
@@ -1376,6 +1520,48 @@ tryPlantVineSeed(slotIndex) {
   return true;
 }
 
+updateDolphinMagnet() {
+  if (!(this.level instanceof WaterLevel)) return;
+  if (!this.player?.hasDolphinMagnet) return;
+
+  const dolphin = this.player.activeDolphin;
+
+  if (!dolphin || dolphin.swimAway) {
+    this.player.hasDolphinMagnet = false;
+    this.player.activeDolphin = null;
+    return;
+  }
+
+  const playerCenterX = this.player.x + this.player.w / 2;
+  const playerCenterY = this.player.y + this.player.h / 2;
+  const playerCol = Math.floor(playerCenterX / TILE_SIZE);
+
+  // 海豚离场只在第 70 列后生效
+  if (playerCol > DOLPHIN_END_COL) {
+    dolphin.dismount(this.player);
+    this.showToolHint(t("The dolphin swims away after helping you!", "海豚完成帮助后游走了！"), 1800);
+    return;
+  }
+
+  for (const item of this.level.items) {
+  //海豚磁铁会吸引所有工具和回血恢复道具
+  if (!(item instanceof Tool || item instanceof Hp)) continue;
+
+    // 只吸第 40～70 列范围内的目标
+    const itemCol = Math.floor((item.x + item.w / 2) / TILE_SIZE);
+    if (itemCol < DOLPHIN_START_COL || itemCol > DOLPHIN_END_COL) continue;
+
+    const itemCenterX = item.x + item.w / 2;
+    const itemCenterY = item.y + item.h / 2;
+    const d = dist(playerCenterX, playerCenterY, itemCenterX, itemCenterY);
+
+    if (d > DOLPHIN_MAGNET_RADIUS) continue;
+
+    item.x += (playerCenterX - itemCenterX) * DOLPHIN_MAGNET_STRENGTH;
+    item.y += (playerCenterY - itemCenterY) * DOLPHIN_MAGNET_STRENGTH;
+  }
+}
+
  checkCollisions() {
   const now = millis();
   if (this.enemyContactLastTick === 0) this.enemyContactLastTick = now;
@@ -1415,6 +1601,16 @@ tryPlantVineSeed(slotIndex) {
 
     // 只有碰撞到才处理拾取/触发
     if (!this.player.collidesWith(item)) continue;
+    if (item instanceof Dolphin) {
+      if (!this.player.dolphinUsed) {
+      item.mount(this.player);
+      this.showToolHint(t(
+        "The dolphin attracts nearby tools and seashells!",
+        "海豚会帮你吸引附近的工具和贝壳！"
+    ), 3800);
+  }
+  continue;
+}
 
     // 0) TNT：碰到就触发，不进背包、不加分、不移除
     if (item instanceof TNT) {
@@ -1440,7 +1636,10 @@ tryPlantVineSeed(slotIndex) {
 
     if (item instanceof Hp) {
       const heal = this.getHpHealAmount(item.hpType);
-      if (heal > 0) this.player.health = Math.min(this.player.maxHealth, this.player.health + heal);
+      if (heal > 0) {
+        this.player.health = Math.min(this.player.maxHealth, this.player.health + heal);
+        this.showHealEffect();
+      }
       this.level.items.splice(i, 1);
       continue;
     }
@@ -1458,8 +1657,11 @@ tryPlantVineSeed(slotIndex) {
     translate(-this.cameraX, 0);
     this.level.draw();
     this.player.draw();
+    this.drawHealEffect(now);
     this.drawFollowCat(now);
+    this.drawBucketPourAnim(now);
     drawDebugTerrainColumnIndexLabels();
+    
 
     // 如果玩家在水中，叠加一层半透明水贴图在玩家前面
     // if (typeof this.player.isInWater === "function" && this.player.isInWater(this.level)) {
@@ -1491,17 +1693,276 @@ tryPlantVineSeed(slotIndex) {
     this.drawTopCenterHint();
   }
 
-  drawTopCenterHint() {
-    if (!this.toolHintMessage || millis() > this.toolHintUntil) return;
-    push();
-    textAlign(CENTER, BOTTOM);
-    textSize(14);
-    noStroke();
-    fill(245, 248, 255);
-    const hintY = height - INV_BAR_H - 4;
-    text(this.toolHintMessage, width / 2, hintY);
-    pop();
+checkTutorialHintZones() {
+  if (!this.player) return;
+
+  const playerCol = Math.floor((this.player.x + this.player.w / 2) / TILE_SIZE);
+
+  const zones = [
+    // 三关通用的游戏提示
+    {
+      id: `${this.levelType}_basic_controls`,
+      startCol: 0,
+      endCol: 4,
+      message: t(
+        'Move with W/S/A/D, press F to attack, click inventory items to use them',
+        'W/S/A/D 控制人物移动，按 F 键攻击，鼠标单击物品栏内的物品以使用物品'
+      ),
+      duration: 6000
+    }
+  ];
+
+  // 第一关森林地图的专属提示
+  if (this.levelType === 'forest') {
+    zones.push(
+      {
+        id: 'forest_lava_bucket_hint',
+        startCol: 6,
+        endCol: 6,
+        message: t(
+          'Lava ahead. Try picking up the bucket and using it.',
+          '前面有岩浆，试试拾取水桶并使用吧'
+        ),
+        duration: 6000
+      },
+      {
+        id: 'forest_zombie_attack_hint',
+        startCol: 15,
+        endCol: 15,
+        message: t(
+          'It\'s a zombie! Quickly press F to attack it.',
+          '是僵尸！快使用 F 键攻击他'
+        ),
+        duration: 5000
+      },
+      {
+        id: 'forest_magic_seed_hint',
+        startCol: 21,
+        endCol: 21,
+        message: t(
+          'It\'s a magic seed. It will grow into a vine ladder.',
+          '是魔法种子，他会长成一个藤蔓梯子'
+        ),
+        duration: 5000
+      },
+      {
+        id: 'forest_scissors_hint',
+        startCol: 28,
+        endCol: 28,
+        message: t(
+          'A pair of scissors! You can use them to rescue trapped animals.',
+          '一把剪刀！可以用来解救被困的小动物'
+        ),
+        duration: 5000
+      },
+      {
+        id: 'forest_slime_block_hint',
+        startCol: 75,
+        endCol: 75,
+        message: t(
+          'Oh no, a slime is blocking the way!',
+          '哦不，史莱姆挡住了去路'
+        ),
+        duration: 5000
+      },
+      {
+        id: 'forest_apple_hint',
+        startCol: 42,
+        endCol: 42,
+        message: t(
+          'Apples are a gift from the forest. Eat them for a pleasant surprise.',
+          '苹果是森林的礼物，吃下会有惊喜哦'
+        ),
+        duration: 5000
+      },
+      {
+        id: 'forest_trapped_bird_hint',
+        startCol: 71,
+        endCol: 71,
+        message: t(
+          'Poor little bird is trapped in a net. Maybe we can help it.',
+          '可怜的小鸟被网困住了，也许我们有办法救他'
+        ),
+        duration: 5000
+      },
+      {
+        id: 'forest_dynamite_hint',
+        startCol: 96,
+        endCol: 96,
+        message: t(
+          'It\'s dynamite. Do not touch it!',
+          '是炸药，千万不要接触他'
+        ),
+        duration: 5000
+      ,}
+
+    );
   }
+
+  //第二关海洋地图的专属提示
+  if (this.levelType === 'water') {
+  zones.push(
+    {
+      id: 'water_mining_hint',
+      startCol: 15,
+      endCol: 15,
+      message: t(
+        'There seems to be treasure buried in the seabed gravel ahead. Click to mine it.',
+        '前方的海底沙砾里似乎埋藏着宝藏，单击以挖矿'
+      ),
+      duration: 6000
+    },
+    {
+      id: 'water_seashell_hint',
+      startCol: 22,
+      endCol: 22,
+      message: t(
+        'Magic seashell! Maybe, like apples, it is a gift from nature.',
+        '神奇海螺！也许和苹果一样是自然的馈赠'
+      ),
+      duration: 5000
+    },
+    {
+      id: 'water_turtle_hint',
+      startCol: 41,
+      endCol: 41,
+      message: t(
+        'Meow! Steve, there is a turtle that has lost its freedom.',
+        '喵！史蒂夫，那儿有一只失去自由的海龟'
+      ),
+      duration: 5000
+    },
+    {
+      id: 'water_big_fish_hint',
+      startCol: 9,
+      endCol: 9,
+      message: t(
+        'Meow! I’ve never seen such a big fish! Be careful in the deep sea.',
+        '从来没见过这么大的鱼，在深海里要小心'
+      ),
+      duration: 5000
+    },
+    {
+      id: 'water_glowing_treasure_hint',
+      startCol: 73,
+      endCol: 73,
+      message: t(
+        'Another glowing treasure! We are really lucky.',
+        '又有发光的宝藏了，我们运气真好'
+      ),
+      duration: 5000
+    },
+
+  );
+}
+
+  if (this.levelType === 'factory') {
+    zones.push(
+      {
+        id: 'factory_green_potion_hint',
+        startCol: 16,
+        endCol: 16,
+        message: t(
+          'My excellent sense of smell tells me that green potion is something good.',
+          '从我出色的嗅觉来看，那瓶绿色药剂是好东西呢'
+        ),
+        duration: 5000
+      },
+      {
+        id: 'factory_pipe_water_hint',
+        startCol: 25,
+        endCol: 25,
+        message: t(
+          'City pipes… I really don’t like water. Can we go somewhere else, meow?',
+          '人类的城市管道……我真的不喜欢水，我们可以去别的地方吗，喵'
+        ),
+        duration: 5000
+      },
+    );
+  }
+
+  for (const z of zones) {
+    if (this.triggeredTutorialHints.has(z.id)) continue;
+
+    if (playerCol >= z.startCol && playerCol <= z.endCol) {
+      this.tutorialHintMessage = z.message;
+      this.tutorialHintUntil = millis() + z.duration;
+      this.triggeredTutorialHints.add(z.id);
+      break;
+    }
+  }
+}
+
+drawTopCenterHint() {
+  let message = null;
+
+  // 工具失败提示优先，比如“附近没有可交互目标”
+  if (this.toolHintMessage && millis() <= this.toolHintUntil) {
+    message = this.toolHintMessage;
+  } else if (this.tutorialHintMessage && millis() <= this.tutorialHintUntil) {
+    message = this.tutorialHintMessage;
+  }
+
+  if (!message) return;
+
+  push();
+
+  textSize(12);
+  textAlign(LEFT, CENTER);
+  noStroke();
+
+  const catImg = window.followPlayerCat;
+
+  const catW = 42;
+  const catH = 20;
+  const paddingX = 12;
+  const paddingY = 7;
+  const gap = 8;
+
+  const textW = textWidth(message);
+  const bubbleW = textW + paddingX * 2;
+  const bubbleH = 26;
+
+  const totalW = catW + gap + bubbleW;
+
+  const startX = (width - totalW) / 2;
+  const bubbleX = startX + catW + gap;
+  const centerY = height - INV_BAR_H - 20;
+
+  // 小猫贴图
+  if (catImg && catImg.width > 0) {
+    imageMode(CENTER);
+    image(catImg, startX + catW / 2, centerY, catW, catH);
+  } else {
+    fill(255, 220, 160);
+    rect(startX, centerY - catH / 2, catW, catH, 4);
+  }
+
+  // 气泡主体
+  rectMode(CORNER);
+  fill(255, 255, 255, 230);
+  stroke(45, 45, 55, 220);
+  strokeWeight(2);
+  rect(bubbleX, centerY - bubbleH / 2, bubbleW, bubbleH, 7);
+
+  // 气泡左侧小尖角
+  fill(255, 255, 255, 230);
+  triangle(
+    bubbleX,
+    centerY - 5,
+    bubbleX,
+    centerY + 5,
+    bubbleX - 8,
+    centerY
+  );
+
+  // 文字
+  noStroke();
+  fill(35, 35, 45);
+  text(message, bubbleX + paddingX, centerY);
+
+  pop();
+}
 }
 
 // ====== Level 类 ======
@@ -1856,7 +2317,7 @@ class ForestLevel extends Level {
     // 藤蔓种子（放在前两屏）
     this.items.push(new Tool(21 * TILE_SIZE + toolOffset, groundY(21) - 24, 24, 24, 'vine_seed'));
     // 高台奖励
-    this.items.push(new Hp(24 * TILE_SIZE + 4, groundY(24) - 24, 24, 24, 'apple'));
+    this.items.push(new Hp(47 * TILE_SIZE + 4, groundY(47) - 24, 24, 24, 'apple'));
 
     // ===== 结束：敌人和物品生成 =====
   }
@@ -2249,6 +2710,11 @@ class FactoryLevel extends ForestLevel {
     this.pipeFlowHeight = 26;
     const groundY = (col) => this.terrainHeights[col];
     this.enemies.push(new Vex(10 * TILE_SIZE, 180, 40, 22));
+
+    // 第三关恢复道具药水瓶
+    this.items.push(new Hp(18 * TILE_SIZE + 4, groundY(18) - 24, 24, 24, 'potion_bottle'));
+    this.items.push(new Hp(52 * TILE_SIZE + 4, groundY(52) - 24, 24, 24, 'potion_bottle'));
+    this.items.push(new Hp(88 * TILE_SIZE + 4, groundY(88) - 24, 24, 24, 'potion_bottle'));
   }
 
   addTerrainColumn(col, heightTiles, tiles) {
@@ -2775,6 +3241,14 @@ class WaterLevel extends Level {
     this.items.push(fishingNet69);
     fish69List.forEach(f => f.bindNet(fishingNet69));
 
+    //增加第二关的恢复道具贝壳
+    this.items.push(new Hp(25 * TILE_SIZE + 4, solidSurfaceY(25) - 24, 24, 24, 'seashell'));
+    this.items.push(new Hp(58 * TILE_SIZE + 4, solidSurfaceY(58) - 24, 24, 24, 'seashell'));
+    this.items.push(new Hp(90 * TILE_SIZE + 4, solidSurfaceY(90) - 24, 24, 24, 'seashell'));
+
+    //海豚生成
+    this.items.push(new Dolphin(40 * TILE_SIZE, 120));
+
     // ===== 结束：敌人和物品生成 =====
   }
 
@@ -3057,6 +3531,11 @@ class Player extends Entity {
     this.isAttacking = false;
     this.attackAnimStart = 0;
     this.attackAnimDuration = 150; // 挥剑持续时间，毫秒
+
+    // 第二关海洋图里海豚磁铁状态
+    this.hasDolphinMagnet = false;
+    this.activeDolphin = null;
+    this.dolphinUsed = false;
 
     // 碰撞箱尺寸（独立于贴图尺寸）
     this.collisionW = 16;
@@ -4717,6 +5196,85 @@ class Tool extends Item {
   }
 }
 
+// 第二关海豚Dolphin类
+class Dolphin extends Entity {
+  constructor(x, y, w = DOLPHIN_W, h = DOLPHIN_H) {
+    super(x, y, w, h);
+    this.baseY = y;
+    this.mounted = false;
+    this.used = false;
+    this.swimAway = false;
+    this.facingRight = true;
+  }
+
+  getCurrentImage() {
+    const frameIndex = Math.floor(millis() / DOLPHIN_ANIM_FRAME_MS) % 2;
+    return frameIndex === 0 ? window.dolphin_1 : window.dolphin_2;
+  }
+
+  mount(player) {
+    if (this.used || this.swimAway) return false;
+
+    this.used = true;
+    this.mounted = true;
+
+    player.hasDolphinMagnet = true;
+    player.activeDolphin = this;
+    player.dolphinUsed = true;
+
+    return true;
+  }
+
+  dismount(player) {
+    this.mounted = false;
+    this.swimAway = true;
+
+    if (player) {
+      player.hasDolphinMagnet = false;
+      player.activeDolphin = null;
+    }
+  }
+
+  update() {
+    if (this.swimAway) {
+      this.x += 3.2;
+      this.y += sin(millis() / 120) * 0.4;
+      return;
+    }
+
+    if (this.mounted && game?.player) {
+      const p = game.player;
+
+      // 海豚跟在人物下方，看起来像辅助游动
+      this.x = p.x - 28;
+      this.y = p.y + 38;
+      this.facingRight = p.facingRight;
+      return;
+    }
+
+    // 未被碰到前原地轻微上下浮动
+    this.y = this.baseY + sin(millis() / 360) * 5;
+  }
+
+  draw() {
+    const img = this.getCurrentImage();
+
+    push();
+    imageMode(CENTER);
+    translate(this.x + this.w / 2, this.y + this.h / 2);
+    scale(this.facingRight ? -1 : 1, 1);
+
+    if (img && img.width > 0) {
+      image(img, 0, 0, this.w, this.h);
+    } else {
+      fill(130, 190, 230);
+      rect(-this.w / 2, -this.h / 2, this.w, this.h, 12);
+    }
+
+    pop();
+  }
+}
+
 //藤蔓种子的梯子
 class Ladder extends Item {
   constructor(x, y, h = TILE_SIZE * 4) {
@@ -5206,12 +5764,19 @@ function setup() {
   ['scissor', 'limestone', 'enlarged_water_bucket', 'wrench'].forEach(name =>load(`assets/pic/item/tool/${name}.png`, `tool_${name}`));
   load('assets/pic/item/tool/seed.png', 'tool_vine_seed');
   load('assets/pic/item/tool/vine.png', 'tool_vine_ladder');
+  load('assets/pic/item/effect/water_stream.png', 'effect_water_stream');
+  load('assets/pic/item/effect/heal_effect.png', 'effect_heal');
+  load('assets/pic/animals/dolphin_1.png', 'dolphin_1');
+  load('assets/pic/animals/dolphin_2.png', 'dolphin_2');
+
   // 武器（assets/pic/weapon，威力从低到高：wooden / stone / iron / diamond）
   ['wooden_sword', 'stone_sword', 'iron_sword', 'diamond_sword'].forEach(name => load(`assets/pic/weapon/${name}.png`, `weapon_${name}`));
 
   // HP 物品（assets/pic/item/hp）- 与 Hp.draw() 的键名保持一致：food_<hpType>
   load('assets/pic/item/hp/apple.png', 'food_apple');
   load('assets/pic/item/hp/golden_apple.png', 'food_golden_apple');
+  load('assets/pic/item/hp/potion_bottle.png', 'food_potion_bottle');
+  load('assets/pic/item/hp/seashell.png', 'food_seashell');
 
   // UI
   load('assets/pic/ui/heart_container.png', 'heartContainer');
