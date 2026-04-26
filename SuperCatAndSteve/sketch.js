@@ -6101,15 +6101,57 @@ function isInside(mx, my, rect) {
          my >= rect.y && my <= rect.y + rect.h;
 }
 
-function drawMenuButton(x, y, w, h, label, hovered = false) {
+function drawMenuButton(x, y, w, h, label, hovered = false, style = {}) {
   push();
-  stroke(255);
-  strokeWeight(2);
-  fill(hovered ? color(255, 170, 60) : color(30, 45, 85, 220));
-  rect(x, y, w, h, 12);
+  const borderColor = hovered
+    ? (style.hoverBorderColor ?? color(255, 235, 160))
+    : (style.borderColor ?? color(0));
+  const topColor = hovered
+    ? (style.hoverTopColor ?? color(255, 210, 70))
+    : (style.topColor ?? color(110, 170, 255));
+  const bottomColor = hovered
+    ? (style.hoverBottomColor ?? color(234, 124, 0))
+    : (style.bottomColor ?? color(73, 140, 253));
+  const labelColor = hovered
+    ? (style.hoverLabelColor ?? style.labelColor ?? color(255))
+    : (style.labelColor ?? color(255));
+  const labelStrokeColor = hovered
+    ? (style.hoverLabelStrokeColor ?? style.labelStrokeColor ?? color(0))
+    : (style.labelStrokeColor ?? color(0));
+  const labelStrokeWeight = style.labelStrokeWeight ?? 2;
+  const borderWeight = style.borderWeight ?? 10;
+  const borderOffsetY = style.borderOffsetY ?? 2;
+  const midY = y + h / 2;
 
+  // Draw border first so it stays beneath the fill layers.
+  stroke(borderColor);
+  strokeWeight(borderWeight);
+  noFill();
+  rect(x, y + borderOffsetY, w, h);
+
+  // Fill top half.
+  drawingContext.save();
+  drawingContext.beginPath();
+  drawingContext.rect(x, y, w, h / 2);
+  drawingContext.clip();
   noStroke();
-  fill(255);
+  fill(topColor);
+  rect(x, y, w, h);
+  drawingContext.restore();
+
+  // Fill bottom half.
+  drawingContext.save();
+  drawingContext.beginPath();
+  drawingContext.rect(x, midY, w, h / 2);
+  drawingContext.clip();
+  noStroke();
+  fill(bottomColor);
+  rect(x, y, w, h);
+  drawingContext.restore();
+
+  stroke(labelStrokeColor);
+  strokeWeight(labelStrokeWeight);
+  fill(labelColor);
   textAlign(CENTER, CENTER);
   textSize(20);
   text(label, x + w / 2, y + h / 2);
@@ -6117,9 +6159,24 @@ function drawMenuButton(x, y, w, h, label, hovered = false) {
 }
 
 function getStartScreenRects() {
+  const startBtnW = 140;
+  const startBtnH = 52;
+  const settingsBtnW = 140;
+  const settingsBtnH = 52;
+
   return {
-    startBtn: { x: width / 2 - 110, y: 150, w: 220, h: 52 },
-    settingsBtn: { x: width / 2 - 110, y: 220, w: 220, h: 52 }
+    startBtn: {
+      x: width / 2 - startBtnW / 2,
+      y: 150,
+      w: startBtnW,
+      h: startBtnH
+    },
+    settingsBtn: {
+      x: width / 2 - settingsBtnW / 2,
+      y: 220,
+      w: settingsBtnW,
+      h: settingsBtnH
+    }
   };
 }
 
@@ -6224,26 +6281,74 @@ textSize(16);
 fill(255, 230, 180);
 
 const ui = getStartScreenRects();
+const startBtnStyle = {
+  borderColor: color(0),
+  hoverBorderColor: color(255),
+  topColor: color(253, 184, 0),
+  bottomColor: color(234, 124, 0),
+  hoverTopColor: color(255, 234, 0),
+  hoverBottomColor: color(254, 174, 0),
+  labelColor: color(0),
+  hoverLabelColor: color(255),
+  labelStrokeColor: color(255, 245, 200),
+  hoverLabelStrokeColor: color(234, 124, 0),
+  labelStrokeWeight: 4,
+  borderWeight: 10,
+  borderOffsetY: 2
+};
+const settingsBtnStyle = {
+  borderColor: color(0),
+  hoverBorderColor: color(255),
+  topColor: color(122, 214, 252),
+  bottomColor: color(73, 140, 253),
+  hoverTopColor: color(195, 245, 255),
+  hoverBottomColor: color(122, 214, 252),
+  labelColor: color(0),
+  hoverLabelColor: color(255),
+  labelStrokeColor: color(222, 255, 252),
+  hoverLabelStrokeColor: color(73, 140, 253),
+  labelStrokeWeight: 4,
+  borderWeight: 10,
+  borderOffsetY: 2
+};
 
 drawMenuButton(
   ui.startBtn.x, ui.startBtn.y, ui.startBtn.w, ui.startBtn.h,
   t("Start", "开始"),
-  isInside(mouseX, mouseY, ui.startBtn)
+  isInside(mouseX, mouseY, ui.startBtn),
+  startBtnStyle
 );
 
 drawMenuButton(
   ui.settingsBtn.x, ui.settingsBtn.y, ui.settingsBtn.w, ui.settingsBtn.h,
   t("Settings", "设置"),
-  isInside(mouseX, mouseY, ui.settingsBtn)
+  isInside(mouseX, mouseY, ui.settingsBtn),
+  settingsBtnStyle
 );
 
-fill(255, 230, 180);
+const startHintText = t("Press Start to begin your adventure!", "点击开始进入游戏！");
+const startHintX = width / 2;
+const startHintY = ui.settingsBtn.y + ui.settingsBtn.h + 60;
+const pulseScale = 1 + 0.01 * sin(millis() * 0.006);
+
 textAlign(CENTER, CENTER);
 textSize(16);
-text(
-  t("Press Start to begin your adventure", "点击开始进入游戏"),
-  width / 2,
-  ui.settingsBtn.y + ui.settingsBtn.h + 40);
+
+// Draw shadow to the bottom-right.
+push();
+translate(startHintX + 1.5, startHintY + 1.5);
+scale(pulseScale);
+fill(0, 0, 0, 170);
+text(startHintText, 0, 0);
+pop();
+
+// Draw main hint text.
+push();
+translate(startHintX, startHintY);
+scale(pulseScale);
+fill(255, 255, 0);
+text(startHintText, 0, 0);
+pop();
 }
 
 function drawLevelSelectScreen() {
