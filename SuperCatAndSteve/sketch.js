@@ -239,7 +239,8 @@ function cloneSettings(settings) {
     musicVolume: settings.musicVolume,
     sfxVolume: settings.sfxVolume,
     fullscreen: settings.fullscreen,
-    language: settings.language
+    language: settings.language,
+    levelTrophies: settings.levelTrophies ? { ...settings.levelTrophies } : undefined
   };
 }
 
@@ -509,7 +510,10 @@ class Game {
     musicVolume: 80,
     sfxVolume: 80,
     fullscreen: false,
-    language: DEFAULT_LANGUAGE
+    language: DEFAULT_LANGUAGE,
+    // Persistent trophy progress shown on level select.
+    // Values are 0..TROPHY_SLOTS_BY_LEVEL[levelType]
+    levelTrophies: { forest: 0, water: 0, factory: 0 }
 };
 
     // --- 新增：统一的得分反馈提示（污染物/救援共用） ---
@@ -538,6 +542,17 @@ class Game {
     if (!this.player) return;
     const next = this.player.score + points;
     this.player.score = Math.min(this.getTrophySlotLimit(), next);
+  }
+
+  recordLevelTrophies() {
+    if (!this.settings) return;
+    if (!this.settings.levelTrophies) {
+      this.settings.levelTrophies = { forest: 0, water: 0, factory: 0 };
+    }
+    const slots = this.getTrophySlotLimit();
+    const earned = Math.min(Math.max(0, Math.floor(this.player?.score ?? 0)), slots);
+    const prev = Math.min(Math.max(0, Math.floor(this.settings.levelTrophies[this.levelType] ?? 0)), slots);
+    this.settings.levelTrophies[this.levelType] = Math.max(prev, earned);
   }
   
   tryAttack() {
@@ -846,6 +861,7 @@ drawHealEffect(now) {
     }
 
     if (this.player.health <= 0) {
+      this.recordLevelTrophies();
       this.state = "gameover";
       this.showGuideMenu = false;
       this.victoryAt = 0;
@@ -857,6 +873,7 @@ drawHealEffect(now) {
     if (playerCol >= TERRAIN_COLS - 1 && this.player.health > 0) {
       if (!this.victoryAt) this.victoryAt = millis() + VICTORY_DELAY_MS;
       if (millis() >= this.victoryAt) {
+        this.recordLevelTrophies();
         this.state = "victory";
         this.showGuideMenu = false;
       }
@@ -1651,7 +1668,11 @@ updateDolphinMagnet() {
 }
 
   draw() {
-    background(168, 193, 254);
+    if (this.level instanceof FactoryLevel) {
+      background(180);
+    } else {
+      background(168, 193, 254);
+    }
     const now = millis();
     push();
     translate(-this.cameraX, 0);
@@ -5789,6 +5810,9 @@ function setup() {
   load('assets/pic/player_cat/cat_right.png', 'inventoryProgressCat');
   load('assets/pic/ui/menu.png', 'uiMenu');
   load('assets/pic/ui/exit.png', 'uiExit');
+  load('assets/pic/ui/level_1.png', 'uiLevel1');
+  load('assets/pic/ui/level_2.png', 'uiLevel2');
+  load('assets/pic/ui/level_3.png', 'uiLevel3');
 
 
 
@@ -6103,6 +6127,27 @@ function isInside(mx, my, rect) {
 
 function drawMenuButton(x, y, w, h, label, hovered = false, style = {}) {
   push();
+  // Icon-only mode: render ONLY the icon, no border/fill/label.
+  if (style.onlyIcon) {
+    const iconImage = style.iconImage;
+    if (iconImage && iconImage.width > 0) {
+      const iconW = style.iconW ?? 20;
+      const iconH = style.iconH ?? 20;
+      const align = style.iconAlign ?? "bottomRight";
+      let cx = x + w / 2;
+      let cy = y + h / 2;
+      if (align === "bottomRight") {
+        cx = x + w - iconW / 2;
+        cy = y + h - iconH / 2;
+      }
+      imageMode(CENTER);
+      noTint();
+      image(iconImage, cx, cy, iconW, iconH);
+    }
+    pop();
+    return;
+  }
+
   const borderColor = hovered
     ? (style.hoverBorderColor ?? color(255, 235, 160))
     : (style.borderColor ?? color(0));
@@ -6119,42 +6164,128 @@ function drawMenuButton(x, y, w, h, label, hovered = false, style = {}) {
     ? (style.hoverLabelStrokeColor ?? style.labelStrokeColor ?? color(0))
     : (style.labelStrokeColor ?? color(0));
   const labelStrokeWeight = style.labelStrokeWeight ?? 2;
+  const labelSize = style.labelSize ?? 20;
+  const labelYFactor = style.labelYFactor ?? 0.5;
+  const labelYOffset = style.labelYOffset ?? 0;
   const borderWeight = style.borderWeight ?? 10;
   const borderOffsetY = style.borderOffsetY ?? 2;
   const midY = y + h / 2;
 
   // Draw border first so it stays beneath the fill layers.
-  stroke(borderColor);
-  strokeWeight(borderWeight);
-  noFill();
-  rect(x, y + borderOffsetY, w, h);
+  const cutCorners = style.cutCorners ?? false;
+  const cornerCutSize = style.cornerCutSize ?? 6;
+  const bw = Math.max(1, Math.floor(borderWeight));
+  // When using filled borders (cut-corner mode), we must keep fills inside the border,
+  // otherwise the fill will cover the border entirely.
+  const fillInset = cutCorners ? bw : 0;
+  const fillX = x + fillInset;
+  const fillY = y + fillInset;
+  const fillW = Math.max(0, w - fillInset * 2);
+  const fillH = Math.max(0, h - fillInset * 2);
+  const fillMidY = fillY + fillH / 2;
+  if (cutCorners) {
+    const cut = Math.max(0, Math.floor(cornerCutSize));
+    const by = y + borderOffsetY;
+    noStroke();
+    fill(borderColor);
+    // Top / bottom edges (skip corner squares).
+    rect(x + cut, by, Math.max(0, w - cut * 2), bw);
+    rect(x + cut, by + h - bw, Math.max(0, w - cut * 2), bw);
+    // Left / right edges (skip corner squares).
+    rect(x, by + cut, bw, Math.max(0, h - cut * 2));
+    rect(x + w - bw, by + cut, bw, Math.max(0, h - cut * 2));
+  } else {
+    stroke(borderColor);
+    strokeWeight(borderWeight);
+    noFill();
+    rect(x, y + borderOffsetY, w, h);
+  }
 
   // Fill top half.
   drawingContext.save();
   drawingContext.beginPath();
-  drawingContext.rect(x, y, w, h / 2);
+  drawingContext.rect(fillX, fillY, fillW, fillH / 2);
   drawingContext.clip();
   noStroke();
   fill(topColor);
-  rect(x, y, w, h);
+  rect(fillX, fillY, fillW, fillH);
   drawingContext.restore();
 
   // Fill bottom half.
   drawingContext.save();
   drawingContext.beginPath();
-  drawingContext.rect(x, midY, w, h / 2);
+  drawingContext.rect(fillX, fillMidY, fillW, fillH / 2);
   drawingContext.clip();
   noStroke();
   fill(bottomColor);
-  rect(x, y, w, h);
+  rect(fillX, fillY, fillW, fillH);
   drawingContext.restore();
 
   stroke(labelStrokeColor);
   strokeWeight(labelStrokeWeight);
   fill(labelColor);
   textAlign(CENTER, CENTER);
-  textSize(20);
-  text(label, x + w / 2, y + h / 2);
+  textSize(labelSize);
+  text(label, x + w / 2, y + h * labelYFactor + labelYOffset);
+
+  // Optional icon for rich menu buttons (e.g. level preview).
+  const iconImage = style.iconImage;
+  if (iconImage && iconImage.width > 0) {
+    const iconW = style.iconW ?? 128;
+    const iconH = style.iconH ?? 128;
+    const iconCenterYOffset = style.iconCenterYOffset ?? h * 0.72;
+    const iconOutlineColor = style.iconOutlineColor ?? labelStrokeColor;
+    const iconOutlineWeight = style.iconOutlineWeight ?? labelStrokeWeight;
+    imageMode(CENTER);
+    noTint();
+    image(iconImage, x + w / 2, y + iconCenterYOffset, iconW, iconH);
+
+    // Outline for the icon (match label stroke style).
+    if (iconOutlineWeight > 0) {
+      push();
+      rectMode(CENTER);
+      noFill();
+      stroke(iconOutlineColor);
+      strokeWeight(iconOutlineWeight);
+      rect(x + w / 2, y + iconCenterYOffset, iconW, iconH);
+      pop();
+    }
+
+    // Optional trophy row (drawn beneath the icon).
+    const trophySlots = Math.max(0, Math.floor(style.trophySlots ?? 0));
+    if (trophySlots > 0) {
+      const trophyFilled = Math.min(Math.max(0, Math.floor(style.trophyFilled ?? 0)), trophySlots);
+      const trophySize = style.trophySize ?? 20;
+      const trophyGap = style.trophyGap ?? 4;
+      const trophyStride = trophySize + trophyGap;
+      const trophiesW = trophySlots * trophySize + (trophySlots - 1) * trophyGap;
+      const trophyX0 = x + w / 2 - trophiesW / 2;
+      const trophyY = y + (style.trophyY ?? (iconCenterYOffset + iconH / 2 + 12));
+      const trophyContainerImg = window.trophyContainer;
+      const trophyFillImg = window.trophyFill;
+      imageMode(CORNER);
+
+      for (let i = 0; i < trophySlots; i++) {
+        const tx = trophyX0 + i * trophyStride;
+        if (trophyContainerImg && trophyContainerImg.width > 0) {
+          image(trophyContainerImg, tx, trophyY, trophySize, trophySize);
+        } else {
+          noStroke();
+          fill(80);
+          rect(tx, trophyY, trophySize, trophySize);
+        }
+        if (i < trophyFilled) {
+          if (trophyFillImg && trophyFillImg.width > 0) {
+            image(trophyFillImg, tx, trophyY, trophySize, trophySize);
+          } else {
+            noStroke();
+            fill(220, 200, 60);
+            rect(tx + 2, trophyY + 2, trophySize - 4, trophySize - 4);
+          }
+        }
+      }
+    }
+  }
   pop();
 }
 
@@ -6181,11 +6312,18 @@ function getStartScreenRects() {
 }
 
 function getLevelSelectRects() {
+  const levelBtnW = 180;
+  const levelBtnH = 200;
+  const levelBtnGap = 20;
+  const levelGroupW = levelBtnW * 3 + levelBtnGap * 2;
+  const levelStartX = width / 2 - levelGroupW / 2;
+  // Center the whole 3-button group on screen.
+  const levelBtnY = height / 2 - levelBtnH / 2;
   return {
-    level1: { x: 70, y: 180, w: 140, h: 70 },
-    level2: { x: 250, y: 180, w: 140, h: 70 },
-    level3: { x: 430, y: 180, w: 140, h: 70 },
-    backBtn: { x: 20, y: 20, w: 100, h: 42 }
+    level1: { x: levelStartX, y: levelBtnY, w: levelBtnW, h: levelBtnH },
+    level2: { x: levelStartX + levelBtnW + levelBtnGap, y: levelBtnY, w: levelBtnW, h: levelBtnH },
+    level3: { x: levelStartX + (levelBtnW + levelBtnGap) * 2, y: levelBtnY, w: levelBtnW, h: levelBtnH },
+    backBtn: { x: 20, y: 20, w: 140, h: 52 }
   };
 }
 
@@ -6200,7 +6338,7 @@ function getSettingsRects() {
     fullscreen: { x: 360, y: 215, w: 180, h: 42 },
     language:   { x: 360, y: 275, w: 180, h: 42 },
 
-    backBtn:    { x: 20, y: 20, w: 100, h: 42 }
+    backBtn:    { x: 20, y: 20, w: 140, h: 52 }
   };
 }
 
@@ -6214,6 +6352,9 @@ function drawStartScreen() {
   }
 
   // Top-center game title on the start screen.
+  push();
+  // Force the title font to always be MojangRegular (independent of current language).
+  textFont(FONT_CONFIGS.mojangRegular.family);
   textAlign(CENTER, TOP);
   textSize(48);
   textStyle(BOLD);
@@ -6273,6 +6414,7 @@ function drawStartScreen() {
   textStyle(NORMAL);
   noStroke();
   fill(255);
+  pop();
 
   fill(255);
   textAlign(CENTER, CENTER);
@@ -6293,8 +6435,10 @@ const startBtnStyle = {
   labelStrokeColor: color(255, 245, 200),
   hoverLabelStrokeColor: color(234, 124, 0),
   labelStrokeWeight: 4,
-  borderWeight: 10,
-  borderOffsetY: 2
+  borderWeight: 3,
+  borderOffsetY: 0,
+  cutCorners: true,
+  cornerCutSize: 3
 };
 const settingsBtnStyle = {
   borderColor: color(0),
@@ -6308,8 +6452,10 @@ const settingsBtnStyle = {
   labelStrokeColor: color(222, 255, 252),
   hoverLabelStrokeColor: color(73, 140, 253),
   labelStrokeWeight: 4,
-  borderWeight: 10,
-  borderOffsetY: 2
+  borderWeight: 3,
+  borderOffsetY: 0,
+  cutCorners: true,
+  cornerCutSize: 3
 };
 
 drawMenuButton(
@@ -6333,6 +6479,7 @@ const pulseScale = 1 + 0.01 * sin(millis() * 0.006);
 
 textAlign(CENTER, CENTER);
 textSize(16);
+noStroke();
 
 // Draw shadow to the bottom-right.
 push();
@@ -6367,84 +6514,277 @@ function drawLevelSelectScreen() {
   fill(230);
 
   const ui = getLevelSelectRects();
+  const trophyProgress = game?.settings?.levelTrophies || { forest: 0, water: 0, factory: 0 };
+  const slotsForest = TROPHY_SLOTS_BY_LEVEL.forest ?? MAX_TROPHY_SLOTS;
+  const slotsWater = TROPHY_SLOTS_BY_LEVEL.water ?? MAX_TROPHY_SLOTS;
+  const slotsFactory = TROPHY_SLOTS_BY_LEVEL.factory ?? MAX_TROPHY_SLOTS;
+  const level1BtnStyle = {
+    borderColor: color(0),
+    hoverBorderColor: color(255),
+    topColor: color(145, 225, 170),
+    bottomColor: color(80, 185, 115),
+    hoverTopColor: color(195, 245, 210),
+    hoverBottomColor: color(120, 210, 145),
+    labelColor: color(0),
+    hoverLabelColor: color(255),
+    labelStrokeColor: color(210, 255, 220),
+    hoverLabelStrokeColor: color(60, 150, 80),
+    labelStrokeWeight: 4,
+    labelSize: 18,
+    labelYFactor: 0.13,
+    iconImage: window.uiLevel1,
+    iconOutlineWeight: 3,
+    iconW: 128,
+    iconH: 128,
+    iconCenterYOffset: 104,
+    trophySlots: slotsForest,
+    trophyFilled: trophyProgress.forest ?? 0,
+    trophySize: 20,
+    trophyGap: 4,
+    trophyY: 174,
+    borderWeight: 3,
+    borderOffsetY: 0,
+    cutCorners: true,
+    cornerCutSize: 3
+  };
+  const level2BtnStyle = {
+    borderColor: color(0),
+    hoverBorderColor: color(255),
+    topColor: color(150, 210, 255),
+    bottomColor: color(95, 165, 245),
+    hoverTopColor: color(195, 245, 255),
+    hoverBottomColor: color(122, 214, 252),
+    labelColor: color(0),
+    hoverLabelColor: color(255),
+    labelStrokeColor: color(222, 255, 252),
+    hoverLabelStrokeColor: color(73, 140, 253),
+    labelStrokeWeight: 4,
+    labelSize: 18,
+    labelYFactor: 0.13,
+    iconImage: window.uiLevel2,
+    iconOutlineWeight: 3,
+    iconW: 128,
+    iconH: 128,
+    iconCenterYOffset: 104,
+    trophySlots: slotsWater,
+    trophyFilled: trophyProgress.water ?? 0,
+    trophySize: 20,
+    trophyGap: 4,
+    trophyY: 174,
+    borderWeight: 3,
+    borderOffsetY: 0,
+    cutCorners: true,
+    cornerCutSize: 3
+  };
+  const level3BtnStyle = {
+    borderColor: color(0),
+    hoverBorderColor: color(255),
+    topColor: color(255, 205, 120),
+    bottomColor: color(245, 150, 65),
+    hoverTopColor: color(255, 230, 160),
+    hoverBottomColor: color(255, 185, 95),
+    labelColor: color(0),
+    hoverLabelColor: color(255),
+    labelStrokeColor: color(255, 240, 195),
+    hoverLabelStrokeColor: color(170, 95, 25),
+    labelStrokeWeight: 4,
+    labelSize: 18,
+    labelYFactor: 0.13,
+    iconImage: window.uiLevel3,
+    iconOutlineWeight: 3,
+    iconW: 128,
+    iconH: 128,
+    iconCenterYOffset: 104,
+    trophySlots: slotsFactory,
+    trophyFilled: trophyProgress.factory ?? 0,
+    trophySize: 20,
+    trophyGap: 4,
+    trophyY: 174,
+    borderWeight: 3,
+    borderOffsetY: 0,
+    cutCorners: true,
+    cornerCutSize: 3
+  };
+  const backBtnStyle = {
+    borderColor: color(0),
+    hoverBorderColor: color(255),
+    topColor: color(253, 184, 0),
+    bottomColor: color(234, 124, 0),
+    hoverTopColor: color(255, 234, 0),
+    hoverBottomColor: color(254, 174, 0),
+    labelColor: color(0),
+    hoverLabelColor: color(255),
+    labelStrokeColor: color(255, 245, 200),
+    hoverLabelStrokeColor: color(234, 124, 0),
+    labelStrokeWeight: 4,
+    borderWeight: 3,
+    borderOffsetY: 0,
+    cutCorners: true,
+    cornerCutSize: 3
+  };
 
   drawMenuButton(
     ui.level1.x, ui.level1.y, ui.level1.w, ui.level1.h,
-    t("Level 1", "第一关"),
-    isInside(mouseX, mouseY, ui.level1)
+    t("Forest", "森林"),
+    isInside(mouseX, mouseY, ui.level1),
+    level1BtnStyle
   );
 
   drawMenuButton(
     ui.level2.x, ui.level2.y, ui.level2.w, ui.level2.h,
-    t("Level 2", "第二关"),
-    isInside(mouseX, mouseY, ui.level2)
+    t("Ocean", "海洋"),
+    isInside(mouseX, mouseY, ui.level2),
+    level2BtnStyle
   );
 
   drawMenuButton(
     ui.level3.x, ui.level3.y, ui.level3.w, ui.level3.h,
-    t("Level 3", "第三关"),
-    isInside(mouseX, mouseY, ui.level3)
+    t("Factory", "工厂"),
+    isInside(mouseX, mouseY, ui.level3),
+    level3BtnStyle
   );
 
-  fill(255, 230, 180);
+  const levelHintText = t("Choose your level!", "请选择关卡！");
+  const levelHintX = width / 2;
+  const startUi = getStartScreenRects();
+  const levelHintY = startUi.settingsBtn.y + startUi.settingsBtn.h + 60;
+  const levelHintPulseScale = 1 + 0.01 * sin(millis() * 0.006);
+
   textAlign(CENTER, CENTER);
   textSize(16);
+  noStroke();
 
-  text(
-  t("Choose your level", "请选择关卡"),
-  width / 2,
-  ui.level1.y + ui.level1.h + 60);
+  // Draw shadow to the bottom-right.
+  push();
+  translate(levelHintX + 1.5, levelHintY + 1.5);
+  scale(levelHintPulseScale);
+  fill(0, 0, 0, 170);
+  text(levelHintText, 0, 0);
+  pop();
+
+  // Draw main hint text.
+  push();
+  translate(levelHintX, levelHintY);
+  scale(levelHintPulseScale);
+  fill(255, 255, 0);
+  text(levelHintText, 0, 0);
+  pop();
 
   drawMenuButton(
     ui.backBtn.x, ui.backBtn.y, ui.backBtn.w, ui.backBtn.h,
     t("Back", "返回"),
-    isInside(mouseX, mouseY, ui.backBtn)
+    isInside(mouseX, mouseY, ui.backBtn),
+    backBtnStyle
   );
 }
 
 function drawSettingsScreen() {
-  background(28, 35, 60);
+  if (window.startBg && window.startBg.width > 0) {
+    image(window.startBg, 0, 0, CANVAS_W, CANVAS_H);
+  } else {
+    background(28, 35, 60);
+  }
 
-  fill(255);
+  stroke(255);
+  strokeWeight(4);
+  fill(0);
   textAlign(CENTER, CENTER);
   textSize(32);
   text(t("Settings", "设置"), width / 2, 55);
 
   const s = game.settings;
   const ui = getSettingsRects();
+  const settingsThemeBtnStyle = {
+    borderColor: color(0),
+    hoverBorderColor: color(255),
+    topColor: color(122, 214, 252),
+    bottomColor: color(73, 140, 253),
+    hoverTopColor: color(195, 245, 255),
+    hoverBottomColor: color(122, 214, 252),
+    labelColor: color(0),
+    hoverLabelColor: color(255),
+    labelStrokeColor: color(222, 255, 252),
+    hoverLabelStrokeColor: color(73, 140, 253),
+    labelStrokeWeight: 4,
+    borderWeight: 3,
+    borderOffsetY: 0,
+    cutCorners: true,
+    cornerCutSize: 3
+  };
 
   textAlign(LEFT, CENTER);
   textSize(20);
-  fill(255);
+  stroke(255);
+  strokeWeight(4);
+  fill(0);
 
   text(t("Music Volume", "音乐音量"), 100, 120);
   text(`${s.musicVolume}`, 440, 120);
-  drawMenuButton(ui.musicMinus.x, ui.musicMinus.y, ui.musicMinus.w, ui.musicMinus.h, "-");
-  drawMenuButton(ui.musicPlus.x, ui.musicPlus.y, ui.musicPlus.w, ui.musicPlus.h, "+");
+  drawMenuButton(
+    ui.musicMinus.x, ui.musicMinus.y, ui.musicMinus.w, ui.musicMinus.h,
+    "-",
+    isInside(mouseX, mouseY, ui.musicMinus),
+    settingsThemeBtnStyle
+  );
+  drawMenuButton(
+    ui.musicPlus.x, ui.musicPlus.y, ui.musicPlus.w, ui.musicPlus.h,
+    "+",
+    isInside(mouseX, mouseY, ui.musicPlus),
+    settingsThemeBtnStyle
+  );
 
   text(t("SFX Volume", "音效音量"), 100, 175);
   text(`${s.sfxVolume}`, 440, 175);
-  drawMenuButton(ui.sfxMinus.x, ui.sfxMinus.y, ui.sfxMinus.w, ui.sfxMinus.h, "-");
-  drawMenuButton(ui.sfxPlus.x, ui.sfxPlus.y, ui.sfxPlus.w, ui.sfxPlus.h, "+");
+  drawMenuButton(
+    ui.sfxMinus.x, ui.sfxMinus.y, ui.sfxMinus.w, ui.sfxMinus.h,
+    "-",
+    isInside(mouseX, mouseY, ui.sfxMinus),
+    settingsThemeBtnStyle
+  );
+  drawMenuButton(
+    ui.sfxPlus.x, ui.sfxPlus.y, ui.sfxPlus.w, ui.sfxPlus.h,
+    "+",
+    isInside(mouseX, mouseY, ui.sfxPlus),
+    settingsThemeBtnStyle
+  );
 
   text(t("Fullscreen", "全屏开关"), 100, 235);
   drawMenuButton(
     ui.fullscreen.x, ui.fullscreen.y, ui.fullscreen.w, ui.fullscreen.h,
     s.fullscreen ? t("ON", "开启") : t("OFF", "关闭"),
-    isInside(mouseX, mouseY, ui.fullscreen)
+    isInside(mouseX, mouseY, ui.fullscreen),
+    settingsThemeBtnStyle
   );
 
   text(t("Language", "语言切换"), 100, 295);
   drawMenuButton(
     ui.language.x, ui.language.y, ui.language.w, ui.language.h,
     s.language,
-    isInside(mouseX, mouseY, ui.language)
+    isInside(mouseX, mouseY, ui.language),
+    settingsThemeBtnStyle
   );
 
   drawMenuButton(
     ui.backBtn.x, ui.backBtn.y, ui.backBtn.w, ui.backBtn.h,
     t("Back", "返回"),
-    isInside(mouseX, mouseY, ui.backBtn)
+    isInside(mouseX, mouseY, ui.backBtn),
+    {
+      borderColor: color(0),
+      hoverBorderColor: color(255),
+      topColor: color(253, 184, 0),
+      bottomColor: color(234, 124, 0),
+      hoverTopColor: color(255, 234, 0),
+      hoverBottomColor: color(254, 174, 0),
+      labelColor: color(0),
+      hoverLabelColor: color(255),
+      labelStrokeColor: color(255, 245, 200),
+      hoverLabelStrokeColor: color(234, 124, 0),
+      labelStrokeWeight: 4,
+      borderWeight: 3,
+      borderOffsetY: 0,
+      cutCorners: true,
+      cornerCutSize: 3
+    }
   );
 }
 
