@@ -6811,7 +6811,8 @@ function setup() {
   window.addEventListener('keyup', (e) => {
     let k = (e.key || '').toLowerCase();
     if (e.keyCode === 32) k = ' ';
-    if (k === 'a' || k === 'd' || k === 'w' || k === 'arrowleft' || k === 'arrowright' || k === 'arrowup' || k === ' ') {
+    // 覆盖 WASD + 方向键，作为 p5 keyReleased 丢失时的兜底同步
+    if (k === 'a' || k === 'd' || k === 's' || k === 'w' || k === 'arrowleft' || k === 'arrowright' || k === 'arrowdown' || k === 'arrowup' || k === ' ') {
       if (keys[k]) {
         console.log(`[原生事件] 检测到 ${k} 键松开`);
         keys[k] = false;
@@ -6939,10 +6940,10 @@ function draw() {
   }
   // 主动同步按键状态（修复浏览器 keyReleased 事件丢失的问题）
   if (game && game.state === "playing") {
-    ['a', 'd', 's', 'w'].forEach(k => {
+    ['a', 'd', 's', 'w', 'arrowleft', 'arrowright', 'arrowdown', 'arrowup', ' '].forEach(k => {
       if (keys[k] && !pressedKeys.has(k)) {
         keys[k] = false;
-        if (k === 'w' && game.player) game.player.swimUpHeld = false;
+        if ((k === 'w' || k === 'arrowup' || k === ' ') && game.player) game.player.swimUpHeld = false;
       }
     });
   }
