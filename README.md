@@ -35,7 +35,8 @@
   - [5.3 Design Conclusion](#53-design-conclusion)
 - [6. Implementation](#6-implementation)
   - [Challenge 1: Force-Based Movement across Land, Water and Pipes](#challenge-1-force-based-movement-across-land-water-and-pipes)
-  - [Challenge 2: Item State Management and Progress Feedback](#challenge-2-item-state-management-and-progress-feedback)
+  - [Challenge 2: Hint Cat Following and Obstacle-Aware Feedback](#challenge-2-Hint-Cat-Following-and-Obstacle-Aware-Feedback)
+  - [Challenge 3: Enemy Pursuit and Splitting Slime Behaviour](#Challenge-3-Enemy-Pursuit-and-Splitting-Slime-Behaviour)
 - [7. Evaluation](#7-evaluation)
   - [7.1 Qualitative Analysis](#71-qualitative-analysis)
   - [7.2 Quantitative Analysis](#72-quantitative-analysis)
@@ -298,23 +299,22 @@ This changes the purpose of play. Progress is not only about reaching the end of
 <table border="1" cellpadding="12" cellspacing="0">
   <tr>
     <td align="center" width="33%">
-      <img src="https://github.com/user-attachments/assets/53dc3e64-583d-4227-af3f-e7df28cff9a4" width="220" alt="Forest World"><br><br>
+      <img src="./SuperCatAndSteve/assets/pic/ui/level_1.png" width="220" alt="Forest World"><br><br>
       <strong>Forest</strong><br>
       The forest world focuses on platforming, rescue, exploration, and early environmental tasks.
     </td>
     <td align="center" width="33%">
-      <img src="https://github.com/user-attachments/assets/b6d7fee6-94b6-46de-b9f5-eb1bedb8daf8" width="220" alt="Ocean World"><br><br>
+      <img src="./SuperCatAndSteve/assets/pic/ui/level_2.png" width="220" alt="Ocean World"><br><br>
       <strong>Ocean</strong><br>
       The ocean world introduces underwater movement and marine life, with seagrass, coral, kelp, and aquatic enemies.
     </td>
     <td align="center" width="33%">
-      <img src="https://github.com/user-attachments/assets/1d19e4f9-eeb3-4e7b-9e26-9440188359a4" width="220" alt="Factory World"><br><br>
+      <img src="./SuperCatAndSteve/assets/pic/ui/level_3.png" width="220" alt="Factory World"><br><br>
       <strong>Factory</strong><br>
       The factory world uses industrial tiles, pipes, and harsher hazards to create a more mechanical and polluted environment.
     </td>
   </tr>
 </table>
-
 
 </div>
 
@@ -426,38 +426,48 @@ Write here.
 
 ## 6. Implementation
 
-When we started building our game, we quickly realised that most of our time would go into two things: getting the movement to feel right across different environments, and making our item and feedback systems line up with the environmental story we wanted to tell. That sounds like just two clear goals, but in code it turned into a lot of small decisions, broken prototypes, and constant adjusting of parameters.
+When we started building our game, we quickly realised most time went into three linked areas: getting the movement loop to feel right across different environments, making the hint cat feedback work clearly both in the world and in the UI, and building enemies that behave actively without feeling unfair. These sounded like three clear technical goals, but they turned into lots of prototypes, small fixes, and repeated tuning of the same core systems.
 
 ### Challenge 1: Force-Based Movement across Land, Water and Pipes
 
-Our original plan for movement was fairly simple: a standard platformer jump on land, slower motion in water, and some kind of “being pushed” feeling in the pipes. The tricky part was doing this without writing three completely separate controllers, because that would have been hard to maintain and even harder to tune.
+Our original plan for movement was standard platformer jumps on land, slower motion in water, and a clear "being pushed" feeling in pipes. The tricky part was doing this without three separate controllers—that would be hard to maintain and even harder to tune.
 
-In the end we kept one movement loop based on a velocity vector and a set of forces, and then changed the forces depending on where the player was. On land, the character has an upward impulse when jumping and a constant gravity pulling them down each frame. That part is quite standard, but we found that if we used the same gravity for going up and coming down, the character’s movement no longer felt natural or responsive. So we experimented with slightly different values for upward and downward motion: going up is a bit lighter and coming down is a bit heavier. This gives the player finer control over their jumps while still keeping a sense of weight when the character falls back onto a platform.
+We kept one movement loop based on velocity + environment-specific forces. On land: jump impulse up, gravity down, but we used lighter gravity going up, heavier coming down. This gave better jump control while keeping that grounded weight feel when landing.
 
-Water exposed a lot of small problems in our first implementation. Simply turning gravity down made the character drop more slowly, but it still looked like they were moving through air. To fix this we added an upward buoyancy force and horizontal drag. Buoyancy cancels out part of gravity so that the character sinks and rises more gently, and drag reduces horizontal speed so that the player cannot move around as quickly as on land. The underlying code is still the same “velocity plus forces” update, but the values are very different, and that difference is what gives the ocean level its distinct feel.
+Water exposed problems immediately. Just lowering gravity slowed the drop but still felt like moving through air. We added upward buoyancy (countering gravity) and horizontal drag. Same "velocity + forces" update loop, just very different values—that's what gave ocean levels their distinct feel.
 
-Pipes added another layer to this. In those sections, the player isn’t really choosing their speed any more - they’re mostly being carried by the water. For this we introduced a flow force that pushes the character along the pipe, plus friction so that they do not accelerate forever. Getting this balance right took a few tries. Early versions felt either too weak (the pipe might as well not exist) or too strong (the player shot across the screen with almost no control). Only after several rounds of playtesting did we find a combination where the pipe feels powerful but the player still has time to react to hazards.
+Pipes were different: player mostly carried by flow force + friction to prevent endless acceleration. Getting balance right took several playtesting rounds—too weak felt pointless, too strong made it uncontrollable. Final version let players react to hazards while feeling the pipe's power.
 
-What really made this whole part challenging was the interaction between environments. A change that improved jumping in the forest could easily break the feeling of exiting water, or make pipe sections impossible to control. To keep this manageable, we separated configuration from logic. The update function itself is shared, but each environment defines its own gravity, buoyancy, drag and flow force. This meant that during tuning sessions we could leave the code alone and only adjust data, which is much less risky when the deadline is close.
+The real difficulty was environment interactions. A forest jump tweak could break water exits or make pipes impossible. We separated shared update logic from per-environment config data, so tuning was just numbers, much safer near deadline.
 
-### Challenge 2: Item State Management and Progress Feedback
+This force-based system also drove enemies/items with their own parameters. Water creatures got sinusoidal offsets for swimming motion. Collisions snapped entities to boundaries and cleared velocity components—kept everything consistent without a full physics engine.
 
-The second big implementation challenge was the item system. Quite early on we realised that “collectable items” in our game actually belong to two different categories. Some are tools, like scissors, that the player uses once to help an animal and then should disappear. Others are pollutants, like plastic bottles, which should not magically vanish as soon as they are picked up. They are supposed to be cleaned up and sorted properly, not just converted into points.
+### Challenge 2: Hint Cat Following and Obstacle-Aware Feedback
 
-This distinction sounds obvious from a design perspective, but it changed the way we had to write the inventory. A simple “pick up item → remove from world → add to inventory” approach was not enough. For tools we needed a small lifecycle: the player picks up the tool, the tool appears in the backpack, a specific interaction (for example using scissors to cut a bird free from a net) checks whether the required tool is available, and if the interaction succeeds the tool is consumed and removed from the inventory. For pollutants, we almost want the opposite behaviour: the plastic bottle leaves the level, is added to the player’s backpack, and contributes to the score or progress until it is processed elsewhere.
+The hint cat needed believable following plus feedback about nearby hazards, tools, trapped animals. Early versions kept breaking on moving platforms/vertical sections, so we scrapped the physical follower—but later brought it back, hooked to the UI progress bar.
 
-To handle this, we ended up tagging items with a type and giving each type its own set of rules. Tools can be consumed and removed from the inventory; pollutants stay in the backpack, contribute to score or progress, and may later be processed in other parts of the level. Some items unlock interactions, while others mainly affect scoring and progression. On its own this is not a very complicated system, but it becomes more interesting when combined with feedback to the player.
+Core problem: no frame-by-frame snapping to player. We recorded player bottom-centre positions in a trace buffer during the update loop. Cat read ~0.5s delayed position, flipped sprite from movement data—no separate movement logic needed.
 
-Originally, our plan was to have a hint cat follow the player around the level. The cat was meant to guide the player and also act as a reminder of rescue progress, pollutant collection, and nearby dangers. We did get a basic following behaviour working, but once we added moving platforms, vertical layouts and hazards like acid pools, the number of edge cases exploded. The cat sometimes floated in mid-air, sometimes walked through dangerous tiles, and sometimes got stuck while the player moved on. Each fix added more special cases to the code and still did not cover every situation.
+Obstacles used same collision queries and terrain height checks as player, so cat automatically stayed on walkable ground, respected platforms/walls via shared world coordinates. No dedicated cat physics.
 
-At that point we stepped back and asked what the hint cat really needed to do. The more we discussed it, the more it felt like the important part was not that the cat physically walked behind the player, but that it gave the player clear feedback and a sense of progress. That led to the solution we use now: the hint cat lives in the UI as part of a progress bar at the top of the screen. As the player rescues animals and handles pollution correctly, the progress bar fills and the cat moves along with it.
+UI connection reused existing level progress tracking from the update loop: top bar + cat icon both interpolated toward max distance reached. Rescue events, power-ups, hazards triggered contextual messages near the icon. Same hint character worked as world follower and UI progress/feedback anchor, kept consistent through shared systems.
 
-From an implementation perspective, this was much cleaner. The same event system that updates the inventory also updates the progress bar, and we no longer have to simulate another character inside the level. It also worked better in playtests: players understood the bar immediately and spent less time worrying about why the cat was stuck on a platform behind them. In that sense, this challenge was as much about knowing when to simplify a feature as it was about solving a technical problem.
+### Challenge 3: Enemy Pursuit and Splitting Slime Behaviour
+
+Enemy system focused on active pursuit and slime splitting, making them feel proactive.
+
+Shared update loop handled detection/movement/damage: player attacks scanned configurable range, filtered by position/collision boxes, damaged closest target. Contact damage accumulated overlap time into DPS—much easier to tune than per-enemy special cases.
+
+Slime added complexity: enough damage triggered split into smaller slimes with position/collision box/splash velocity (so fragments scattered). New slimes went straight into main enemy update loop—immediate movement/pursuit/damage. Parent cleanup needed careful frame handling to avoid collision glitches.
+
+Pursuit stayed simple: horizontal direction to in-range player, heavily damped vertical movement (no instant height matching, especially water/terrain). Collision separation reused player logic—push along least-disruptive axis, clear that velocity component. Stable even with enemy groups.
+
+Single update loop supported simple chasers through splitting slimes without separate systems for each.
 
 待添加图片：
 图 1-3 Movement across environments GIF，展示 land jump → ocean movement → pipe current，展示森林跳跃 → 水下浮力 → 管道冲力
-图 4-5：Tool collection and item use 一张截图，展示剪刀解救小鸟，显示工具收集、使用后消失。
-图 6：Progress bar with helper cat 一张截图，展示顶部 UI 和猫进度，显示进度反馈如何工作。
+图 4-5：Tool collection and item use 一张截图，展示小猫跟随与提示
+图 6：Progress bar with helper cat 一张截图，展示敌人跟踪与史莱姆
 
 ---
 
