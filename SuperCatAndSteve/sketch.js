@@ -7818,7 +7818,7 @@ function drawSettingsScreen() {
   strokeWeight(4);
   fill(0);
 
-  text(t("Music Volume", "音乐音量"), 100, 120);
+  text(t("Music  Volume", "音乐音量"), 100, 120);
   text(`${s.musicVolume}`, 440, 120);
   drawMenuButton(
     ui.musicMinus.x, ui.musicMinus.y, ui.musicMinus.w, ui.musicMinus.h,
@@ -7941,7 +7941,7 @@ function drawGameOverScreen() {
   textAlign(CENTER, CENTER);
   textSize(48);
   drawSplitOverlayTitle(
-    t("YOU LOSE!", "你失败了！"),
+    t("YOU  LOSE!", "你失败了！"),
     width / 2,
     height / 2,
     gameOverTitleStyle.topColor,
@@ -7989,7 +7989,7 @@ function drawVictoryScreen() {
   textAlign(CENTER, CENTER);
   textSize(48);
   drawSplitOverlayTitle(
-    t("YOU WIN!", "你赢了！"),
+    t("YOU  WIN!", "你赢了！"),
     width / 2,
     height / 2,
     victoryTitleStyle.topColor,
