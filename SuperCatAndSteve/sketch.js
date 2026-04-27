@@ -68,7 +68,7 @@ const SFX = {
   enabled: true,
   sounds: Object.create(null), // key -> p5.SoundFile[]
   nextIndexByKey: Object.create(null),
-  debug: true,
+  debug: false,
   queuedPathsByKey: Object.create(null),
   startedLoading: false,
   mode: 'html', // 'html' | 'p5'（当前环境 p5.loadSound 返回 Promise 且回调不稳定，脚步音改用 html 更稳）
@@ -79,10 +79,69 @@ const SFX = {
   minIntervalMsByKey: {
     step_grass: 70,
     step_stone: 70,
-    step_sand: 70
+    step_sand: 70,
+    // 高触发频率音效做节流
+    fall: 140,
+    swim: 3000,
+    lava: 420,
+    // TNT：arm/explode 都是一次性触发；这里主要防双调用
+    tnt_fuse: 200,
+    tnt_explode: 200,
+    dig_grass: 120,
+    dig_sand: 120,
+    dig_stone: 120,
+    hit: 120,
+    pour: 200,
+    recover: 160,
+    trophy: 100,
+    click: 120,
+    win: 500,
+    lost: 500,
+    bird: 520
   },
   lastPlayedAtByKey: Object.create(null)
 };
+
+SFX.activeRefCountByKey = Object.create(null);
+
+function stopSfxNow(key) {
+  if (!key) return;
+  if (SFX.mode === 'html') {
+    const list = SFX.html.audiosByKey[key];
+    if (!Array.isArray(list) || list.length === 0) return;
+    for (const a of list) {
+      if (!a) continue;
+      try {
+        a.pause();
+        a.currentTime = 0;
+      } catch {}
+    }
+    return;
+  }
+  const list = SFX.sounds[key];
+  if (!Array.isArray(list) || list.length === 0) return;
+  for (const snd of list) {
+    if (!snd) continue;
+    try {
+      if (typeof snd.stop === 'function') snd.stop();
+      else if (typeof snd.pause === 'function') snd.pause();
+    } catch {}
+  }
+}
+
+function sfxAcquire(key) {
+  if (!key) return;
+  const n = (SFX.activeRefCountByKey[key] ?? 0) + 1;
+  SFX.activeRefCountByKey[key] = n;
+}
+
+function sfxRelease(key) {
+  if (!key) return;
+  const cur = SFX.activeRefCountByKey[key] ?? 0;
+  const next = Math.max(0, cur - 1);
+  SFX.activeRefCountByKey[key] = next;
+  if (next === 0) stopSfxNow(key);
+}
 
 function canUseSound() {
   const hasLoadSound = (typeof loadSound === 'function') || (typeof window !== 'undefined' && typeof window.loadSound === 'function');
@@ -287,17 +346,21 @@ function getLoadedSoundCount(key) {
 
 function tryPlaySfx(key, { volume = 0.35, rate = 1 } = {}) {
   if (!SFX.enabled) return;
-  ensureAudioUnlocked();
+  // 先做节流，避免高频场景里每次都走解锁/加载检查
+  const now = millis();
+  const minGap = SFX.minIntervalMsByKey[key] ?? 60;
+  const lastAt = SFX.lastPlayedAtByKey[key] ?? -Infinity;
+  if (now - lastAt < minGap) return;
+
   // 兜底：即使没触发到 pointerdown/keydown 的 once 监听，也在首次尝试播放时启动加载
-  if (SFX.debug && !SFX.startedLoading) console.log('[SFX] tryPlaySfx triggers queued loads');
-  startQueuedSfxLoads();
+  if (!SFX.startedLoading) {
+    if (SFX.debug) console.log('[SFX] tryPlaySfx triggers queued loads');
+    ensureAudioUnlocked();
+    startQueuedSfxLoads();
+  }
   if (SFX.mode === 'html') {
     const a = pickNextLoadedHtmlAudio(key);
     if (!a) return;
-    const now = millis();
-    const minGap = SFX.minIntervalMsByKey[key] ?? 60;
-    const lastAt = SFX.lastPlayedAtByKey[key] ?? -Infinity;
-    if (now - lastAt < minGap) return;
     SFX.lastPlayedAtByKey[key] = now;
 
     try {
@@ -318,11 +381,6 @@ function tryPlaySfx(key, { volume = 0.35, rate = 1 } = {}) {
   const snd = pickNextLoadedSound(key);
   if (!snd) return;
   if (typeof snd.isLoaded === 'function' && !snd.isLoaded()) return;
-
-  const now = millis();
-  const minGap = SFX.minIntervalMsByKey[key] ?? 60;
-  const lastAt = SFX.lastPlayedAtByKey[key] ?? -Infinity;
-  if (now - lastAt < minGap) return;
   SFX.lastPlayedAtByKey[key] = now;
 
   try {
@@ -367,6 +425,33 @@ function tileTypeToFootstepKey(tileType) {
     case T.DEEP_DIAMOND:
     default:
       return 'step_stone';
+  }
+}
+
+function tileTypeToDigSfxKey(tileType) {
+  // 管道类 tileType 是对象（textureKey/rotation），按石质挖掘音处理
+  if (typeof isPipeTileType === 'function' && isPipeTileType(tileType)) return 'dig_stone';
+  switch (tileType) {
+    case T.GRASS:
+    case T.DIRT:
+      return 'dig_grass';
+    case T.SAND:
+    case T.GRAVEL:
+      return 'dig_sand';
+    case T.STONE:
+    case T.DEEP:
+    case T.BRICKS:
+    case T.DEEPSLATE_BRICKS:
+    case T.COPPER:
+    case T.IRON:
+    case T.GOLD:
+    case T.DIAMOND:
+    case T.DEEP_COPPER:
+    case T.DEEP_IRON:
+    case T.DEEP_GOLD:
+    case T.DEEP_DIAMOND:
+    default:
+      return 'dig_stone';
   }
 }
 
@@ -587,6 +672,32 @@ function isEntityInWater(entity, level) {
     { x: b.x + b.w / 2, y: b.y + b.h - 2 }
   ];
   return pts.some(p => level.isWaterAtWorld(p.x, p.y));
+}
+
+function isEntityTouchingTileType(entity, level, tileType) {
+  if (!entity || !level || typeof level.getTileAtWorld !== 'function') return false;
+  const getBox = typeof entity.getCollisionBox === 'function'
+    ? () => entity.getCollisionBox()
+    : () => ({ x: entity.x, y: entity.y, w: entity.w, h: entity.h });
+  const b = getBox();
+  const pts = [
+    { x: b.x + b.w / 2, y: b.y + b.h / 2 },
+    { x: b.x + 2, y: b.y + b.h / 2 },
+    { x: b.x + b.w - 2, y: b.y + b.h / 2 },
+    { x: b.x + b.w / 2, y: b.y + b.h - 2 }
+  ];
+  return pts.some(p => level.getTileAtWorld(p.x, p.y) === tileType);
+}
+
+function isEntityTouchingBlueFlow(entity, level) {
+  if (!entity || !level) return false;
+  if (typeof level.getActivePipeFlowZones !== 'function') return false;
+  const box = (typeof entity.getCollisionBox === 'function')
+    ? entity.getCollisionBox()
+    : { x: entity.x, y: entity.y, w: entity.w, h: entity.h };
+  const zones = level.getActivePipeFlowZones();
+  if (!Array.isArray(zones) || zones.length === 0) return false;
+  return zones.some((z) => rectCollision(box.x, box.y, box.w, box.h, z.x, z.y, z.w, z.h));
 }
 
 const PIPE_WALL_THICKNESS = 5;
@@ -846,6 +957,10 @@ class Game {
     this.playerBottomCenterTrace = [];
     this.followCatFacingRight = true;
     this.lastFollowCatX = null;
+
+    // 状态进入音效（避免 draw 每帧重复播放）
+    this._playedWinSfx = false;
+    this._playedLostSfx = false;
   }
 
   getTrophySlotLimit() {
@@ -854,8 +969,12 @@ class Game {
 
   addScore(points = 1) {
     if (!this.player) return;
+    const prev = this.player.score;
     const next = this.player.score + points;
     this.player.score = Math.min(this.getTrophySlotLimit(), next);
+    if (this.player.score > prev) {
+      tryPlaySfx('trophy', { volume: 0.34, rate: 1 });
+    }
   }
 
   recordLevelTrophies() {
@@ -916,6 +1035,7 @@ class Game {
     if (closest) {
       closest.takeDamage(dmg, this.level);
       this.lastAttackTime = now;
+      tryPlaySfx('hit', { volume: 0.35, rate: 1 });
       console.log("💥 击中目标！伤害:", dmg, "距离:", closestDist.toFixed(1));
     } else {
       console.log("☁️ 攻击挥空：附近没有敌人");
@@ -1082,6 +1202,8 @@ drawHealEffect(now) {
     this.state = "start";
     this.showGuideMenu = false;
     this.activeGuideTab = 0;
+    this._playedWinSfx = false;
+    this._playedLostSfx = false;
   }
 
   resetToPlayingFromBeginning() {
@@ -1097,6 +1219,8 @@ drawHealEffect(now) {
     this.maxPlayerProgress = 0;
     this.displayedCatProgress = 0;
     this.resetHintState();
+    this._playedWinSfx = false;
+    this._playedLostSfx = false;
   }
 
   resetHintState() {
@@ -1152,6 +1276,7 @@ drawHealEffect(now) {
     }
     this.checkCollisions();
     this.updateMining();
+    this.updateLavaSfx();
 
     // 全局坠落死亡：玩家碰撞箱上缘超过屏幕下缘则死亡
     const playerBox = this.player.getCollisionBox();
@@ -1182,6 +1307,10 @@ drawHealEffect(now) {
       this.state = "gameover";
       this.showGuideMenu = false;
       this.victoryAt = 0;
+      if (!this._playedLostSfx) {
+        this._playedLostSfx = true;
+        tryPlaySfx('lost', { volume: 0.42, rate: 1 });
+      }
       return;
     }
     
@@ -1193,9 +1322,31 @@ drawHealEffect(now) {
         this.recordLevelTrophies();
         this.state = "victory";
         this.showGuideMenu = false;
+        if (!this._playedWinSfx) {
+          this._playedWinSfx = true;
+          tryPlaySfx('win', { volume: 0.42, rate: 1 });
+        }
       }
     } else {
       this.victoryAt = 0;
+    }
+  }
+
+  updateLavaSfx() {
+    if (!this.player || !this.level || typeof this.level.getTileAtWorld !== 'function') return;
+    const box = this.player.getCollisionBox();
+    const cx = box.x + box.w / 2;
+    const cy = box.y + box.h / 2;
+    const probe = [
+      { x: cx, y: cy },
+      { x: cx + TILE_SIZE, y: cy },
+      { x: cx - TILE_SIZE, y: cy },
+      { x: cx, y: cy + TILE_SIZE },
+      { x: cx, y: cy - TILE_SIZE }
+    ];
+    const nearLava = probe.some((p) => this.level.getTileAtWorld(p.x, p.y) === T.LAVA);
+    if (nearLava) {
+      tryPlaySfx('lava', { volume: 0.22, rate: 1 });
     }
   }
 
@@ -1268,8 +1419,10 @@ drawHealEffect(now) {
     const pointedTile = this.getPointedMineableTile(worldX, worldY);
     if (pointedTile) {
       if (pointedTile.kind === 'terrain') {
+        const digKey = tileTypeToDigSfxKey(pointedTile.tileType);
         this.level.removeTerrainBlock(pointedTile.col, pointedTile.row);
         this.tryWeaponUpgrade(pointedTile.tileType);
+        tryPlaySfx(digKey, { volume: 0.30, rate: 1 });
       } else if (pointedTile.kind === 'background') {
         this.level.removeBackgroundDecorationBlock(pointedTile.col, pointedTile.row);
       }
@@ -1285,6 +1438,7 @@ drawHealEffect(now) {
       const tileType = p._tileType;
       this.level.platforms.splice(i, 1);
       this.tryWeaponUpgrade(tileType);
+      tryPlaySfx(tileTypeToDigSfxKey(tileType), { volume: 0.30, rate: 1 });
       this.mouseDownTime = 0;
       return;
     }
@@ -1746,6 +1900,7 @@ if (changed > 0) {
       x: lavaX + TILE_SIZE * 0.75,
       y: lavaY - TILE_SIZE * 2
     };
+    tryPlaySfx('pour', { volume: 0.34, rate: 1 });
   }
   if (!this.triggeredTutorialHints.has('forest_water_lava_reaction_done')) {
     this.tutorialHintMessage = t(
@@ -2010,7 +2165,11 @@ updateDolphinMagnet() {
     if (item instanceof Hp) {
       const heal = this.getHpHealAmount(item.hpType);
       if (heal > 0) {
+        const prevHealth = this.player.health;
         this.player.health = Math.min(this.player.maxHealth, this.player.health + heal);
+        if (this.player.health > prevHealth) {
+          tryPlaySfx('recover', { volume: 0.34, rate: 1 });
+        }
         this.showHealEffect();
       }
       this.level.items.splice(i, 1);
@@ -3077,6 +3236,8 @@ class FactoryLevel extends ForestLevel {
     this.pipeFlowVisibleMs = 3000;
     this.pipeFlowSquareVisibleMs = 3000;
     this.pipeFlowHeight = 26;
+    this._pipeFlowZonesCacheFrame = -1;
+    this._pipeFlowZonesCache = [];
     this.spikeTravelPx = 32;
     this.spikeCycleMs = 1400;
     this.spikes = [];
@@ -3223,6 +3384,10 @@ class FactoryLevel extends ForestLevel {
   getActivePipeFlowZones(flowState = null) {
     const s = flowState || this.getPipeFlowState();
     if (!s) return [];
+    const cacheFrame = (typeof frameCount === 'number') ? frameCount : -1;
+    if (this._pipeFlowZonesCacheFrame === cacheFrame) {
+      return this._pipeFlowZonesCache;
+    }
 
     const zones = [];
     const y = 360 - 2 * TILE_SIZE; // row=1 对应 tile 的上边缘
@@ -3270,6 +3435,8 @@ class FactoryLevel extends ForestLevel {
         zones.push({ x: squareBaseX, y: squareBaseY + TILE_SIZE, w: TILE_SIZE, h: TILE_SIZE });
       }
     }
+    this._pipeFlowZonesCacheFrame = cacheFrame;
+    this._pipeFlowZonesCache = zones;
     return zones;
   }
 
@@ -4183,6 +4350,8 @@ class Player extends Entity {
     this._nextFootstepAt = 0;
     this._groundTileType = T.NONE;
     this._footstepDebugPrinted = false;
+    this._touchingLiquidLike = false;
+    this._liquidProbeNextAt = 0;
   }
   
   isInWater(level) {
@@ -4214,6 +4383,9 @@ class Player extends Entity {
   }
 
   update(platforms, level) {
+    const prevOnGround = this.onGround;
+    const prevVy = this.vy;
+
     // 地面上：每帧重置速度，完全由按键控制
     // 空中：保持惯性，但有空气阻力
     if (this.onGround) {
@@ -4351,6 +4523,33 @@ class Player extends Entity {
     if (isWaterStage && this.y < 0) {
       this.y = 0;
       if (this.vy < 0) this.vy = 0;
+    }
+
+    // ====== 跳落地音效：从空中 -> 落地的瞬间触发 ======
+    if (!prevOnGround && this.onGround && !inWater && !this.onLadder && prevVy > 0.2) {
+      tryPlaySfx('fall', { volume: 0.34, rate: 1 });
+    }
+
+    // ====== 液体/蓝色水流接触音效：仅 water/水管蓝色方块 ======
+    // 液体接触检测做低频采样，避免每帧重复扫蓝色流体区域导致卡顿
+    const nowMs = millis();
+    if (nowMs >= (this._liquidProbeNextAt ?? 0)) {
+      this._touchingLiquidLike =
+        !!inWater ||
+        isEntityTouchingBlueFlow(this, level);
+      this._liquidProbeNextAt = nowMs + 90;
+    } else if (!inWater && this._touchingLiquidLike) {
+      // 水体状态退出时尽快刷新，避免缓存残留
+      this._touchingLiquidLike =
+        isEntityTouchingBlueFlow(this, level);
+    } else if (inWater) {
+      this._touchingLiquidLike = true;
+    }
+
+    // 仅在“接触液体/蓝色方块 + 玩家正在移动”时播放 swim
+    const isMovingInLiquid = Math.abs(this.vx) > 0.12 || Math.abs(this.vy) > 0.12;
+    if (this._touchingLiquidLike && isMovingInLiquid) {
+      tryPlaySfx('swim', { volume: 0.26, rate: 1 });
     }
 
     // ====== 步伐音效：在地面上且水平移动时，按固定步频触发 ======
@@ -5348,6 +5547,7 @@ class TNT extends Pollutant {
     if (this.armed || this.exploded) return;
     this.armed = true;
     this.armTime = now;
+    tryPlaySfx('tnt_fuse', { volume: 0.34, rate: 1 });
   }
 
   // 每帧更新：到点爆炸
@@ -5364,6 +5564,7 @@ class TNT extends Pollutant {
     if (this.exploded) return;
     this.exploded = true;
     this.removeAfter = now + this.postExplodeMs;
+    tryPlaySfx('tnt_explode', { volume: 0.44, rate: 1 });
 
     // 计算玩家是否在爆炸范围内（中心点距离）
     const tx = this.x + this.w / 2;
@@ -5409,6 +5610,7 @@ class TrappedBird extends Animal {
     this.flightSpeed = 1.9;
     this.wingTick = 0;
     this.facingRight = false;
+    this._birdSfxActive = false;
   }
   isTrapped() {
     return this.state === 'trapped';
@@ -5435,10 +5637,16 @@ class TrappedBird extends Animal {
   }
   update(platforms, level = null) {
     if (this.state === 'trapped') {
+      if (this._birdSfxActive) { this._birdSfxActive = false; sfxRelease('bird'); }
       super.update(platforms, level);
       return;
     }
-    if (this.state !== 'flying') return;
+    if (this.state !== 'flying') {
+      if (this._birdSfxActive) { this._birdSfxActive = false; sfxRelease('bird'); }
+      return;
+    }
+    if (!this._birdSfxActive) { this._birdSfxActive = true; sfxAcquire('bird'); }
+    tryPlaySfx('bird', { volume: 0.24, rate: 1 });
     const dx = this.targetX - this.x;
     const dy = this.targetY - this.y;
     if (Math.abs(dx) > 0.2) this.facingRight = dx > 0;
@@ -5447,6 +5655,7 @@ class TrappedBird extends Animal {
       this.x = this.targetX;
       this.y = this.targetY;
       this.state = 'landed';
+      if (this._birdSfxActive) { this._birdSfxActive = false; sfxRelease('bird'); }
       return;
     }
     this.x += (dx / d) * this.flightSpeed;
@@ -6452,17 +6661,29 @@ function preload() {
   }
   console.log('[SFX] preload canUseSound=', canUseSound(), 'hasLoadSound=', typeof window.loadSound, 'hasUserStartAudio=', typeof window.userStartAudio);
 
-  // 约定：把音效放到 assets/sfx/ 下（你可以替换文件名或扩展名）
-  // - assets/sfx/step_grass/0.wav, 1.wav, ...
-  // - assets/sfx/step_stone/0.wav, 1.wav, ...
-  // - assets/sfx/step_sand/0.wav, 1.wav, ...
-  // 兼容：也支持旧的单文件写法 assets/sfx/step_grass.wav 等
+  // 约定：把音效放到 assets/sfx/ 下
   const numbered = (dir, count = 8, ext = 'wav') => Array.from({ length: count }, (_, i) => `${dir}/${i}.${ext}`);
 
   // 注意：不在 preload 直接 loadSound，避免 AudioContext 仍是 suspended 时解码卡住
   queueSfxList('step_grass', [...numbered('assets/sfx/step_grass', 8, 'wav'), 'assets/sfx/step_grass.wav']);
   queueSfxList('step_stone', [...numbered('assets/sfx/step_stone', 8, 'wav'), 'assets/sfx/step_stone.wav']);
   queueSfxList('step_sand', [...numbered('assets/sfx/step_sand', 8, 'wav'), 'assets/sfx/step_sand.wav']);
+  queueSfxList('swim', ['assets/sfx/swim.wav']);
+  queueSfxList('fall', ['assets/sfx/fall.wav']);
+  queueSfxList('dig_grass', ['assets/sfx/dig_grass.wav']);
+  queueSfxList('dig_sand', ['assets/sfx/dig_sand.wav']);
+  queueSfxList('dig_stone', ['assets/sfx/dig_stone.wav']);
+  queueSfxList('hit', ['assets/sfx/hit.wav']);
+  queueSfxList('pour', ['assets/sfx/pour.wav']);
+  queueSfxList('lava', ['assets/sfx/lava.wav']);
+  queueSfxList('recover', ['assets/sfx/recover.wav']);
+  queueSfxList('trophy', ['assets/sfx/trophy.wav']);
+  queueSfxList('click', ['assets/sfx/click.mp3']);
+  queueSfxList('win', ['assets/sfx/win.mp3']);
+  queueSfxList('lost', ['assets/sfx/lost.mp3']);
+  queueSfxList('bird', [...numbered('assets/sfx/bird', 8, 'wav'), 'assets/sfx/bird.wav']);
+  queueSfxList('tnt_fuse', ['assets/sfx/tnt/fuse.wav']);
+  queueSfxList('tnt_explode', ['assets/sfx/tnt/explode.wav']);
 }
 
 function setup() {
@@ -6478,6 +6699,22 @@ function setup() {
     queueSfxList('step_grass', [...numbered('assets/sfx/step_grass', 8, 'wav'), 'assets/sfx/step_grass.wav']);
     queueSfxList('step_stone', [...numbered('assets/sfx/step_stone', 8, 'wav'), 'assets/sfx/step_stone.wav']);
     queueSfxList('step_sand', [...numbered('assets/sfx/step_sand', 8, 'wav'), 'assets/sfx/step_sand.wav']);
+    queueSfxList('swim', ['assets/sfx/swim.wav']);
+    queueSfxList('fall', ['assets/sfx/fall.wav']);
+    queueSfxList('dig_grass', ['assets/sfx/dig_grass.wav']);
+    queueSfxList('dig_sand', ['assets/sfx/dig_sand.wav']);
+    queueSfxList('dig_stone', ['assets/sfx/dig_stone.wav']);
+    queueSfxList('hit', ['assets/sfx/hit.wav']);
+    queueSfxList('pour', ['assets/sfx/pour.wav']);
+    queueSfxList('lava', ['assets/sfx/lava.wav']);
+    queueSfxList('recover', ['assets/sfx/recover.wav']);
+    queueSfxList('trophy', ['assets/sfx/trophy.wav']);
+    queueSfxList('click', ['assets/sfx/click.mp3']);
+    queueSfxList('win', ['assets/sfx/win.mp3']);
+    queueSfxList('lost', ['assets/sfx/lost.mp3']);
+    queueSfxList('bird', [...numbered('assets/sfx/bird', 8, 'wav'), 'assets/sfx/bird.wav']);
+    queueSfxList('tnt_fuse', ['assets/sfx/tnt/fuse.wav']);
+    queueSfxList('tnt_explode', ['assets/sfx/tnt/explode.wav']);
     if (SFX.debug) console.log('[SFX] queued in setup fallback');
   }
 
@@ -6800,11 +7037,13 @@ function mousePressed() {
     const ui = getStartScreenRects();
 
     if (isInside(mouseX, mouseY, ui.startBtn)) {
+      tryPlaySfx('click', { volume: 0.32, rate: 1 });
       game.state = "levelSelect";
       return;
     }
 
     if (isInside(mouseX, mouseY, ui.settingsBtn)) {
+      tryPlaySfx('click', { volume: 0.32, rate: 1 });
       game.state = "settings";
       return;
     }
@@ -6815,6 +7054,7 @@ function mousePressed() {
     const ui = getLevelSelectRects();
 
     if (isInside(mouseX, mouseY, ui.level1)) {
+      tryPlaySfx('click', { volume: 0.32, rate: 1 });
       game = createGameWithSameSettings("forest");
       game.setup();
       game.beginPlaying();
@@ -6822,6 +7062,7 @@ function mousePressed() {
     }
 
     if (isInside(mouseX, mouseY, ui.level2)) {
+      tryPlaySfx('click', { volume: 0.32, rate: 1 });
       game = createGameWithSameSettings("water");
       game.setup();
       game.beginPlaying();
@@ -6829,6 +7070,7 @@ function mousePressed() {
     }
 
     if (isInside(mouseX, mouseY, ui.level3)) {
+      tryPlaySfx('click', { volume: 0.32, rate: 1 });
       game = createGameWithSameSettings("factory");
       game.setup();
       game.beginPlaying();
@@ -6836,6 +7078,7 @@ function mousePressed() {
     }
 
     if (isInside(mouseX, mouseY, ui.backBtn)) {
+      tryPlaySfx('click', { volume: 0.32, rate: 1 });
       game.state = "start";
       return;
     }
@@ -6847,26 +7090,31 @@ function mousePressed() {
     const s = game.settings;
 
     if (isInside(mouseX, mouseY, ui.musicMinus)) {
+      tryPlaySfx('click', { volume: 0.32, rate: 1 });
       s.musicVolume = max(0, s.musicVolume - 10);
       return;
     }
 
     if (isInside(mouseX, mouseY, ui.musicPlus)) {
+      tryPlaySfx('click', { volume: 0.32, rate: 1 });
       s.musicVolume = min(100, s.musicVolume + 10);
       return;
     }
 
     if (isInside(mouseX, mouseY, ui.sfxMinus)) {
+      tryPlaySfx('click', { volume: 0.32, rate: 1 });
       s.sfxVolume = max(0, s.sfxVolume - 10);
       return;
     }
 
     if (isInside(mouseX, mouseY, ui.sfxPlus)) {
+      tryPlaySfx('click', { volume: 0.32, rate: 1 });
       s.sfxVolume = min(100, s.sfxVolume + 10);
       return;
     }
 
     if (isInside(mouseX, mouseY, ui.fullscreen)) {
+      tryPlaySfx('click', { volume: 0.32, rate: 1 });
       s.fullscreen = !s.fullscreen;
       let fs = fullscreen();
       fullscreen(!fs);
@@ -6874,6 +7122,7 @@ function mousePressed() {
     }
 
     if (isInside(mouseX, mouseY, ui.language)) {
+      tryPlaySfx('click', { volume: 0.32, rate: 1 });
       const currentIndex = SUPPORTED_LANGUAGES.indexOf(s.language);
       const nextIndex = (currentIndex + 1) % SUPPORTED_LANGUAGES.length;
       s.language = SUPPORTED_LANGUAGES[nextIndex];
@@ -6881,6 +7130,7 @@ function mousePressed() {
     }
 
     if (isInside(mouseX, mouseY, ui.backBtn)) {
+      tryPlaySfx('click', { volume: 0.32, rate: 1 });
       game.state = "start";
       return;
     }
@@ -6888,6 +7138,7 @@ function mousePressed() {
 
   // game over / victory 页面，鼠标点击回开始页
   if (game.state === "gameover" || game.state === "victory") {
+    tryPlaySfx('click', { volume: 0.32, rate: 1 });
     game.resetToStartScreen();
   }
 }
