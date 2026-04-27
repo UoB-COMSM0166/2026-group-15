@@ -673,7 +673,7 @@ Water exposed problems immediately. Simply lowering gravity slowed the drop but 
 
 Pipes were different again: the player is mostly carried by a flow force, with friction to prevent endless acceleration. Getting the balance right took several rounds of playtesting: if the flow was too weak it had almost no impact, and if it was too strong it became very hard to control. The final version still felt powerful, but gave players enough time to react to hazards.
 
-![Pipes – flow-driven movement](docs/images/Pipes%20–%20flow-driven%20movement.gif)
+![Pipes – flow‑driven movement](docs/images/pipes-flow.gif)
 >**Pipes – flow‑driven movement :**
 >The player travelling through a pipe section, being carried forward by the water flow while still having enough control to react to obstacles.
 
