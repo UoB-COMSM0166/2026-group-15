@@ -43,8 +43,8 @@
   - [7.3 Testing](#73-testing)
 - [8. Process](#8-process)
 - [9. Sustainability](#9-sustainability)
-- [10. Conclusion](#9-conclusion)
-- [11. Individual Contribution](#10-individual-contribution)
+- [10. Conclusion](#10-conclusion)
+- [11. Individual Contribution](#11-individual-contribution)
 - [12. AI Statement](#12-AI-Statement)
 
 ---
