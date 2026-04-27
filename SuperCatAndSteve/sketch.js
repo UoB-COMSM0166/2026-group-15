@@ -8022,3 +8022,35 @@ function drawVictoryScreen() {
 
 
 
+if (typeof window !== 'undefined') {
+  // Minimal white-box test surface for browser-console tests.
+  window.__whitebox = {
+    constants: {
+      TILE_SIZE,
+      TERRAIN_COLS,
+      CANVAS_W,
+      WORLD_WIDTH,
+      INVENTORY_SLOTS,
+      MINE_PRESS_MS,
+      VICTORY_DELAY_MS,
+      T
+    },
+    classes: {
+      Game,
+      Player,
+      Tool,
+      Pollutant,
+      ForestLevel,
+      FactoryLevel,
+      Ladder
+    },
+    helpers: {
+      rectCollision,
+      normalizeQuarterTurns,
+      rotateLocalRect,
+      getPipeBaseCollisionRects,
+      buildTileCollisionRects
+    }
+  };
+}
+
