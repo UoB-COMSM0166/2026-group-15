@@ -414,200 +414,120 @@ Looking back, the requirements stage was not just an early planning task. It pla
 </p>
 
 ### 5.1 Class Diagram
+
+The class diagram shows the high-level object-oriented design of *Super Cat and Steve*. The `Game` class works as the main controller, connecting the current `Level`, the `Player`, and the `UIManager`. The base `Level` class is extended by `ForestLevel`, `WaterLevel`, and `FactoryLevel`, so each world can define its own terrain, enemies, items, animals, and environmental behaviour while sharing the same overall game loop.
+
+The diagram also shows how the main gameplay objects are organised. The `Player` handles movement, combat, mining, item collection, and tool use. `Item` is extended into types such as `Tool`, `Pollutant`, and `Weapon`, while `Enemy` and `Animal` represent threats and rescue targets. Overall, the diagram presents the main design structure without including low-level implementation details.
+
 ```mermaid
 classDiagram
 
 class Game {
-  +levelType: string
-  +state: string
-  +level: Level
+  +currentLevel: Level
+  +state: GameState
   +player: Player
   +uiManager: UIManager
-  +setup()
+  +startGame()
+  +selectLevel(levelType)
   +update()
-  +draw()
   +checkCollisions()
-  +tryAttack()
+  +checkWinCondition()
 }
 
 class Level {
   +platforms
   +enemies
   +items
-  +terrainHeights
+  +animals
   +tileMap
   +loadAssets()
-  +draw()
-  +addTerrainColumn(col,h,tiles)
+  +generateTerrain()
+  +drawLevel()
 }
 
 class ForestLevel {
-  +loadAssets()
-  +drawTrees()
+  +generateTerrain()
 }
 
 class FactoryLevel {
-  +loadAssets()
-  +setupFactoryTrapAndButton()
-  +updateFactoryMechanisms(player)
+  +generateTerrain()
 }
 
 class WaterLevel {
-  +loadAssets()
-  +getSolidSurfaceY(col)
-  +snapEntityToSolidSurface(entity)
+  +generateTerrain()
 }
 
 class Platform {
-  +x
-  +y
-  +w
-  +h
   +isTerrain
-  +draw()
-}
-
-class Entity {
-  +x
-  +y
-  +w
-  +h
-  +getCollisionBox()
-  +collidesWith(obj)
 }
 
 class Player {
   +health
   +inventory
-  +equippedWeaponType
-  +update(platforms,level)
+  +equippedWeapon
+  +score
+  +move()
   +jump()
-  +collect(item)
+  +attack()
+  +collectItem(item)
+  +useTool(tool)
+  +mineBlock()
   +takeDamage(amount)
 }
 
 class Enemy {
   +health
-  +activated
-  +update(player,platforms,level)
+  +attackRange
+  +update(player)
+  +attackPlayer(player)
   +takeDamage(amount)
 }
 
 class Zombie
-class Drowned
-class Shark
-class Slime
-class Vex
 
 class Item {
-  +vy
-  +gravity
-  +update(platforms,level)
+  +itemType
+  +applyEffect(target)
 }
 
 class Pollutant {
-  +type
-  +value
-}
-
-class TNT {
-  +armed
-  +exploded
-  +arm(now)
-  +explode(now,player)
-}
-
-class Hp {
-  +hpType
+  +pollutionType
+  +applyEffect(target)
 }
 
 class Tool {
   +toolType
+  +use(target)
 }
 
-class Ladder {
-  +isPlacedLadder
+class Weapon {
+  +weaponType
+  +damage
+  +use(target)
 }
 
 class Animal {
-  +rescueAwarded
-  +canRescueWithTool(toolType)
-  +onRescued(game,toolType)
-}
-
-class TrappedBird {
-  +state
-  +startRescue(targetX,targetY)
-}
-
-class Turtle {
-  +state
-  +bindBars(bars)
-}
-
-class Fish {
-  +state
-  +bindNet(net)
-}
-
-class Rabbit {
-  +scriptEnabled
-}
-
-class IronBar {
-  +removed
-  +removeByWrench()
-}
-
-class FishingNet {
-  +removed
-  +removeByScissor()
-}
-
-class Dolphin {
-  +mounted
-  +used
-  +mount(player)
-  +dismount(player)
+  +rescueState
+  +onRescued()
 }
 
 class UIManager {
-  +drawHUD(player,showGuideMenu,activeGuideTab)
-  +drawGuideMenu(activeGuideTab)
-}
-
-class HintCat {
-  +follow(state)
+  +drawHUD(player)
+  +showGuide()
+  +updateProgress()
 }
 
 Level <|-- ForestLevel
-ForestLevel <|-- FactoryLevel
+Level <|-- FactoryLevel
 Level <|-- WaterLevel
 
-Entity <|-- Player
-Entity <|-- Enemy
-Entity <|-- Item
-Entity <|-- Animal
-Entity <|-- IronBar
-Entity <|-- FishingNet
-Entity <|-- Dolphin
-
 Enemy <|-- Zombie
-Enemy <|-- Drowned
-Enemy <|-- Shark
-Enemy <|-- Slime
-Enemy <|-- Vex
 
 Item <|-- Pollutant
-Pollutant <|-- TNT
-Item <|-- Hp
 Item <|-- Tool
-Item <|-- Ladder
+Item <|-- Weapon
 
-Animal <|-- TrappedBird
-Animal <|-- Turtle
-Animal <|-- Fish
-Animal <|-- Rabbit
+Item <|-- Animal
 
 Game *-- Player : has
 Game *-- Level : has
@@ -616,20 +536,15 @@ Game *-- UIManager : has
 Level *-- Platform : contains
 Level o-- Enemy : enemies
 Level o-- Item : items
-Level o-- Animal : items
-Level o-- Entity : items
+Level o-- Animal : animals
 
 Player o-- Item : inventory
-Turtle o-- IronBar : bars
-FishingNet o-- Fish : linkedFishes
-Fish --> FishingNet : linkedNet
-IronBar --> Turtle : linkedTurtle
+Player ..> Tool : uses
+Player ..> Weapon : uses
 
 UIManager ..> Player : render HUD
 UIManager ..> Game : read state
-HintCat ..> Player : test helper
 ```
-
 
 ### 5.2 Communication Diagram
 Write here.
