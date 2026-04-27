@@ -11,6 +11,7 @@ const VICTORY_DELAY_MS = 1500;
 const ATTACK_COOLDOWN_MS = 400;  // 攻击冷却
 const MUTUAL_ATTACK_RANGE = 24;  // 敌人和玩家相互攻击的距离（碰撞箱最短距离 < 24px）
 const ENEMY_CONTACT_DAMAGE_PER_SEC = 1;
+const SPIKE_CONTACT_DAMAGE_PER_SEC = 3;
 const ENEMY_ATTACK_START_DELAY_MS = 1000;  // 敌人进入攻击范围后延迟才开始造成伤害（毫秒）
 const PLAYER_ATTACK_RANGE = 2.2 * TILE_SIZE; // 玩家挥剑攻击范围：70.4 px
 const PLAYER_FOLLOW_CAT_DELAY_MS = 500;
@@ -381,6 +382,11 @@ function getPipeBaseCollisionRects(textureKey) {
 }
 
 function buildTileCollisionRects(tileType, tileX, tileY) {
+  // 液体：不作为实体方块，只保留底部 2px 的“底边”碰撞
+  // 用于工厂关酸液/水的行为：可穿过液体，但在最底部有轻微阻挡
+  if (tileType === T.ACID || tileType === T.WATER) {
+    return [{ x: tileX, y: tileY + TILE_SIZE - 2, w: TILE_SIZE, h: 2 }];
+  }
   if (!isPipeTileType(tileType)) {
     return [{ x: tileX, y: tileY, w: TILE_SIZE, h: TILE_SIZE }];
   }
@@ -500,6 +506,7 @@ class Game {
     this.lastAttackTime = 0;
     this.enemyContactDamageCarry = 0;  // 敌人接触伤害累计（满 1 点才真正扣血）
     this.enemyContactLastTick = 0;     // 上次结算接触伤害的时间戳
+    this.spikeContactDamageCarry = 0;  // 尖刺接触伤害累计（满 1 点才真正扣血）
     this.victoryAt = 0;
     this.showGuideMenu = false;
     this.activeGuideTab = 0;
@@ -800,6 +807,9 @@ drawHealEffect(now) {
 
   update() {
     this.player.update(this.level.platforms, this.level);
+    if (typeof this.level.updateFactoryMechanisms === 'function') {
+      this.level.updateFactoryMechanisms(this.player);
+    }
     this.updateDolphinMagnet();
     this.recordPlayerBottomCenter(millis());
     this.updateCamera();
@@ -1446,45 +1456,64 @@ return false;
 }
 
 tryUseLimestone() {
-  // 以玩家碰撞箱中心为基准，扫描一个小范围内的 ACID 并全部转化成 WATER
+  // 参照第一关水桶处理岩浆的逻辑：先找最近酸液格，再沿行扩展处理整段酸池
   const box = this.player.getCollisionBox();
   const wx = box.x + box.w / 2;
-  const wy = box.y + box.h - 1;
+  const playerCol = Math.floor(wx / TILE_SIZE);
 
-  const baseCol = Math.floor(wx / TILE_SIZE);
+  // 在玩家左右各 3 列范围内，寻找“最近的”一格酸液
+  let targetCol = -1;
+  let targetRow = -1;
+  let bestDist = Infinity;
 
-  // 左右多扫几列，保证站在池边也能命中（你池子在 21/22/23，玩家常站 20）
-  const cols = [baseCol - 1, baseCol, baseCol + 1, baseCol + 2,baseCol + 3];
-
-  let changed = 0;
-
-  for (const col of cols) {
+  for (let col = playerCol - 3; col <= playerCol + 3; col++) {
     if (col < 0 || col >= TERRAIN_COLS) continue;
-
-    const surfaceY = this.level.terrainHeights[col];
-    if (surfaceY === undefined) continue;
-
-    const row = Math.floor((wy - surfaceY) / TILE_SIZE);
-
-    // 上下多扫几行，避免池子“垫高/加深”后 row 对不上
-    const rows = [row - 1, row, row + 1, row + 2];
-
-    for (const r of rows) {
-      if (r < 0) continue;
-
-      const t = this.level.tileMap[col]?.[r];
-      if (t === T.ACID) {
-        this.level.tileMap[col][r] = T.WATER;
-        changed++;
+    const column = this.level.tileMap[col];
+    if (!column) continue;
+    for (let r = 0; r < column.length; r++) {
+      if (column[r] !== T.ACID) continue;
+      const d = Math.abs(col - playerCol);
+      if (d < bestDist) {
+        bestDist = d;
+        targetCol = col;
+        targetRow = r;
       }
     }
   }
 
-  if (changed > 0) {
-    this.consumeSelectedTool('limestone');
-    return true;
+  // 附近没有酸液就不消耗石灰石
+  if (targetCol === -1) return false;
+
+  let changed = 0;
+
+  // 从命中的那一格出发，向左右扩展，把同一行连续的一整片酸液全部变为水
+  const convertLine = (startCol, row, dir) => {
+    let col = startCol;
+    while (col >= 0 && col < TERRAIN_COLS) {
+      const column = this.level.tileMap[col];
+      if (!column || column[row] !== T.ACID) break;
+      column[row] = T.WATER;
+      changed++;
+      col += dir;
+    }
+  };
+
+  // 同时处理目标行上下相邻一行，兼容更厚的酸池
+  const rowsToTry = [targetRow - 1, targetRow, targetRow + 1];
+  for (const row of rowsToTry) {
+    if (row < 0) continue;
+    convertLine(targetCol, row, -1);
+    convertLine(targetCol + 1, row, 1);
   }
 
+  if (changed > 0) {
+    this.consumeSelectedTool('limestone');
+    // 第三关：成功中和一次酸液，点亮 1 个 trophy
+    if (this.level instanceof FactoryLevel) {
+      this.addScore(1);
+    }
+    return true;
+  }
   return false;
 }
 
@@ -1605,6 +1634,24 @@ updateDolphinMagnet() {
     if (wholeDamage > 0) {
       this.player.takeDamage(wholeDamage);
       this.enemyContactDamageCarry -= wholeDamage;
+    }
+  }
+
+  // 第三关尖刺：接触期间持续扣血（与敌人接触伤害机制一致）
+  if (typeof this.level.getActiveSpikeZones === 'function') {
+    const playerBox = this.player.getCollisionBox();
+    const touchingSpike = this.level.getActiveSpikeZones().some((z) =>
+      rectCollision(playerBox.x, playerBox.y, playerBox.w, playerBox.h, z.x, z.y, z.w, z.h)
+    );
+    if (touchingSpike) {
+      this.spikeContactDamageCarry += deltaSec * SPIKE_CONTACT_DAMAGE_PER_SEC;
+      const wholeDamage = Math.floor(this.spikeContactDamageCarry);
+      if (wholeDamage > 0) {
+        this.player.takeDamage(wholeDamage);
+        this.spikeContactDamageCarry -= wholeDamage;
+      }
+    } else {
+      this.spikeContactDamageCarry = 0;
     }
   }
 
@@ -2577,7 +2624,7 @@ class FactoryLevel extends ForestLevel {
       [3,12,[Db,Db,Bk,N,N,N,N,N,N,N,Bk,Bk]],
       [4,12,[Db,Db,Bk,N,N,N,N,N,N,N,Bk,Bk]],
       [5,12,[N,N,N,N,N,N,N,N,N,N,N,PIPE_NARROW_LEFT]],
-      [6,12,[Db,Db,N,N,N,N,N,N,N,N,N,PIPE_NARROW_LEFT]],
+      [6,12,[N,N,N,N,N,N,N,N,N,N,N,PIPE_NARROW_LEFT]],
       [7,12,[Db,Db,N,N,N,N,N,N,N,N,N,PIPE_NARROW_LEFT]],
       [8,12,[Db,Db,Bk,Bk,N,N,N,N,N,N,N,PIPE_NARROW_LEFT]],
       [9,12,[Db,Db,Bk,Bk,N,N,N,N,N,N,N,PIPE_NARROW_LEFT]],
@@ -2613,10 +2660,10 @@ class FactoryLevel extends ForestLevel {
       [39,12,[Db,N,N,N,N,N,N,N,N,N,N,Bk]],
       [40,12,[N,N,N,N,N,N,N,N,N,N,N,Bk]],
       [41,12,[Db,N,N,N,N,N,N,N,N,N,Bk,Bk]],
-      [42,12,[Db,N,N,N,N,N,N,N,N,N,Bk,Bk]],
-      [43,12,[Db,N,N,N,N,N,N,N,N,N,Bk,Bk]],
+      [42,12,[Db,Db,N,N,N,N,N,N,N,N,Bk,Bk]],
+      [43,12,[Db,Db,N,N,N,N,N,N,N,N,Bk,Bk]],
       [44,12,[Db,Bk,Bk,N,N,N,N,N,N,N,Bk,Bk]],
-      [45,12,[Db,Bk,Bk,N,N,N,N,N,N,Bk,Bk,Bk]],
+      [45,12,[Db,Bk,N,N,N,N,N,N,N,Bk,Bk,Bk]],
       [46,12,[Db,Bk,Bk,N,N,N,N,N,N,Bk,Bk,Bk]],
       [47,12,[Db,Bk,N,N,N,N,N,N,N,Bk,Bk,N]],
       [48,12,[N,N,N,N,N,N,N,N,N,Bk,Bk,N]],
@@ -2641,7 +2688,7 @@ class FactoryLevel extends ForestLevel {
       [67,12,[Db,Db,N,N,N,N,N,N,N,N,N,PIPE_NARROW_LEFT]],
       [68,12,[Db,Db,Bk,Bk,N,N,N,N,N,N,N,PIPE_NARROW_LEFT]],
       [69,12,[Db,Db,Bk,Bk,N,N,N,N,N,N,N,PIPE_NARROW_LEFT]],
-      [70,12,[Db,Db,Bk,Bk,N,N,N,N,N,N,N,PIPE_NARROW_LEFT]],
+      [70,12,[Db,Db,Bk,N,N,N,N,N,N,N,N,PIPE_NARROW_LEFT]],
       [71,12,[Db,Bk,Bk,Bk,N,N,N,N,N,N,N,PIPE_NARROW_LEFT]],
       [72,12,[Bk,Bk,N,N,N,N,N,N,N,N,N,PIPE_NARROW_LEFT]],
       [73,12,[A,N,N,N,N,N,Bk,N,N,N,N,PIPE_NARROW_LEFT]],
@@ -2649,7 +2696,7 @@ class FactoryLevel extends ForestLevel {
       [75,12,[A,N,N,N,N,N,Bk,Bk,N,N,N,PIPE_NARROW_LEFT]],
       [76,12,[A,N,N,N,N,N,Bk,Bk,N,N,N,PIPE_NARROW_LEFT]],
       [77,12,[A,N,N,N,N,N,Bk,Bk,N,N,N,PIPE_NARROW_LEFT]],
-      [78,12,[Db,Bk,N,N,N,N,Bk,Bk,N,N,Bk,Bk]],
+      [78,12,[Db,N,N,N,N,N,Bk,Bk,N,N,Bk,Bk]],
       [79,12,[Db,Bk,N,N,N,N,Bk,Bk,N,N,Bk,Bk]],
       [80,12,[Db,Bk,Bk,Bk,N,N,Bk,Bk,N,N,N,Bk]],
       [81,12,[Db,Bk,Bk,Bk,N,N,N,Bk,N,N,N,Bk]],
@@ -2723,13 +2770,59 @@ class FactoryLevel extends ForestLevel {
     this.pipeFlowVisibleMs = 3000;
     this.pipeFlowSquareVisibleMs = 3000;
     this.pipeFlowHeight = 26;
+    this.spikeTravelPx = 32;
+    this.spikeCycleMs = 1400;
+    this.spikes = [];
+    this.setupFactoryTrapAndButton();
+    // spike
+    this.addSpikeOnTopBrick(9);
+    this.addSpikeOnTopBrick(10);
+    this.addSpikeOnTopBrick(20, { targetRow: 3 });
+    this.addSpikeOnTopBrick(22, { targetRow: 3 });
+    this.addSpikeOnTopBrick(81, { targetRow: 3 });
+    this.addSpikeOnTopBrick(83, { targetRow: 3 });
+    // 可按如下方式在局内手动添加：this.addSpikeOnTopBrick(18, { targetRow: 3, width: 32, height: 8, phaseOffsetMs: 0 });
     const groundY = (col) => this.terrainHeights[col];
-    this.enemies.push(new Vex(10 * TILE_SIZE, 180, 40, 22));
+    // vex
+    this.enemies.push(new Vex(18 * TILE_SIZE, 2 * TILE_SIZE, 40, 22));
+    this.enemies.push(new Vex(107 * TILE_SIZE, 6 * TILE_SIZE, 40, 22));
+    // rabbit：两套机关各放 1 只（逻辑相同）
+    // 42-45：第45列兔子在按钮按下后跳到 col=44，距底部 3*TILE_SIZE 的砖块位置
+    this.items.push(new Rabbit(
+      45 * TILE_SIZE,
+      (CANVAS_H - 2 * TILE_SIZE) - 32,
+      32,
+      32,
+      {
+        scriptEnabled: true,
+        listenButtonCol: 42,
+        targetX: 44 * TILE_SIZE,
+        targetY: (CANVAS_H - 3 * TILE_SIZE) - 32
+      }
+    ));
+    // 66-70：第70列兔子在按钮按下后跳到 col=69，距底部 4*TILE_SIZE 的砖块位置
+    this.items.push(new Rabbit(
+      70 * TILE_SIZE,
+      (CANVAS_H - 3 * TILE_SIZE) - 32,
+      32,
+      32,
+      {
+        scriptEnabled: true,
+        listenButtonCol: 66,
+        targetX: 69 * TILE_SIZE,
+        targetY: (CANVAS_H - 4 * TILE_SIZE) - 32
+      }
+    ));
 
     // 第三关恢复道具药水瓶
     this.items.push(new Hp(18 * TILE_SIZE + 4, groundY(18) - 24, 24, 24, 'potion_bottle'));
     this.items.push(new Hp(52 * TILE_SIZE + 4, groundY(52) - 24, 24, 24, 'potion_bottle'));
     this.items.push(new Hp(88 * TILE_SIZE + 4, groundY(88) - 24, 24, 24, 'potion_bottle'));
+
+    // 石灰石
+    this.items.push(new Tool(7 * TILE_SIZE + 4, CANVAS_H - 2 * TILE_SIZE - 24, 24, 24, 'limestone'));
+    this.items.push(new Tool(36 * TILE_SIZE + 4, CANVAS_H - 4 * TILE_SIZE - 24, 24, 24, 'limestone'));
+    this.items.push(new Tool(55 * TILE_SIZE + 4, CANVAS_H - 6 * TILE_SIZE - 24, 24, 24, 'limestone'));
   }
 
   addTerrainColumn(col, heightTiles, tiles) {
@@ -2786,12 +2879,6 @@ class FactoryLevel extends ForestLevel {
         continue;
       }
 
-      if (tile === T.WATER) {
-        const row = i;
-        this.tileMap[col][row] = tile;
-        continue;
-      }
-
       const row = i;
       this.tileMap[col][row] = tile;
       const platform = new Platform(col * TILE_SIZE, y, TILE_SIZE, TILE_SIZE, terrainHeight > 0);
@@ -2806,6 +2893,7 @@ class FactoryLevel extends ForestLevel {
   }
 
   draw() {
+    this.drawFactorySpikes();
     super.draw();
 
     const flowState = this.getPipeFlowState();
@@ -2887,6 +2975,222 @@ class FactoryLevel extends ForestLevel {
 
     player.vx += 0.45; // 额外向右推力
     player.vy += 0.35; // 额外向下推力
+  }
+
+  setupFactoryTrapAndButton() {
+    // 支持多套机关（与 42-45 一致的逻辑可复用）
+    this.factoryMechanisms = [];
+    this.factoryButtons = [];
+    this.factoryButtonPressed = false; // 向后兼容：第一套按钮状态
+
+    this.addFactoryTrapButtonMechanism({ buttonCol: 42, buttonDbNth: 2, trapCol: 45, trapBottomTiles: 3 });
+    this.addFactoryTrapButtonMechanism({ buttonCol: 66, buttonDbNth: 2, trapCol: 70, trapBottomTiles: 4 });
+
+    // 向后兼容字段（指向第一套）
+    const first = this.factoryMechanisms[0];
+    if (first) {
+      this.factoryTrapPlatform = first.trapPlatform;
+      this.factoryTrapBaseY = first.trapBaseY;
+      this.factoryTrapLiftPx = first.liftPx;
+      this.factoryButtonPlatform = first.buttonPlatform;
+    }
+
+    this.updateFactoryMechanisms(null);
+  }
+
+  addFactoryTrapButtonMechanism({ buttonCol, buttonDbNth = 2, trapCol, trapBottomTiles = 3 }) {
+    const liftPx = 4 * TILE_SIZE;
+
+    // trap：默认放在距底部 3*TILE_SIZE 的高度（可通过 trapBottomTiles 调整）
+    const trapX = trapCol * TILE_SIZE;
+    const trapY = CANVAS_H - trapBottomTiles * TILE_SIZE;
+    const trapBaseY = trapY;
+    const trapPlatform = new Platform(trapX, trapY, TILE_SIZE, 8, false);
+    trapPlatform.draw = function () {
+      const img = window.tile_trap;
+      if (img && img.width > 0 && img.height > 0) image(img, this.x, this.y, this.w, this.h);
+      else { fill(150, 120, 80); rect(this.x, this.y, this.w, this.h); }
+    };
+    trapPlatform.collisionRects = [{ x: trapX, y: trapY, w: TILE_SIZE, h: 8 }];
+    this.platforms.push(trapPlatform);
+
+    // button：放在指定列的第 N 个 Db 上方
+    const buttonSurfaceY = this.getNthTileSurfaceY(buttonCol, T.DEEPSLATE_BRICKS, buttonDbNth);
+    if (buttonSurfaceY === null) return;
+    const buttonX = buttonCol * TILE_SIZE;
+    const buttonY = buttonSurfaceY - 8;
+    const buttonPlatform = new Platform(buttonX, buttonY, TILE_SIZE, 8, false);
+
+    const mechanism = {
+      buttonCol,
+      pressed: false,
+      buttonPlatform,
+      trapPlatform,
+      trapBaseY,
+      liftPx
+    };
+
+    buttonPlatform.draw = () => {
+      const img = mechanism.pressed ? window.tile_button_pressed : window.tile_button;
+      if (img && img.width > 0 && img.height > 0) image(img, buttonX, buttonY, TILE_SIZE, 8);
+      else {
+        if (mechanism.pressed) fill(170, 40, 40);
+        else fill(220, 50, 50);
+        rect(buttonX, buttonY, TILE_SIZE, 8);
+      }
+    };
+    this.platforms.push(buttonPlatform);
+
+    this.factoryMechanisms.push(mechanism);
+    this.factoryButtons.push({ platform: buttonPlatform, pressed: false, buttonCol });
+  }
+
+  getNthTileSurfaceY(col, tileType, nth = 1) {
+    if (col < 0 || col >= TERRAIN_COLS || nth <= 0) return null;
+    const column = this.tileMap[col] || [];
+    let count = 0;
+    for (let row = 0; row < column.length; row++) {
+      if (column[row] !== tileType) continue;
+      count++;
+      if (count === nth) return CANVAS_H - (row + 1) * TILE_SIZE;
+    }
+    return null;
+  }
+
+  updateFactoryMechanisms(player = null) {
+    if (!Array.isArray(this.factoryMechanisms) || this.factoryMechanisms.length === 0) return;
+
+    for (const m of this.factoryMechanisms) {
+      const buttonX = m.buttonPlatform.x;
+      const buttonY = m.buttonPlatform.y;
+      const pressed = this.isPlayerStandingOnFactoryButton(player, m.buttonPlatform);
+      m.pressed = pressed;
+
+      // button 碰撞箱：与 pressed 一致（20x4，底部居中）
+      const buttonCollisionH = 4;
+      const buttonCollisionY = buttonY + 4;
+      m.buttonPlatform.collisionRects = [{
+        x: buttonX + 6,
+        y: buttonCollisionY,
+        w: 20,
+        h: buttonCollisionH
+      }];
+
+      const trapY = m.trapBaseY - (pressed ? m.liftPx : 0);
+      m.trapPlatform.y = trapY;
+      m.trapPlatform.collisionRects = [{
+        x: m.trapPlatform.x,
+        y: trapY,
+        w: m.trapPlatform.w,
+        h: m.trapPlatform.h
+      }];
+
+      const btn = this.factoryButtons?.find(b => b.buttonCol === m.buttonCol);
+      if (btn) btn.pressed = pressed;
+    }
+
+    // 向后兼容：第一套按钮状态
+    this.factoryButtonPressed = !!this.factoryMechanisms[0]?.pressed;
+  }
+
+  isFactoryTrapAtTop() {
+    // 兼容旧接口：任意 trap 到顶返回 true
+    if (!Array.isArray(this.factoryMechanisms) || this.factoryMechanisms.length === 0) return false;
+    for (const m of this.factoryMechanisms) {
+      const topY = m.trapBaseY - m.liftPx;
+      if (m.trapPlatform?.y <= topY + 0.01) return true;
+    }
+    return false;
+  }
+
+  getNearestFactoryButtonPressed(entity) {
+    if (!entity || !Array.isArray(this.factoryButtons) || this.factoryButtons.length === 0) return false;
+    const entityCenterX = entity.x + entity.w / 2;
+    const entityCenterY = entity.y + entity.h / 2;
+    let nearest = null;
+    let nearestDistSq = Infinity;
+    for (const btn of this.factoryButtons) {
+      const p = btn?.platform;
+      if (!p) continue;
+      const cx = p.x + p.w / 2;
+      const cy = p.y + p.h / 2;
+      const dx = cx - entityCenterX;
+      const dy = cy - entityCenterY;
+      const d2 = dx * dx + dy * dy;
+      if (d2 < nearestDistSq) {
+        nearestDistSq = d2;
+        nearest = btn;
+      }
+    }
+    return !!nearest?.pressed;
+  }
+
+  isPlayerStandingOnFactoryButton(player, buttonPlatform = null) {
+    if (!player || typeof player.getCollisionBox !== 'function') return false;
+    const p = player.getCollisionBox();
+    const b = (buttonPlatform || this.factoryButtonPlatform)?.collisionRects?.[0];
+    if (!b) return false;
+    const overlapX = Math.min(p.x + p.w, b.x + b.w) - Math.max(p.x, b.x);
+    if (overlapX <= 0) return false;
+    const feetY = p.y + p.h;
+    return feetY >= b.y - 2 && feetY <= b.y + 6 && (player.vy ?? 0) >= -0.05;
+  }
+
+  isFactoryButtonPressedAtCol(col) {
+    if (!Array.isArray(this.factoryButtons)) return false;
+    const b = this.factoryButtons.find(btn => btn.buttonCol === col);
+    return !!b?.pressed;
+  }
+
+  addSpikeOnTopBrick(col, options = {}) {
+    const surfaceY = this.getTopBrickSurfaceY(col, options.targetRow);
+    if (surfaceY === null) return;
+    this.spikes.push({
+      x: col * TILE_SIZE,
+      surfaceY,
+      w: options.width ?? TILE_SIZE,
+      h: options.height ?? 8,
+      phaseOffsetMs: options.phaseOffsetMs ?? 0
+    });
+  }
+
+  getTopBrickSurfaceY(col, targetRow = null) {
+    const column = this.tileMap[col] || [];
+    if (Number.isInteger(targetRow)) {
+      if (targetRow < 0 || targetRow >= column.length) return null;
+      if (column[targetRow] !== T.BRICKS) return null;
+      return 360 - (targetRow + 1) * TILE_SIZE;
+    }
+    for (let row = column.length - 1; row >= 0; row--) {
+      if (column[row] !== T.BRICKS) continue;
+      return 360 - (row + 1) * TILE_SIZE;
+    }
+    return null;
+  }
+
+  getActiveSpikeZones() {
+    if (!Array.isArray(this.spikes) || this.spikes.length === 0) return [];
+    const now = millis();
+    return this.spikes.map((spike) => {
+      const t = (now + spike.phaseOffsetMs) % this.spikeCycleMs;
+      const phase01 = (1 - cos((t / this.spikeCycleMs) * TWO_PI)) * 0.5;
+      const y = spike.surfaceY - spike.h + phase01 * this.spikeTravelPx;
+      return { x: spike.x, y, w: spike.w, h: spike.h };
+    });
+  }
+
+  drawFactorySpikes() {
+    const zones = this.getActiveSpikeZones();
+    if (!zones.length) return;
+    const img = window.tile_spike;
+    for (const zone of zones) {
+      if (img && img.width > 0 && img.height > 0) {
+        image(img, zone.x, zone.y, zone.w, zone.h);
+      } else {
+        fill(210, 210, 220);
+        rect(zone.x, zone.y, zone.w, zone.h);
+      }
+    }
   }
 }
 
@@ -3554,10 +3858,7 @@ class Player extends Entity {
 
     // 碰撞箱尺寸（独立于贴图尺寸）
     this.collisionW = 16;
-    this.standingCollisionH = 56;
-    this.crouchScale = 0.78;
-    this.crouchingCollisionH = this.h * this.crouchScale;
-    this.collisionH = this.standingCollisionH;
+    this.collisionH = 50;
     this.collisionOffsetX = (this.w - this.collisionW) / 2;  // 水平居中：(32-24)/2 = 4
     this.collisionOffsetY = this.h - this.collisionH;  // 底部对齐
 
@@ -3613,13 +3914,10 @@ class Player extends Entity {
       if (Math.abs(this.vx) < 0.1) this.vx = 0;
     }
     
-    // 仅 WASD：A/D 水平移动，S 下蹲
+    // 仅 WASD：A/D 水平移动（S 不再用于陆地蹲下）
     const leftHeld = !!keys['a'];
     const rightHeld = !!keys['d'];
     const crouchHeld = !!keys['s'];
-    this.isCrouching = crouchHeld && this.onGround;
-    this.collisionH = this.isCrouching ? this.crouchingCollisionH : this.standingCollisionH;
-    this.collisionOffsetY = this.h - this.collisionH;
     if (leftHeld && !rightHeld) {
       this.vx = -this.speed;
     } else if (rightHeld && !leftHeld) {
@@ -3730,7 +4028,7 @@ class Player extends Entity {
     }
 
     // 世界下边界：防止掉出画布（即使底部全是水/无碰撞）
-    const maxY = CANVAS_H - this.h;
+    const maxY = CANVAS_H + 64;
     if (this.y > maxY) {
       this.y = maxY;
       this.vy = 0;
@@ -5184,6 +5482,95 @@ class LittleBird extends Animal {
   }
 }
 
+class Rabbit extends Animal {
+  constructor(x, y, w = 32, h = 32, opts = {}) {
+    super(x, y, w, h, null);
+    this.vx = 0;
+    this.vy = 0;
+    this.onGround = false;
+    this.facingRight = false;
+
+    // 碰撞箱：宽24高16，底部居中贴合 32x32 贴图
+    this.collisionW = 24;
+    this.collisionH = 16;
+    this.collisionOffsetX = (w - this.collisionW) / 2;
+    this.collisionOffsetY = h - this.collisionH;
+
+    // 第3关脚本行为（仅用于特定兔子）
+    this.scriptEnabled = !!opts.scriptEnabled;
+    this.listenButtonCol = Number.isFinite(opts.listenButtonCol) ? opts.listenButtonCol : null;
+    this.scriptTriggered = false;
+    this.scriptJumping = false;
+    this.scriptAwarded = false;
+    this.scriptStartAt = 0;
+    this.scriptDurationMs = 520;
+    this.scriptStartX = x;
+    this.scriptStartY = y;
+    this.scriptTargetX = Number.isFinite(opts.targetX) ? opts.targetX : x;
+    this.scriptTargetY = Number.isFinite(opts.targetY) ? opts.targetY : y;
+    this.scriptArcHeight = 2 * TILE_SIZE;
+  }
+
+  update(platforms, level = null) {
+    const now = millis();
+
+    // 脚本兔子：只要第42列按钮被按下，就跳到指定目标点（其余逻辑清空）
+    if (this.scriptEnabled && !this.scriptTriggered) {
+      const buttonPressed = this.listenButtonCol !== null
+        ? !!(level && typeof level.isFactoryButtonPressedAtCol === 'function' && level.isFactoryButtonPressedAtCol(this.listenButtonCol))
+        : !!(level && level.factoryButtonPressed);
+      if (buttonPressed && !this.scriptJumping) {
+        this.scriptJumping = true;
+        this.scriptStartAt = now;
+        this.scriptStartX = this.x;
+        this.scriptStartY = this.y;
+        this.facingRight = this.scriptTargetX > this.scriptStartX;
+      }
+    }
+
+    if (this.scriptEnabled && this.scriptJumping) {
+      const t = constrain((now - this.scriptStartAt) / this.scriptDurationMs, 0, 1);
+      const arc = -4 * this.scriptArcHeight * t * (1 - t);
+      this.x = lerp(this.scriptStartX, this.scriptTargetX, t);
+      this.y = lerp(this.scriptStartY, this.scriptTargetY, t) + arc;
+      this.vx = 0;
+      this.vy = 0;
+      this.onGround = false;
+      if (t >= 1) {
+        this.x = this.scriptTargetX;
+        this.y = this.scriptTargetY;
+        this.onGround = true;
+        this.scriptJumping = false;
+        this.scriptTriggered = true;
+        if (!this.scriptAwarded && typeof game?.addScore === 'function') {
+          game.addScore(1);
+          this.scriptAwarded = true;
+        }
+      }
+      return;
+    }
+
+    // 非脚本兔子：保持静止
+    this.vx = 0;
+    this.vy = 0;
+  }
+
+  draw() {
+    const img = window.rabbit;
+    if (img && img.width > 0) {
+      push();
+      imageMode(CENTER);
+      translate(this.x + this.w / 2, this.y + this.h / 2);
+      scale(this.facingRight ? -1 : 1, 1);
+      image(img, 0, 0, this.w, this.h);
+      pop();
+    } else {
+      fill(220, 220, 220);
+      rect(this.x, this.y, this.w, this.h);
+    }
+  }
+}
+
 class Hp extends Item {
   // hpType: 'apple' | 'golden_apple'
   constructor(x, y, w = 24, h = 24, hpType = 'apple') {
@@ -5621,6 +6008,7 @@ class UIManager {
         ],
         [],
         [
+          [window.tile_spike, t("Spike", "尖刺"), t("Retracts and extends periodically", "会周期性升降并持续造成伤害")],
           [window.slimeSprite, t("Slime", "史莱姆"), t("Press F to attack", "按 F 攻击")],
           [window.vexSprite0, t("Vex", "怨灵"), t("Keep distance or attack", "保持距离或攻击")]
         ]
@@ -5746,6 +6134,7 @@ function setup() {
   load('assets/pic/animals/bird.png', 'bird');
   load('assets/pic/animals/bird_flip.png', 'bird_flip');
   load('assets/pic/animals/fish.png', 'fish');
+  load('assets/pic/animals/rabbit.png', 'rabbit');
   load('assets/pic/animals/turtle_0.png', 'turtle_0');
   load('assets/pic/animals/turtle_1.png', 'turtle_1');
   load('assets/pic/animals/iron_bar.png', 'iron_bar');
@@ -5815,7 +6204,7 @@ function setup() {
     'grass_block_side', 'dirt', 'stone', 'deepslate',
     'deepslate_diamond_ore', 'deepslate_iron_ore',
     'diamond_ore', 'iron_ore', 'lava', 'acid', 'water', 'sand', 'gravel',
-    'bricks', 'pipe_narrow', 'deepslate_bricks', 'pipe_wide', 'pipe_wide_inner_corner', 'pipe_wide_outer_corner', 'pipe_narrow_corner', 'pipe_narrow_to_wide', 'pipe_narrow_to_narrow',
+    'bricks', 'pipe_narrow', 'deepslate_bricks', 'pipe_wide', 'pipe_wide_inner_corner', 'pipe_wide_outer_corner', 'pipe_narrow_corner', 'pipe_narrow_to_wide', 'pipe_narrow_to_narrow', 'spike', 'trap', 'button', 'button_pressed',
     // 树（仅作为背景装饰使用）
     'oak_leaves', 'oak_log',
     // 关卡2：水下植物与珊瑚（仅背景装饰）
