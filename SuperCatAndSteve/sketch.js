@@ -255,7 +255,7 @@ function loadHtmlAudioList(key, paths) {
   });
 }
 
-function pickNextLoadedHtmlAudio(key) {
+function pickNextLoadedHtmlAudio(key, { allowNotReady = false } = {}) {
   const list = SFX.html.audiosByKey[key];
   if (!Array.isArray(list) || list.length === 0) return null;
 
@@ -265,7 +265,8 @@ function pickNextLoadedHtmlAudio(key) {
     const a = list[idx];
     if (!a) continue;
     // readyState: 0 HAVE_NOTHING, 4 HAVE_ENOUGH_DATA
-    if (a.readyState < 3) continue;
+    // click 这类 UI 音效要求“跟手”，允许在未完全就绪时也先尝试播放（让浏览器自行缓冲）
+    if (!allowNotReady && a.readyState < 3) continue;
     SFX.html.nextIndexByKey[key] = (idx + 1) % list.length;
     return a;
   }
@@ -345,6 +346,14 @@ function getLoadedSoundCount(key) {
   return n;
 }
 
+function getSfxMasterVolume01() {
+  // 统一由设置页的 sfxVolume 控制（0..100）
+  const v = (game?.settings?.sfxVolume ?? 80);
+  const n = Number(v);
+  if (!Number.isFinite(n)) return 0.8;
+  return constrain(n / 100, 0, 1);
+}
+
 function tryPlaySfx(key, { volume = 0.35, rate = 1 } = {}) {
   if (!SFX.enabled) return;
   // 先做节流，避免高频场景里每次都走解锁/加载检查
@@ -359,16 +368,28 @@ function tryPlaySfx(key, { volume = 0.35, rate = 1 } = {}) {
     ensureAudioUnlocked();
     startQueuedSfxLoads();
   }
+
+  const master = getSfxMasterVolume01();
+  // 传入的 volume 作为“相对音量”，统一受全局音效音量控制
+  const finalVol = constrain((Number(volume) || 0) * master, 0, 1);
+  if (finalVol <= 0) return;
+
   if (SFX.mode === 'html') {
-    const a = pickNextLoadedHtmlAudio(key);
+    const a = pickNextLoadedHtmlAudio(key, { allowNotReady: key === 'click' });
     if (!a) return;
     SFX.lastPlayedAtByKey[key] = now;
 
     try {
-      a.pause();
-      a.currentTime = 0;
+      // 对 click：不强制 reset currentTime（未就绪时 reset 反而更容易被浏览器拒绝/延后）
+      if (key !== 'click') {
+        a.pause();
+        a.currentTime = 0;
+      } else {
+        try { a.pause(); } catch {}
+        try { if (a.currentTime > 0.02) a.currentTime = 0; } catch {}
+      }
       a.playbackRate = rate;
-      a.volume = volume;
+      a.volume = finalVol;
       const p = a.play();
       if (p && typeof p.catch === 'function') p.catch(() => {});
       if (SFX.debug) console.log('[SFX][html] play', key, 'rate=', rate, 'vol=', volume);
@@ -386,10 +407,10 @@ function tryPlaySfx(key, { volume = 0.35, rate = 1 } = {}) {
 
   try {
     // 用带参数的 play 更稳定（避免 setVolume/rate 在某些情况下不生效）
-    if (typeof snd.play === 'function') snd.play(0, rate, volume);
+    if (typeof snd.play === 'function') snd.play(0, rate, finalVol);
     else {
       if (typeof snd.rate === 'function') snd.rate(rate);
-      if (typeof snd.setVolume === 'function') snd.setVolume(volume);
+      if (typeof snd.setVolume === 'function') snd.setVolume(finalVol);
       snd.play();
     }
     if (SFX.debug) {
@@ -1749,12 +1770,14 @@ drawHealEffect(now) {
 handleMousePressed(mx, my) {
   const topRight = this.uiManager.getTopRightButtons();
   if (this.uiManager.isInsideRect(mx, my, topRight.exitRect)) {
+    tryPlaySfx('click', { volume: 0.32, rate: 1 });
     this.state = "levelSelect";
     this.showGuideMenu = false;
     this.activeGuideTab = 0;
     return;
   }
   if (this.uiManager.isInsideRect(mx, my, topRight.menuRect)) {
+    tryPlaySfx('click', { volume: 0.32, rate: 1 });
     this.showGuideMenu = !this.showGuideMenu;
     return;
   }
@@ -1763,6 +1786,7 @@ handleMousePressed(mx, my) {
     const tabs = this.uiManager.getGuideTabRects();
     for (let i = 0; i < tabs.length; i++) {
       if (this.uiManager.isInsideRect(mx, my, tabs[i])) {
+        tryPlaySfx('click', { volume: 0.32, rate: 1 });
         this.activeGuideTab = i;
         return;
       }
@@ -1771,6 +1795,7 @@ handleMousePressed(mx, my) {
 
   const slotIndex = this.getInventorySlotAt(mx, my);
   if (slotIndex === -1) return;
+  tryPlaySfx('click', { volume: 0.32, rate: 1 });
 
   // 记录选中的格子
   this.player.selectedSlot = slotIndex;
