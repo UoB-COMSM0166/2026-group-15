@@ -45,6 +45,8 @@
 - [9. Sustainability](#9-sustainability)
 - [10. Conclusion](#9-conclusion)
 - [11. Individual Contribution](#10-individual-contribution)
+- [12. AI Statement](#12-AI-Statement)
+
 ---
 ## 1. Weekly Labs
 
@@ -998,13 +1000,13 @@ In the end, we think this project was valuable not only because we made a playab
 </div>
 
 > We worked on the game collaboratively, and each of us had slightly different areas of focus. Overall, the workload was shared fairly, so we report an equal contribution for all team members.
+ 
+---
 
-### Additional Marks
+## 12. AI Statement
 
-You can delete this section in your own repo, it's just here for information. in addition to the marks above, we will be marking you on the following two points:
+Throughout the development of our game, we used generative AI tools, mainly GitHub Copilot in Visual Studio Code and ChatGPT, to support our software engineering work rather than replace it. AI was particularly helpful when considering architectural decisions and addressing technical problems. Early in the project, we consulted these tools to compare alternative code structures for the movement and enemy systems, and to explore how a single update loop could still handle different forces in land, water, and pipe environments. These interactions helped us understand the advantages and disadvantages of different approaches, but the final architecture, refactoring, and implementation were carried out by the team.
 
-- **Quality** of report writing, presentation, use of figures and visual material (5% of report grade) 
-  - Please write in a clear concise manner suitable for an interested layperson. Write as if this repo was publicly available.
-- **Documentation** of code (5% of report grade)
-  - Organise your code so that it could easily be picked up by another team in the future and developed further.
-  - Is your repo clearly organised? Is code well commented throughout?
+AI also assisted with specific implementation issues, especially those related to character behaviour and animation. For the hint cat follower, for example, we asked about different ways to implement delayed following, to choose suitable positions when obstacles were present, and to link in‑world behaviour with HUD feedback. We used AI in a similar way when analysing how gravity, buoyancy, drag, and flow forces could coexist within one system without making transitions between environments feel incorrect. In these cases, AI mainly acted as a tutor: it clarified concepts, suggested possible directions, and sometimes helped us identify why earlier ideas were not working as expected. We then implemented and adjusted these ideas in code ourselves and evaluated them through playtesting.
+
+For art, most sprites and tiles were drawn by team members, while a small number of in‑game assets were taken from online resources. We did not use generative image models to produce core gameplay art. AI was also used occasionally to check and refine English phrasing to improve clarity.
