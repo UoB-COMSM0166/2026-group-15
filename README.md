@@ -414,14 +414,6 @@ Looking back, the requirements stage was not just an early planning task. It pla
 </p>
 
 ### 5.1 Class Diagram
-
-```mermaid
-classDiagram
-A <|-- B
-A : +x
-B : +run()
-```
-
 ```mermaid
 classDiagram
 
