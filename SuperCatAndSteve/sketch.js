@@ -11,6 +11,7 @@ const VICTORY_DELAY_MS = 1500;
 const ATTACK_COOLDOWN_MS = 400;  // 攻击冷却
 const MUTUAL_ATTACK_RANGE = 24;  // 敌人和玩家相互攻击的距离（碰撞箱最短距离 < 24px）
 const ENEMY_CONTACT_DAMAGE_PER_SEC = 1;
+const SPIKE_CONTACT_DAMAGE_PER_SEC = 3;
 const ENEMY_ATTACK_START_DELAY_MS = 1000;  // 敌人进入攻击范围后延迟才开始造成伤害（毫秒）
 const PLAYER_ATTACK_RANGE = 2.2 * TILE_SIZE; // 玩家挥剑攻击范围：70.4 px
 const PLAYER_FOLLOW_CAT_DELAY_MS = 500;
@@ -19,7 +20,7 @@ const PLAYER_FOLLOW_CAT_W = 36;
 const PLAYER_FOLLOW_CAT_H = 16;
 
 // ========== TEMP 调试：每列地形底部列序号（删改时整段移除 + Game.draw 内对应一行）==========
-const DEBUG_DRAW_TERRAIN_COLUMN_INDEX = true;
+const DEBUG_DRAW_TERRAIN_COLUMN_INDEX = false;
 
 function drawDebugTerrainColumnIndexLabels() {
   if (!DEBUG_DRAW_TERRAIN_COLUMN_INDEX) return;
@@ -61,6 +62,420 @@ const T = {
   // 工厂关（assets/pic/ground：bricks / pipe_narrow / deepslate_bricks）
   BRICKS: 18, PIPE_NARROW: 19, DEEPSLATE_BRICKS: 20
 };
+
+// ====== 音效（步伐） ======
+const SFX = {
+  enabled: true,
+  sounds: Object.create(null), // key -> p5.SoundFile[]
+  nextIndexByKey: Object.create(null),
+  debug: false,
+  queuedPathsByKey: Object.create(null),
+  startedLoading: false,
+  mode: 'html', // 'html' | 'p5'（当前环境 p5.loadSound 返回 Promise 且回调不稳定，脚步音改用 html 更稳）
+  html: {
+    audiosByKey: Object.create(null), // key -> HTMLAudioElement[]
+    nextIndexByKey: Object.create(null)
+  },
+  minIntervalMsByKey: {
+    step_grass: 70,
+    step_stone: 70,
+    step_sand: 70,
+    // 高触发频率音效做节流
+    fall: 140,
+    swim: 3000,
+    lava: 420,
+    // TNT：arm/explode 都是一次性触发；这里主要防双调用
+    tnt_fuse: 200,
+    tnt_explode: 200,
+    dig_grass: 120,
+    dig_sand: 120,
+    dig_stone: 120,
+    hit: 120,
+    pour: 200,
+    recover: 160,
+    trophy: 100,
+    click: 120,
+    win: 500,
+    lost: 500,
+    bird: 520,
+    spike: 520
+  },
+  lastPlayedAtByKey: Object.create(null)
+};
+
+SFX.activeRefCountByKey = Object.create(null);
+
+function stopSfxNow(key) {
+  if (!key) return;
+  if (SFX.mode === 'html') {
+    const list = SFX.html.audiosByKey[key];
+    if (!Array.isArray(list) || list.length === 0) return;
+    for (const a of list) {
+      if (!a) continue;
+      try {
+        a.pause();
+        a.currentTime = 0;
+      } catch {}
+    }
+    return;
+  }
+  const list = SFX.sounds[key];
+  if (!Array.isArray(list) || list.length === 0) return;
+  for (const snd of list) {
+    if (!snd) continue;
+    try {
+      if (typeof snd.stop === 'function') snd.stop();
+      else if (typeof snd.pause === 'function') snd.pause();
+    } catch {}
+  }
+}
+
+function sfxAcquire(key) {
+  if (!key) return;
+  const n = (SFX.activeRefCountByKey[key] ?? 0) + 1;
+  SFX.activeRefCountByKey[key] = n;
+}
+
+function sfxRelease(key) {
+  if (!key) return;
+  const cur = SFX.activeRefCountByKey[key] ?? 0;
+  const next = Math.max(0, cur - 1);
+  SFX.activeRefCountByKey[key] = next;
+  if (next === 0) stopSfxNow(key);
+}
+
+function canUseSound() {
+  const hasLoadSound = (typeof loadSound === 'function') || (typeof window !== 'undefined' && typeof window.loadSound === 'function');
+  const hasUserStartAudio = (typeof userStartAudio === 'function') || (typeof window !== 'undefined' && typeof window.userStartAudio === 'function');
+  return hasLoadSound && hasUserStartAudio;
+}
+
+function ensureAudioUnlocked() {
+  if (!canUseSound()) return false;
+  try {
+    if (typeof getAudioContext === 'function') {
+      const ctx = getAudioContext();
+      if (ctx && ctx.state !== 'running') {
+        (typeof userStartAudio === 'function' ? userStartAudio : window.userStartAudio)();
+      }
+      return ctx?.state === 'running';
+    }
+    (typeof userStartAudio === 'function' ? userStartAudio : window.userStartAudio)();
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function loadSfx(key, path) {
+  if (!canUseSound()) return;
+  try {
+    const _loadSound = (typeof loadSound === 'function') ? loadSound : window.loadSound;
+    const ret = _loadSound(
+      path,
+      () => console.log(`[SFX] loaded: ${key} <- ${path}`),
+      err => console.warn(`[SFX] load failed: ${key} (${path})`, err)
+    );
+    // p5.sound 在不同版本中可能返回 SoundFile 或 Promise<SoundFile>
+    if (ret && typeof ret.then === 'function') {
+      ret.then((snd) => {
+        if (snd && typeof snd.play === 'function') {
+          SFX.sounds[key] = [snd];
+        } else if (SFX.debug) {
+          console.warn(`[SFX] unexpected resolved sound for ${key} (${path})`, snd);
+        }
+      }).catch((e) => console.warn(`[SFX] load promise rejected: ${key} (${path})`, e));
+      return;
+    }
+    const snd = ret;
+    if (snd && typeof snd.play === 'function') SFX.sounds[key] = [snd];
+    else if (SFX.debug) console.warn(`[SFX] unexpected sound object for ${key} (${path})`, snd);
+  } catch (e) {
+    console.warn(`[SFX] load threw: ${key} (${path})`, e);
+  }
+}
+
+function loadSfxList(key, paths) {
+  if (!canUseSound()) return;
+  if (!Array.isArray(paths) || paths.length === 0) return;
+
+  if (!Array.isArray(SFX.sounds[key])) SFX.sounds[key] = [];
+
+  paths.forEach((path, idx) => {
+    try {
+      const _loadSound = (typeof loadSound === 'function') ? loadSound : window.loadSound;
+      const ret = _loadSound(
+        path,
+        () => console.log(`[SFX] loaded: ${key} <- ${path}`),
+        err => console.warn(`[SFX] load failed: ${key} (${path})`, err)
+      );
+      // 用 idx 保持“轮流播放”的顺序稳定
+      if (ret && typeof ret.then === 'function') {
+        ret.then((snd) => {
+          if (!Array.isArray(SFX.sounds[key])) SFX.sounds[key] = [];
+          if (snd && typeof snd.play === 'function') {
+            SFX.sounds[key][idx] = snd;
+          } else if (SFX.debug) {
+            console.warn(`[SFX] unexpected resolved sound for ${key} (${path})`, snd);
+          }
+        }).catch((e) => console.warn(`[SFX] load promise rejected: ${key} (${path})`, e));
+        return;
+      }
+      const snd = ret;
+      if (snd && typeof snd.play === 'function') SFX.sounds[key][idx] = snd;
+      else if (SFX.debug) console.warn(`[SFX] unexpected sound object for ${key} (${path})`, snd);
+    } catch (e) {
+      console.warn(`[SFX] load threw: ${key} (${path})`, e);
+    }
+  });
+}
+
+function loadHtmlAudioList(key, paths) {
+  if (!Array.isArray(paths) || paths.length === 0) return;
+  if (!Array.isArray(SFX.html.audiosByKey[key])) SFX.html.audiosByKey[key] = [];
+
+  paths.forEach((path, idx) => {
+    // 避免重复创建
+    if (SFX.html.audiosByKey[key][idx]) return;
+    try {
+      const a = new Audio();
+      a.preload = 'auto';
+      a.src = path;
+      a.load();
+      a.addEventListener('canplaythrough', () => {
+        if (SFX.debug) console.log(`[SFX][html] loaded: ${key} <- ${path}`);
+      }, { once: true });
+      a.addEventListener('error', () => {
+        if (SFX.debug) console.warn(`[SFX][html] load failed: ${key} (${path})`);
+      }, { once: true });
+      SFX.html.audiosByKey[key][idx] = a;
+    } catch (e) {
+      if (SFX.debug) console.warn(`[SFX][html] load threw: ${key} (${path})`, e);
+    }
+  });
+}
+
+function pickNextLoadedHtmlAudio(key, { allowNotReady = false } = {}) {
+  const list = SFX.html.audiosByKey[key];
+  if (!Array.isArray(list) || list.length === 0) return null;
+
+  const start = (SFX.html.nextIndexByKey[key] ?? 0) % list.length;
+  for (let i = 0; i < list.length; i++) {
+    const idx = (start + i) % list.length;
+    const a = list[idx];
+    if (!a) continue;
+    // readyState: 0 HAVE_NOTHING, 4 HAVE_ENOUGH_DATA
+    // click 这类 UI 音效要求“跟手”，允许在未完全就绪时也先尝试播放（让浏览器自行缓冲）
+    if (!allowNotReady && a.readyState < 3) continue;
+    SFX.html.nextIndexByKey[key] = (idx + 1) % list.length;
+    return a;
+  }
+  return null;
+}
+
+function getLoadedHtmlAudioCount(key) {
+  const list = SFX.html.audiosByKey[key];
+  if (!Array.isArray(list) || list.length === 0) return 0;
+  let n = 0;
+  for (const a of list) {
+    if (!a) continue;
+    if (a.readyState >= 3) n++;
+  }
+  return n;
+}
+
+function queueSfxList(key, paths) {
+  if (!Array.isArray(paths) || paths.length === 0) return;
+  if (!Array.isArray(SFX.queuedPathsByKey[key])) SFX.queuedPathsByKey[key] = [];
+  for (const p of paths) {
+    if (!SFX.queuedPathsByKey[key].includes(p)) SFX.queuedPathsByKey[key].push(p);
+  }
+}
+
+function startQueuedSfxLoads() {
+  if (SFX.startedLoading) return;
+  const keys = Object.keys(SFX.queuedPathsByKey || {});
+  if (SFX.debug) {
+    const lens = keys.map(k => `${k}=${(SFX.queuedPathsByKey[k] || []).length}`).join(', ');
+    console.log('[SFX] startQueuedSfxLoads keys=', keys, 'lens=', lens);
+  }
+  // 队列为空时不“锁死”startedLoading，允许后续补齐队列后重试
+  if (keys.length === 0) return;
+
+  SFX.startedLoading = true;
+  // 尽量在用户手势后开始加载，HTML Audio 也需要手势
+  ensureAudioUnlocked();
+
+  for (const key of keys) {
+    const paths = SFX.queuedPathsByKey[key];
+    if (SFX.mode === 'p5') loadSfxList(key, paths);
+    else loadHtmlAudioList(key, paths);
+  }
+}
+
+function pickNextLoadedSound(key) {
+  const list = SFX.sounds[key];
+  if (!Array.isArray(list) || list.length === 0) return null;
+
+  // 如果 list 中存在空洞（加载失败/未完成），轮询跳过
+  const start = (SFX.nextIndexByKey[key] ?? 0) % list.length;
+  for (let i = 0; i < list.length; i++) {
+    const idx = (start + i) % list.length;
+    const snd = list[idx];
+    if (!snd) continue;
+    if (typeof snd.play !== 'function') continue;
+    if (typeof snd.isLoaded !== 'function') continue;
+    if (!snd.isLoaded()) continue;
+    SFX.nextIndexByKey[key] = (idx + 1) % list.length;
+    return snd;
+  }
+  return null;
+}
+
+function getLoadedSoundCount(key) {
+  if (SFX.mode === 'html') return getLoadedHtmlAudioCount(key);
+  const list = SFX.sounds[key];
+  if (!Array.isArray(list) || list.length === 0) return 0;
+  let n = 0;
+  for (const snd of list) {
+    if (!snd) continue;
+    if (typeof snd.isLoaded !== 'function') continue;
+    if (!snd.isLoaded()) continue;
+    n++;
+  }
+  return n;
+}
+
+function getSfxMasterVolume01() {
+  // 统一由设置页的 sfxVolume 控制（0..100）
+  const v = (game?.settings?.sfxVolume ?? 80);
+  const n = Number(v);
+  if (!Number.isFinite(n)) return 0.8;
+  return constrain(n / 100, 0, 1);
+}
+
+function tryPlaySfx(key, { volume = 0.35, rate = 1 } = {}) {
+  if (!SFX.enabled) return;
+  // 先做节流，避免高频场景里每次都走解锁/加载检查
+  const now = millis();
+  const minGap = SFX.minIntervalMsByKey[key] ?? 60;
+  const lastAt = SFX.lastPlayedAtByKey[key] ?? -Infinity;
+  if (now - lastAt < minGap) return;
+
+  // 兜底：即使没触发到 pointerdown/keydown 的 once 监听，也在首次尝试播放时启动加载
+  if (!SFX.startedLoading) {
+    if (SFX.debug) console.log('[SFX] tryPlaySfx triggers queued loads');
+    ensureAudioUnlocked();
+    startQueuedSfxLoads();
+  }
+
+  const master = getSfxMasterVolume01();
+  // 传入的 volume 作为“相对音量”，统一受全局音效音量控制
+  const finalVol = constrain((Number(volume) || 0) * master, 0, 1);
+  if (finalVol <= 0) return;
+
+  if (SFX.mode === 'html') {
+    const a = pickNextLoadedHtmlAudio(key, { allowNotReady: key === 'click' });
+    if (!a) return;
+    SFX.lastPlayedAtByKey[key] = now;
+
+    try {
+      // 对 click：不强制 reset currentTime（未就绪时 reset 反而更容易被浏览器拒绝/延后）
+      if (key !== 'click') {
+        a.pause();
+        a.currentTime = 0;
+      } else {
+        try { a.pause(); } catch {}
+        try { if (a.currentTime > 0.02) a.currentTime = 0; } catch {}
+      }
+      a.playbackRate = rate;
+      a.volume = finalVol;
+      const p = a.play();
+      if (p && typeof p.catch === 'function') p.catch(() => {});
+      if (SFX.debug) console.log('[SFX][html] play', key, 'rate=', rate, 'vol=', volume);
+    } catch (e) {
+      if (SFX.debug) console.warn('[SFX][html] play threw', key, e);
+    }
+    return;
+  }
+
+  if (!canUseSound()) return;
+  const snd = pickNextLoadedSound(key);
+  if (!snd) return;
+  if (typeof snd.isLoaded === 'function' && !snd.isLoaded()) return;
+  SFX.lastPlayedAtByKey[key] = now;
+
+  try {
+    // 用带参数的 play 更稳定（避免 setVolume/rate 在某些情况下不生效）
+    if (typeof snd.play === 'function') snd.play(0, rate, finalVol);
+    else {
+      if (typeof snd.rate === 'function') snd.rate(rate);
+      if (typeof snd.setVolume === 'function') snd.setVolume(finalVol);
+      snd.play();
+    }
+    if (SFX.debug) {
+      const dur = typeof snd.duration === 'function' ? snd.duration() : undefined;
+      console.log('[SFX] play', key, 'rate=', rate, 'vol=', volume, 'duration=', dur);
+    }
+  } catch (e) {
+    // 某些浏览器在音频上下文未解锁时会抛错；这里静默失败即可
+    if (SFX.debug) console.warn('[SFX] play threw', key, e);
+  }
+}
+
+function tileTypeToFootstepKey(tileType) {
+  // pipe tileType 是对象（textureKey/rotation），默认归到石质脚步
+  if (typeof isPipeTileType === 'function' && isPipeTileType(tileType)) return 'step_stone';
+  switch (tileType) {
+    case T.GRASS:
+    case T.DIRT:
+      return 'step_grass';
+    case T.SAND:
+    case T.GRAVEL:
+      return 'step_sand';
+    case T.STONE:
+    case T.DEEP:
+    case T.BRICKS:
+    case T.DEEPSLATE_BRICKS:
+    case T.COPPER:
+    case T.IRON:
+    case T.GOLD:
+    case T.DIAMOND:
+    case T.DEEP_COPPER:
+    case T.DEEP_IRON:
+    case T.DEEP_GOLD:
+    case T.DEEP_DIAMOND:
+    default:
+      return 'step_stone';
+  }
+}
+
+function tileTypeToDigSfxKey(tileType) {
+  // 管道类 tileType 是对象（textureKey/rotation），按石质挖掘音处理
+  if (typeof isPipeTileType === 'function' && isPipeTileType(tileType)) return 'dig_stone';
+  switch (tileType) {
+    case T.GRASS:
+    case T.DIRT:
+      return 'dig_grass';
+    case T.SAND:
+    case T.GRAVEL:
+      return 'dig_sand';
+    case T.STONE:
+    case T.DEEP:
+    case T.BRICKS:
+    case T.DEEPSLATE_BRICKS:
+    case T.COPPER:
+    case T.IRON:
+    case T.GOLD:
+    case T.DIAMOND:
+    case T.DEEP_COPPER:
+    case T.DEEP_IRON:
+    case T.DEEP_GOLD:
+    case T.DEEP_DIAMOND:
+    default:
+      return 'dig_stone';
+  }
+}
 
 // UI 常量
 const SLOT_SIZE = 24, SLOT_GAP = 8, INV_PADDING = 8;
@@ -154,11 +569,11 @@ const LANGUAGE_FONT_KEY_MAP = {
 const I18N_BY_EN = {
   Start: { FR: 'Démarrer', RU: 'Старт', JA: 'スタート', KO: '시작' },
   Settings: { FR: 'Paramètres', RU: 'Настройки', JA: '設定', KO: '설정' },
-  'Press Start to begin your adventure': { FR: 'Appuyez sur Démarrer pour commencer votre aventure', RU: 'Нажмите Старт, чтобы начать приключение', JA: 'スタートを押して冒険を始めよう', KO: '시작을 눌러 모험을 시작하세요' },
+  'Press  Start  to  begin  your  adventure': { FR: 'Appuyez sur Démarrer pour commencer votre aventure', RU: 'Нажмите Старт, чтобы начать приключение', JA: 'スタートを押して冒険を始めよう', KO: '시작을 눌러 모험을 시작하세요' },
   'Level 1': { FR: 'Niveau 1', RU: 'Уровень 1', JA: 'レベル1', KO: '레벨 1' },
   'Level 2': { FR: 'Niveau 2', RU: 'Уровень 2', JA: 'レベル2', KO: '레벨 2' },
   'Level 3': { FR: 'Niveau 3', RU: 'Уровень 3', JA: 'レベル3', KO: '레벨 3' },
-  'Choose your level': { FR: 'Choisissez votre niveau', RU: 'Выберите уровень', JA: 'レベルを選択', KO: '레벨을 선택하세요' },
+  'Choose  your  level': { FR: 'Choisissez votre niveau', RU: 'Выберите уровень', JA: 'レベルを選択', KO: '레벨을 선택하세요' },
   Back: { FR: 'Retour', RU: 'Назад', JA: '戻る', KO: '뒤로' },
   'Music Volume': { FR: 'Volume de la musique', RU: 'Громкость музыки', JA: '音楽音量', KO: '음악 볼륨' },
   'SFX Volume': { FR: 'Volume des effets', RU: 'Громкость эффектов', JA: '効果音音量', KO: '효과음 볼륨' },
@@ -200,24 +615,24 @@ const I18N_BY_EN = {
   'Vine ladder grown': {FR: 'Échelle de liane créée',RU: 'Лестница из лозы создана',JA: 'つるのはしごを作った',KO: '덩굴 사다리가 생성되었습니다'},
   'Cannot plant vine here': {FR: 'Impossible de planter ici',RU: 'Здесь нельзя посадить лозу',JA: 'ここには植えられない',KO: '여기에는 심을 수 없습니다'},
   'Vine seed must be planted on nearby ground': {FR: 'La graine doit être plantée sur un sol proche',RU: 'Семя лозы можно сажать только на ближайшей земле',JA: '近くの地面にしか植えられない',KO: '가까운地面にのみ植えられます'},
-  'Move with W/S/A/D, press F to attack, click inventory items to use them': {FR: 'Déplacez-vous avec W/S/A/D, appuyez sur F pour attaquer, cliquez sur les objets de l’inventaire pour les utiliser',RU: 'Двигайтесь с W/S/A/D, нажмите F для атаки, щёлкните предметы в инвентаре, чтобы использовать их',JA: 'W/S/A/Dで移動、Fキーで攻撃、インベントリ内のアイテムをクリックして使用',KO: 'W/S/A/D로 이동, F 키로 공격, 인벤토리의 아이템을 클릭해 사용'},
-  'Lava ahead. Try picking up the bucket and using it.': {FR: 'De la lave devant vous. Essayez de ramasser le seau et de l’utiliser.',RU: 'Впереди лава. Попробуйте подобрать ведро и использовать его.',JA: '前方に溶岩があります。バケツを拾って使ってみましょう。',KO: '앞에 용암이 있습니다. 양동이를 주워 사용해 보세요.'},
-  'Great! Water and fire reacted chemically. You can pass now.': {FR: 'Super ! L’eau et le feu ont réagi chimiquement. Vous pouvez passer maintenant.',RU: 'Отлично! Вода и огонь вступили в химическую реакцию. Теперь можно пройти.',JA: 'すごい！水と火が化学反応を起こしました。もう通れます。',KO: '좋아요! 물과 불이 화학 반응을 일으켰습니다. 이제 지나갈 수 있습니다.'},
-  'It\'s a zombie! Quickly press F to attack it.': {FR: 'C’est un zombie ! Appuyez vite sur F pour l’attaquer.',RU: 'Это зомби! Быстро нажмите F, чтобы атаковать его.',JA: 'ゾンビです！すぐにFキーで攻撃しましょう。',KO: '좀비입니다! 빨리 F 키로 공격하세요.'},
-  'It\'s a magic seed. It will grow into a vine ladder.': {FR: 'C’est une graine magique. Elle deviendra une échelle de lianes.',RU: 'Это волшебное семя. Оно вырастет в лиановую лестницу.',JA: '魔法の種です。つるのはしごに成長します。',KO: '마법의 씨앗입니다. 덩굴 사다리로 자랍니다.'},
-  'A pair of scissors! You can use them to rescue trapped animals.': {FR: 'Une paire de ciseaux ! Vous pouvez les utiliser pour sauver les animaux piégés.',RU: 'Ножницы! Их можно использовать, чтобы спасти пойманных животных.',JA: 'ハサミです！捕まった動物を助けるのに使えます。',KO: '가위입니다! 갇힌 동물을 구하는 데 사용할 수 있습니다.'},
-  'Oh no, a slime is blocking the way!': {FR: 'Oh non, un slime bloque le passage !',RU: 'О нет, слизень преградил путь!',JA: 'しまった、スライムが道をふさいでいる！',KO: '이런, 슬라임이 길을 막고 있어요!'},
-  'Apples are a gift from the forest. Eat them for a pleasant surprise.': {FR: 'Les pommes sont un cadeau de la forêt. Mangez-les pour une agréable surprise.',RU: 'Яблоки — дар леса. Съешьте их, и вас ждёт приятный сюрприз.',JA: 'リンゴは森からの贈り物です。食べると嬉しい効果があります。',KO: '사과는 숲의 선물입니다. 먹으면 기분 좋은 효과가 있습니다.'},
-  'Poor little bird is trapped in a net. Maybe we can help it.': {FR: 'Le pauvre petit oiseau est piégé dans un filet. Nous pouvons peut-être l’aider.',RU: 'Бедная маленькая птица попала в сеть. Возможно, мы сможем ей помочь.',JA: 'かわいそうな小鳥が網に捕まっています。助ける方法があるかもしれません。',KO: '불쌍한 작은 새가 그물에 갇혔어요. 우리가 도울 방법이 있을지도 몰라요.'},
-  'It\'s dynamite. Do not touch it!': {FR: 'C’est de la dynamite. N’y touchez pas !',RU: 'Это динамит. Не трогайте его!',JA: 'ダイナマイトです。触らないでください！',KO: '다이너마이트입니다. 절대 만지지 마세요!'},
-  'There seems to be treasure buried in the seabed gravel ahead. Click to mine it.': {FR: 'Il semble y avoir un trésor enfoui dans le gravier du fond marin. Cliquez pour le miner.',RU: 'Похоже, в морском гравии впереди спрятано сокровище. Нажмите, чтобы добыть его.',JA: '前方の海底の砂利には宝が埋まっているようです。クリックして採掘しましょう。',KO: '앞쪽 해저 자갈에 보물이 묻혀 있는 것 같습니다. 클릭하여 채굴하세요.'},
-  'Magic seashell! Maybe, like apples, it is a gift from nature.': {FR: 'Coquillage magique ! Peut-être, comme les pommes, est-ce un cadeau de la nature.',RU: 'Волшебная ракушка! Возможно, как и яблоки, это дар природы.',JA: '魔法の貝殻！リンゴのように自然からの贈り物かもしれません。',KO: '마법의 조개입니다! 사과처럼 자연이 준 선물일지도 모릅니다.'},
-  'Meow! Steve, there is a turtle that has lost its freedom.': {FR: 'Miaou ! Steve, il y a une tortue qui a perdu sa liberté.',RU: 'Мяу! Стив, там черепаха, которая лишилась свободы.',JA: 'ニャー！スティーブ、自由を失ったカメがいるよ。',KO: '야옹! 스티브, 자유를 잃은 거북이가 있어요.'},
-  'Meow! I’ve never seen such a big fish! Be careful in the deep sea.': {FR: 'Miaou ! Je n’ai jamais vu un poisson aussi grand ! Fais attention dans les profondeurs.',RU: 'Мяу! Я никогда не видел такую большую рыбу! Будь осторожен в глубоком море.',JA: 'ニャー！こんなに大きな魚は初めて見た！深海では気をつけて。',KO: '야옹! 이렇게 큰 물고기는 처음 봐요! 깊은 바다에서는 조심하세요.'},
-  'Another glowing treasure! We are really lucky.': {FR: 'Encore un trésor lumineux ! Nous avons vraiment de la chance.',RU: 'Ещё одно светящееся сокровище! Нам действительно повезло.',JA: 'また光る宝物だ！本当に運がいいね。',KO: '또 빛나는 보물이야! 정말 운이 좋네요.'},
-  'My excellent sense of smell tells me that green potion is something good.': {FR: 'Mon excellent odorat me dit que cette potion verte est une bonne chose.',RU: 'Моё отличное обоняние подсказывает, что это зелёное зелье — хорошая вещь.',JA: '優れた嗅覚によると、あの緑の薬は良いものみたいです。',KO: '제 뛰어난 후각으로 보아 저 초록 물약은 좋은 것 같아요.'},
-  'City pipes… I really don’t like water. Can we go somewhere else, meow?': {FR: 'Les tuyaux de la ville… je n’aime vraiment pas l’eau. On peut aller ailleurs, miaou ?',RU: 'Городские трубы… я правда не люблю воду. Может, пойдём в другое место, мяу?',JA: '街の配管…水は本当に苦手。別のところに行ける？ニャー？',KO: '도시의 파이프… 저는 물이 정말 싫어요. 다른 데로 갈 수 있을까요? 야옹?'},
-  'The dolphin attracts nearby tools and seashells!': {FR: 'Le dauphin attire les outils et les coquillages proches !',RU: 'Дельфин притягивает ближайшие инструменты и ракушки!',JA: 'イルカが近くの道具や貝殻を引き寄せます！',KO: '돌고래가 근처의 도구와 조개를 끌어당깁니다!'},
+  'Move  with  W/S/A/D,  press  F  to  attack,  click  inventory  items  to  use  them': {FR: 'Déplacez-vous avec W/S/A/D, appuyez sur F pour attaquer, cliquez sur les objets de l’inventaire pour les utiliser',RU: 'Двигайтесь с W/S/A/D, нажмите F для атаки, щёлкните предметы в инвентаре, чтобы использовать их',JA: 'W/S/A/Dで移動、Fキーで攻撃、インベントリ内のアイテムをクリックして使用',KO: 'W/S/A/D로 이동, F 키로 공격, 인벤토리의 아이템을 클릭해 사용'},
+  'Lava  ahead.  Try  picking  up  the  bucket  and  using  it.': {FR: 'De la lave devant vous. Essayez de ramasser le seau et de l’utiliser.',RU: 'Впереди лава. Попробуйте подобрать ведро и использовать его.',JA: '前方に溶岩があります。バケツを拾って使ってみましょう。',KO: '앞에 용암이 있습니다. 양동이를 주워 사용해 보세요.'},
+  'Great!  Water  and  fire  reacted  chemically.  You  can  pass  now.': {FR: 'Super ! L’eau et le feu ont réagi chimiquement. Vous pouvez passer maintenant.',RU: 'Отлично! Вода и огонь вступили в химическую реакцию. Теперь можно пройти.',JA: 'すごい！水と火が化学反応を起こしました。もう通れます。',KO: '좋아요! 물과 불이 화학 반응을 일으켰습니다. 이제 지나갈 수 있습니다.'},
+  'It\'s  a  zombie!  Quickly  press  F  to  attack  it.': {FR: 'C’est un zombie ! Appuyez vite sur F pour l’attaquer.',RU: 'Это зомби! Быстро нажмите F, чтобы атаковать его.',JA: 'ゾンビです！すぐにFキーで攻撃しましょう。',KO: '좀비입니다! 빨리 F 키로 공격하세요.'},
+  'It\'s  a  magic  seed.  It  will  grow  into  a  vine  ladder.': {FR: 'C’est une graine magique. Elle deviendra une échelle de lianes.',RU: 'Это волшебное семя. Оно вырастет в лиановую лестницу.',JA: '魔法の種です。つるのはしごに成長します。',KO: '마법의 씨앗입니다. 덩굴 사다리로 자랍니다.'},
+  'A  pair  of  scissors!  You  can  use  them  to  rescue  trapped  animals.': {FR: 'Une paire de ciseaux ! Vous pouvez les utiliser pour sauver les animaux piégés.',RU: 'Ножницы! Их можно использовать, чтобы спасти пойманных животных.',JA: 'ハサミです！捕まった動物を助けるのに使えます。',KO: '가위입니다! 갇힌 동물을 구하는 데 사용할 수 있습니다.'},
+  'Oh  no,  a  slime  is  blocking  the  way!': {FR: 'Oh non, un slime bloque le passage !',RU: 'О нет, слизень преградил путь!',JA: 'しまった、スライムが道をふさいでいる！',KO: '이런, 슬라임이 길을 막고 있어요!'},
+  'Apples  are  a  gift  from  the  forest.  Eat  them  for  a  pleasant  surprise.': {FR: 'Les pommes sont un cadeau de la forêt. Mangez-les pour une agréable surprise.',RU: 'Яблоки — дар леса. Съешьте их, и вас ждёт приятный сюрприз.',JA: 'リンゴは森からの贈り物です。食べると嬉しい効果があります。',KO: '사과는 숲의 선물입니다. 먹으면 기분 좋은 효과가 있습니다.'},
+  'Poor  little  bird  is  trapped  in  a  net.  Maybe  we  can  help  it.': {FR: 'Le pauvre petit oiseau est piégé dans un filet. Nous pouvons peut-être l’aider.',RU: 'Бедная маленькая птица попала в сеть. Возможно, мы сможем ей помочь.',JA: 'かわいそうな小鳥が網に捕まっています。助ける方法があるかもしれません。',KO: '불쌍한 작은 새가 그물에 갇혔어요. 우리가 도울 방법이 있을지도 몰라요.'},
+  'It\'s  dynamite.  Do  not  touch  it!': {FR: 'C’est de la dynamite. N’y touchez pas !',RU: 'Это динамит. Не трогайте его!',JA: 'ダイナマイトです。触らないでください！',KO: '다이너마이트입니다. 절대 만지지 마세요!'},
+  'There  seems  to  be  treasure  buried  in  the  seabed  gravel  ahead.  Click  to  mine  it.': {FR: 'Il semble y avoir un trésor enfoui dans le gravier du fond marin. Cliquez pour le miner.',RU: 'Похоже, в морском гравии впереди спрятано сокровище. Нажмите, чтобы добыть его.',JA: '前方の海底の砂利には宝が埋まっているようです。クリックして採掘しましょう。',KO: '앞쪽 해저 자갈에 보물이 묻혀 있는 것 같습니다. 클릭하여 채굴하세요.'},
+  'Magic  seashell!  Maybe,  like  apples,  it  is  a  gift  from  nature.': {FR: 'Coquillage magique ! Peut-être, comme les pommes, est-ce un cadeau de la nature.',RU: 'Волшебная ракушка! Возможно, как и яблоки, это дар природы.',JA: '魔法の貝殻！リンゴのように自然からの贈り物かもしれません。',KO: '마법의 조개입니다! 사과처럼 자연이 준 선물일지도 모릅니다.'},
+  'Meow!  Steve,  there  is  a  turtle  that  has  lost  its  freedom.': {FR: 'Miaou ! Steve, il y a une tortue qui a perdu sa liberté.',RU: 'Мяу! Стив, там черепаха, которая лишилась свободы.',JA: 'ニャー！スティーブ、自由を失ったカメがいるよ。',KO: '야옹! 스티브, 자유를 잃은 거북이가 있어요.'},
+  'Meow!  I’ve  never  seen  such  a  big  fish!  Be  careful  in  the  deep  sea.': {FR: 'Miaou ! Je n’ai jamais vu un poisson aussi grand ! Fais attention dans les profondeurs.',RU: 'Мяу! Я никогда не видел такую большую рыбу! Будь осторожен в глубоком море.',JA: 'ニャー！こんなに大きな魚は初めて見た！深海では気をつけて。',KO: '야옹! 이렇게 큰 물고기는 처음 봐요! 깊은 바다에서는 조심하세요.'},
+  'Another  glowing  treasure!  We  are  really  lucky.': {FR: 'Encore un trésor lumineux ! Nous avons vraiment de la chance.',RU: 'Ещё одно светящееся сокровище! Нам действительно повезло.',JA: 'また光る宝物だ！本当に運がいいね。',KO: '또 빛나는 보물이야! 정말 운이 좋네요.'},
+  'My  excellent  sense  of  smell  tells  me  that  green  potion  is  something  good.': {FR: 'Mon excellent odorat me dit que cette potion verte est une bonne chose.',RU: 'Моё отличное обоняние подсказывает, что это зелёное зелье — хорошая вещь.',JA: '優れた嗅覚によると、あの緑の薬は良いものみたいです。',KO: '제 뛰어난 후각으로 보아 저 초록 물약은 좋은 것 같아요.'},
+  'City  pipes…  I  really  don’t  like  water.  Can  we  go  somewhere  else,  meow?': {FR: 'Les tuyaux de la ville… je n’aime vraiment pas l’eau. On peut aller ailleurs, miaou ?',RU: 'Городские трубы… я правда не люблю воду. Может, пойдём в другое место, мяу?',JA: '街の配管…水は本当に苦手。別のところに行ける？ニャー？',KO: '도시의 파이프… 저는 물이 정말 싫어요. 다른 데로 갈 수 있을까요? 야옹?'},
+  'The  dolphin  attracts  nearby  tools  and  seashells!': {FR: 'Le dauphin attire les outils et les coquillages proches !',RU: 'Дельфин притягивает ближайшие инструменты и ракушки!',JA: 'イルカが近くの道具や貝殻を引き寄せます！',KO: '돌고래가 근처의 도구와 조개를 끌어당깁니다!'},
 
 };
 let activeFont;
@@ -239,7 +654,8 @@ function cloneSettings(settings) {
     musicVolume: settings.musicVolume,
     sfxVolume: settings.sfxVolume,
     fullscreen: settings.fullscreen,
-    language: settings.language
+    language: settings.language,
+    levelTrophies: settings.levelTrophies ? { ...settings.levelTrophies } : undefined
   };
 }
 
@@ -278,6 +694,32 @@ function isEntityInWater(entity, level) {
     { x: b.x + b.w / 2, y: b.y + b.h - 2 }
   ];
   return pts.some(p => level.isWaterAtWorld(p.x, p.y));
+}
+
+function isEntityTouchingTileType(entity, level, tileType) {
+  if (!entity || !level || typeof level.getTileAtWorld !== 'function') return false;
+  const getBox = typeof entity.getCollisionBox === 'function'
+    ? () => entity.getCollisionBox()
+    : () => ({ x: entity.x, y: entity.y, w: entity.w, h: entity.h });
+  const b = getBox();
+  const pts = [
+    { x: b.x + b.w / 2, y: b.y + b.h / 2 },
+    { x: b.x + 2, y: b.y + b.h / 2 },
+    { x: b.x + b.w - 2, y: b.y + b.h / 2 },
+    { x: b.x + b.w / 2, y: b.y + b.h - 2 }
+  ];
+  return pts.some(p => level.getTileAtWorld(p.x, p.y) === tileType);
+}
+
+function isEntityTouchingBlueFlow(entity, level) {
+  if (!entity || !level) return false;
+  if (typeof level.getActivePipeFlowZones !== 'function') return false;
+  const box = (typeof entity.getCollisionBox === 'function')
+    ? entity.getCollisionBox()
+    : { x: entity.x, y: entity.y, w: entity.w, h: entity.h };
+  const zones = level.getActivePipeFlowZones();
+  if (!Array.isArray(zones) || zones.length === 0) return false;
+  return zones.some((z) => rectCollision(box.x, box.y, box.w, box.h, z.x, z.y, z.w, z.h));
 }
 
 const PIPE_WALL_THICKNESS = 5;
@@ -380,6 +822,11 @@ function getPipeBaseCollisionRects(textureKey) {
 }
 
 function buildTileCollisionRects(tileType, tileX, tileY) {
+  // 液体：不作为实体方块，只保留底部 2px 的“底边”碰撞
+  // 用于工厂关酸液/水的行为：可穿过液体，但在最底部有轻微阻挡
+  if (tileType === T.ACID || tileType === T.WATER) {
+    return [{ x: tileX, y: tileY + TILE_SIZE - 2, w: TILE_SIZE, h: 2 }];
+  }
   if (!isPipeTileType(tileType)) {
     return [{ x: tileX, y: tileY, w: TILE_SIZE, h: TILE_SIZE }];
   }
@@ -499,6 +946,7 @@ class Game {
     this.lastAttackTime = 0;
     this.enemyContactDamageCarry = 0;  // 敌人接触伤害累计（满 1 点才真正扣血）
     this.enemyContactLastTick = 0;     // 上次结算接触伤害的时间戳
+    this.spikeContactDamageCarry = 0;  // 尖刺接触伤害累计（满 1 点才真正扣血）
     this.victoryAt = 0;
     this.showGuideMenu = false;
     this.activeGuideTab = 0;
@@ -509,7 +957,10 @@ class Game {
     musicVolume: 80,
     sfxVolume: 80,
     fullscreen: false,
-    language: DEFAULT_LANGUAGE
+    language: DEFAULT_LANGUAGE,
+    // Persistent trophy progress shown on level select.
+    // Values are 0..TROPHY_SLOTS_BY_LEVEL[levelType]
+    levelTrophies: { forest: 0, water: 0, factory: 0 }
 };
 
     // --- 新增：统一的得分反馈提示（污染物/救援共用） ---
@@ -528,6 +979,11 @@ class Game {
     this.playerBottomCenterTrace = [];
     this.followCatFacingRight = true;
     this.lastFollowCatX = null;
+
+    // 状态进入音效（避免 draw 每帧重复播放）
+    this._playedWinSfx = false;
+    this._playedLostSfx = false;
+    this._spikeSfxActive = false;
   }
 
   getTrophySlotLimit() {
@@ -536,8 +992,23 @@ class Game {
 
   addScore(points = 1) {
     if (!this.player) return;
+    const prev = this.player.score;
     const next = this.player.score + points;
     this.player.score = Math.min(this.getTrophySlotLimit(), next);
+    if (this.player.score > prev) {
+      tryPlaySfx('trophy', { volume: 0.34, rate: 1 });
+    }
+  }
+
+  recordLevelTrophies() {
+    if (!this.settings) return;
+    if (!this.settings.levelTrophies) {
+      this.settings.levelTrophies = { forest: 0, water: 0, factory: 0 };
+    }
+    const slots = this.getTrophySlotLimit();
+    const earned = Math.min(Math.max(0, Math.floor(this.player?.score ?? 0)), slots);
+    const prev = Math.min(Math.max(0, Math.floor(this.settings.levelTrophies[this.levelType] ?? 0)), slots);
+    this.settings.levelTrophies[this.levelType] = Math.max(prev, earned);
   }
   
   tryAttack() {
@@ -587,6 +1058,7 @@ class Game {
     if (closest) {
       closest.takeDamage(dmg, this.level);
       this.lastAttackTime = now;
+      tryPlaySfx('hit', { volume: 0.35, rate: 1 });
       console.log("💥 击中目标！伤害:", dmg, "距离:", closestDist.toFixed(1));
     } else {
       console.log("☁️ 攻击挥空：附近没有敌人");
@@ -753,6 +1225,9 @@ drawHealEffect(now) {
     this.state = "start";
     this.showGuideMenu = false;
     this.activeGuideTab = 0;
+    this._playedWinSfx = false;
+    this._playedLostSfx = false;
+    if (this._spikeSfxActive) { this._spikeSfxActive = false; sfxRelease('spike'); }
   }
 
   resetToPlayingFromBeginning() {
@@ -768,6 +1243,9 @@ drawHealEffect(now) {
     this.maxPlayerProgress = 0;
     this.displayedCatProgress = 0;
     this.resetHintState();
+    this._playedWinSfx = false;
+    this._playedLostSfx = false;
+    if (this._spikeSfxActive) { this._spikeSfxActive = false; sfxRelease('spike'); }
   }
 
   resetHintState() {
@@ -785,6 +1263,9 @@ drawHealEffect(now) {
 
   update() {
     this.player.update(this.level.platforms, this.level);
+    if (typeof this.level.updateFactoryMechanisms === 'function') {
+      this.level.updateFactoryMechanisms(this.player);
+    }
     this.updateDolphinMagnet();
     this.recordPlayerBottomCenter(millis());
     this.updateCamera();
@@ -819,7 +1300,9 @@ drawHealEffect(now) {
         }
     }
     this.checkCollisions();
+    this.updateSpikeProximitySfx();
     this.updateMining();
+    this.updateLavaSfx();
 
     // 全局坠落死亡：玩家碰撞箱上缘超过屏幕下缘则死亡
     const playerBox = this.player.getCollisionBox();
@@ -846,9 +1329,14 @@ drawHealEffect(now) {
     }
 
     if (this.player.health <= 0) {
+      this.recordLevelTrophies();
       this.state = "gameover";
       this.showGuideMenu = false;
       this.victoryAt = 0;
+      if (!this._playedLostSfx) {
+        this._playedLostSfx = true;
+        tryPlaySfx('lost', { volume: 0.42, rate: 1 });
+      }
       return;
     }
     
@@ -857,11 +1345,57 @@ drawHealEffect(now) {
     if (playerCol >= TERRAIN_COLS - 1 && this.player.health > 0) {
       if (!this.victoryAt) this.victoryAt = millis() + VICTORY_DELAY_MS;
       if (millis() >= this.victoryAt) {
+        this.recordLevelTrophies();
         this.state = "victory";
         this.showGuideMenu = false;
+        if (!this._playedWinSfx) {
+          this._playedWinSfx = true;
+          tryPlaySfx('win', { volume: 0.42, rate: 1 });
+        }
       }
     } else {
       this.victoryAt = 0;
+    }
+  }
+
+  updateSpikeProximitySfx() {
+    if (!this.player || !this.level || typeof this.level.getActiveSpikeZones !== 'function') {
+      if (this._spikeSfxActive) { this._spikeSfxActive = false; sfxRelease('spike'); }
+      return;
+    }
+    const playerBox = this.player.getCollisionBox();
+    const zones = this.level.getActiveSpikeZones();
+    const range = TILE_SIZE; // 1 格以内
+    const nearSpike = zones.some((z) =>
+      rectCollision(
+        playerBox.x, playerBox.y, playerBox.w, playerBox.h,
+        z.x - range, z.y - range, z.w + range * 2, z.h + range * 2
+      )
+    );
+
+    if (nearSpike) {
+      if (!this._spikeSfxActive) { this._spikeSfxActive = true; sfxAcquire('spike'); }
+      tryPlaySfx('spike', { volume: 0.30, rate: 1 });
+      return;
+    }
+    if (this._spikeSfxActive) { this._spikeSfxActive = false; sfxRelease('spike'); }
+  }
+
+  updateLavaSfx() {
+    if (!this.player || !this.level || typeof this.level.getTileAtWorld !== 'function') return;
+    const box = this.player.getCollisionBox();
+    const cx = box.x + box.w / 2;
+    const cy = box.y + box.h / 2;
+    const probe = [
+      { x: cx, y: cy },
+      { x: cx + TILE_SIZE, y: cy },
+      { x: cx - TILE_SIZE, y: cy },
+      { x: cx, y: cy + TILE_SIZE },
+      { x: cx, y: cy - TILE_SIZE }
+    ];
+    const nearLava = probe.some((p) => this.level.getTileAtWorld(p.x, p.y) === T.LAVA);
+    if (nearLava) {
+      tryPlaySfx('lava', { volume: 0.22, rate: 1 });
     }
   }
 
@@ -934,8 +1468,10 @@ drawHealEffect(now) {
     const pointedTile = this.getPointedMineableTile(worldX, worldY);
     if (pointedTile) {
       if (pointedTile.kind === 'terrain') {
+        const digKey = tileTypeToDigSfxKey(pointedTile.tileType);
         this.level.removeTerrainBlock(pointedTile.col, pointedTile.row);
         this.tryWeaponUpgrade(pointedTile.tileType);
+        tryPlaySfx(digKey, { volume: 0.30, rate: 1 });
       } else if (pointedTile.kind === 'background') {
         this.level.removeBackgroundDecorationBlock(pointedTile.col, pointedTile.row);
       }
@@ -951,6 +1487,7 @@ drawHealEffect(now) {
       const tileType = p._tileType;
       this.level.platforms.splice(i, 1);
       this.tryWeaponUpgrade(tileType);
+      tryPlaySfx(tileTypeToDigSfxKey(tileType), { volume: 0.30, rate: 1 });
       this.mouseDownTime = 0;
       return;
     }
@@ -1233,10 +1770,14 @@ drawHealEffect(now) {
 handleMousePressed(mx, my) {
   const topRight = this.uiManager.getTopRightButtons();
   if (this.uiManager.isInsideRect(mx, my, topRight.exitRect)) {
-    this.resetToStartScreen();
+    tryPlaySfx('click', { volume: 0.32, rate: 1 });
+    this.state = "levelSelect";
+    this.showGuideMenu = false;
+    this.activeGuideTab = 0;
     return;
   }
   if (this.uiManager.isInsideRect(mx, my, topRight.menuRect)) {
+    tryPlaySfx('click', { volume: 0.32, rate: 1 });
     this.showGuideMenu = !this.showGuideMenu;
     return;
   }
@@ -1245,6 +1786,7 @@ handleMousePressed(mx, my) {
     const tabs = this.uiManager.getGuideTabRects();
     for (let i = 0; i < tabs.length; i++) {
       if (this.uiManager.isInsideRect(mx, my, tabs[i])) {
+        tryPlaySfx('click', { volume: 0.32, rate: 1 });
         this.activeGuideTab = i;
         return;
       }
@@ -1253,6 +1795,7 @@ handleMousePressed(mx, my) {
 
   const slotIndex = this.getInventorySlotAt(mx, my);
   if (slotIndex === -1) return;
+  tryPlaySfx('click', { volume: 0.32, rate: 1 });
 
   // 记录选中的格子
   this.player.selectedSlot = slotIndex;
@@ -1263,7 +1806,7 @@ handleMousePressed(mx, my) {
   if (item instanceof Tool) {
     const used = this.handleSelectedToolUse(slotIndex, item);
     if (!used) {
-      this.showToolHint(t("No valid target nearby", "附近没有可交互目标"));
+      this.showToolHint(t("No  valid  target  nearby", "附近没有可交互目标"));
     }
   }
 }
@@ -1410,10 +1953,11 @@ if (changed > 0) {
       x: lavaX + TILE_SIZE * 0.75,
       y: lavaY - TILE_SIZE * 2
     };
+    tryPlaySfx('pour', { volume: 0.34, rate: 1 });
   }
   if (!this.triggeredTutorialHints.has('forest_water_lava_reaction_done')) {
     this.tutorialHintMessage = t(
-      'Great! Water and fire reacted chemically. You can pass now.',
+      'Great!  Water  and  fire  reacted  chemically.  You  can  pass  now.',
       '太棒了！水火发生化学反应，可以正常通行了'
     );
     this.tutorialHintUntil = millis() + 5000;
@@ -1427,45 +1971,64 @@ return false;
 }
 
 tryUseLimestone() {
-  // 以玩家碰撞箱中心为基准，扫描一个小范围内的 ACID 并全部转化成 WATER
+  // 参照第一关水桶处理岩浆的逻辑：先找最近酸液格，再沿行扩展处理整段酸池
   const box = this.player.getCollisionBox();
   const wx = box.x + box.w / 2;
-  const wy = box.y + box.h - 1;
+  const playerCol = Math.floor(wx / TILE_SIZE);
 
-  const baseCol = Math.floor(wx / TILE_SIZE);
+  // 在玩家左右各 3 列范围内，寻找“最近的”一格酸液
+  let targetCol = -1;
+  let targetRow = -1;
+  let bestDist = Infinity;
 
-  // 左右多扫几列，保证站在池边也能命中（你池子在 21/22/23，玩家常站 20）
-  const cols = [baseCol - 1, baseCol, baseCol + 1, baseCol + 2,baseCol + 3];
-
-  let changed = 0;
-
-  for (const col of cols) {
+  for (let col = playerCol - 3; col <= playerCol + 3; col++) {
     if (col < 0 || col >= TERRAIN_COLS) continue;
-
-    const surfaceY = this.level.terrainHeights[col];
-    if (surfaceY === undefined) continue;
-
-    const row = Math.floor((wy - surfaceY) / TILE_SIZE);
-
-    // 上下多扫几行，避免池子“垫高/加深”后 row 对不上
-    const rows = [row - 1, row, row + 1, row + 2];
-
-    for (const r of rows) {
-      if (r < 0) continue;
-
-      const t = this.level.tileMap[col]?.[r];
-      if (t === T.ACID) {
-        this.level.tileMap[col][r] = T.WATER;
-        changed++;
+    const column = this.level.tileMap[col];
+    if (!column) continue;
+    for (let r = 0; r < column.length; r++) {
+      if (column[r] !== T.ACID) continue;
+      const d = Math.abs(col - playerCol);
+      if (d < bestDist) {
+        bestDist = d;
+        targetCol = col;
+        targetRow = r;
       }
     }
   }
 
-  if (changed > 0) {
-    this.consumeSelectedTool('limestone');
-    return true;
+  // 附近没有酸液就不消耗石灰石
+  if (targetCol === -1) return false;
+
+  let changed = 0;
+
+  // 从命中的那一格出发，向左右扩展，把同一行连续的一整片酸液全部变为水
+  const convertLine = (startCol, row, dir) => {
+    let col = startCol;
+    while (col >= 0 && col < TERRAIN_COLS) {
+      const column = this.level.tileMap[col];
+      if (!column || column[row] !== T.ACID) break;
+      column[row] = T.WATER;
+      changed++;
+      col += dir;
+    }
+  };
+
+  // 同时处理目标行上下相邻一行，兼容更厚的酸池
+  const rowsToTry = [targetRow - 1, targetRow, targetRow + 1];
+  for (const row of rowsToTry) {
+    if (row < 0) continue;
+    convertLine(targetCol, row, -1);
+    convertLine(targetCol + 1, row, 1);
   }
 
+  if (changed > 0) {
+    this.consumeSelectedTool('limestone');
+    // 第三关：成功中和一次酸液，点亮 1 个 trophy
+    if (this.level instanceof FactoryLevel) {
+      this.addScore(1);
+    }
+    return true;
+  }
   return false;
 }
 
@@ -1539,7 +2102,7 @@ updateDolphinMagnet() {
   // 海豚离场只在第 70 列后生效
   if (playerCol > DOLPHIN_END_COL) {
     dolphin.dismount(this.player);
-    this.showToolHint(t("The dolphin swims away after helping you!", "海豚完成帮助后游走了！"), 1800);
+    this.showToolHint(t("The  dolphin  swims  away  after  helping  you!", "海豚完成帮助后游走了！"), 1800);
     return;
   }
 
@@ -1589,6 +2152,24 @@ updateDolphinMagnet() {
     }
   }
 
+  // 第三关尖刺：接触期间持续扣血（与敌人接触伤害机制一致）
+  if (typeof this.level.getActiveSpikeZones === 'function') {
+    const playerBox = this.player.getCollisionBox();
+    const touchingSpike = this.level.getActiveSpikeZones().some((z) =>
+      rectCollision(playerBox.x, playerBox.y, playerBox.w, playerBox.h, z.x, z.y, z.w, z.h)
+    );
+    if (touchingSpike) {
+      this.spikeContactDamageCarry += deltaSec * SPIKE_CONTACT_DAMAGE_PER_SEC;
+      const wholeDamage = Math.floor(this.spikeContactDamageCarry);
+      if (wholeDamage > 0) {
+        this.player.takeDamage(wholeDamage);
+        this.spikeContactDamageCarry -= wholeDamage;
+      }
+    } else {
+      this.spikeContactDamageCarry = 0;
+    }
+  }
+
   for (let i = this.level.items.length - 1; i >= 0; i--) {
     const item = this.level.items[i];
     if (item instanceof IronBar || item instanceof FishingNet) continue;
@@ -1605,7 +2186,7 @@ updateDolphinMagnet() {
       if (!this.player.dolphinUsed) {
       item.mount(this.player);
       this.showToolHint(t(
-        "The dolphin attracts nearby tools and seashells!",
+        "The  dolphin  attracts  nearby  tools  and  seashells!",
         "海豚会帮你吸引附近的工具和贝壳！"
     ), 3800);
   }
@@ -1637,7 +2218,11 @@ updateDolphinMagnet() {
     if (item instanceof Hp) {
       const heal = this.getHpHealAmount(item.hpType);
       if (heal > 0) {
+        const prevHealth = this.player.health;
         this.player.health = Math.min(this.player.maxHealth, this.player.health + heal);
+        if (this.player.health > prevHealth) {
+          tryPlaySfx('recover', { volume: 0.34, rate: 1 });
+        }
         this.showHealEffect();
       }
       this.level.items.splice(i, 1);
@@ -1651,7 +2236,11 @@ updateDolphinMagnet() {
 }
 
   draw() {
-    background(168, 193, 254);
+    if (this.level instanceof FactoryLevel) {
+      background(180);
+    } else {
+      background(168, 193, 254);
+    }
     const now = millis();
     push();
     translate(-this.cameraX, 0);
@@ -1705,7 +2294,7 @@ checkTutorialHintZones() {
       startCol: 0,
       endCol: 4,
       message: t(
-        'Move with W/S/A/D, press F to attack, click inventory items to use them',
+        'Move  with  W/S/A/D,  press  F  to  attack,  click  inventory  items  to  use  them',
         'W/S/A/D 控制人物移动，按 F 键攻击，鼠标单击物品栏内的物品以使用物品'
       ),
       duration: 6000
@@ -1720,7 +2309,7 @@ checkTutorialHintZones() {
         startCol: 6,
         endCol: 6,
         message: t(
-          'Lava ahead. Try picking up the bucket and using it.',
+          'Lava  ahead.  Try  picking  up  the  bucket  and  using  it.',
           '前面有岩浆，试试拾取水桶并使用吧'
         ),
         duration: 6000
@@ -1730,7 +2319,7 @@ checkTutorialHintZones() {
         startCol: 15,
         endCol: 15,
         message: t(
-          'It\'s a zombie! Quickly press F to attack it.',
+          'It\'s  a  zombie!  Quickly  press  F  to  attack  it.',
           '是僵尸！快使用 F 键攻击他'
         ),
         duration: 5000
@@ -1740,7 +2329,7 @@ checkTutorialHintZones() {
         startCol: 21,
         endCol: 21,
         message: t(
-          'It\'s a magic seed. It will grow into a vine ladder.',
+          'It\'s  a  magic  seed.  It  will  grow  into  a  vine  ladder.',
           '是魔法种子，他会长成一个藤蔓梯子'
         ),
         duration: 5000
@@ -1750,7 +2339,7 @@ checkTutorialHintZones() {
         startCol: 28,
         endCol: 28,
         message: t(
-          'A pair of scissors! You can use them to rescue trapped animals.',
+          'A  pair  of  scissors!  You  can  use  them  to  rescue  trapped  animals.',
           '一把剪刀！可以用来解救被困的小动物'
         ),
         duration: 5000
@@ -1760,7 +2349,7 @@ checkTutorialHintZones() {
         startCol: 75,
         endCol: 75,
         message: t(
-          'Oh no, a slime is blocking the way!',
+          'Oh  no,  a  slime  is  blocking  the  way!',
           '哦不，史莱姆挡住了去路'
         ),
         duration: 5000
@@ -1770,7 +2359,7 @@ checkTutorialHintZones() {
         startCol: 42,
         endCol: 42,
         message: t(
-          'Apples are a gift from the forest. Eat them for a pleasant surprise.',
+          'Apples  are  a  gift  from  the  forest.  Eat  them  for  a  pleasant  surprise.',
           '苹果是森林的礼物，吃下会有惊喜哦'
         ),
         duration: 5000
@@ -1780,7 +2369,7 @@ checkTutorialHintZones() {
         startCol: 71,
         endCol: 71,
         message: t(
-          'Poor little bird is trapped in a net. Maybe we can help it.',
+          'Poor  little  bird  is  trapped  in  a  net.  Maybe  we  can  help  it.',
           '可怜的小鸟被网困住了，也许我们有办法救他'
         ),
         duration: 5000
@@ -1790,7 +2379,7 @@ checkTutorialHintZones() {
         startCol: 96,
         endCol: 96,
         message: t(
-          'It\'s dynamite. Do not touch it!',
+          'It\'s  dynamite.  Do  not  touch  it!',
           '是炸药，千万不要接触他'
         ),
         duration: 5000
@@ -1807,7 +2396,7 @@ checkTutorialHintZones() {
       startCol: 15,
       endCol: 15,
       message: t(
-        'There seems to be treasure buried in the seabed gravel ahead. Click to mine it.',
+        'There  seems  to  be  treasure  buried  in  the  seabed  gravel  ahead.  Click  to  mine  it.',
         '前方的海底沙砾里似乎埋藏着宝藏，单击以挖矿'
       ),
       duration: 6000
@@ -1817,7 +2406,7 @@ checkTutorialHintZones() {
       startCol: 22,
       endCol: 22,
       message: t(
-        'Magic seashell! Maybe, like apples, it is a gift from nature.',
+        'Magic  seashell!  Maybe,  like  apples,  it  is  a  gift  from  nature.',
         '神奇海螺！也许和苹果一样是自然的馈赠'
       ),
       duration: 5000
@@ -1827,7 +2416,7 @@ checkTutorialHintZones() {
       startCol: 41,
       endCol: 41,
       message: t(
-        'Meow! Steve, there is a turtle that has lost its freedom.',
+        'Meow!  Steve,  there  is  a  turtle  that  has  lost  its  freedom.',
         '喵！史蒂夫，那儿有一只失去自由的海龟'
       ),
       duration: 5000
@@ -1837,7 +2426,7 @@ checkTutorialHintZones() {
       startCol: 9,
       endCol: 9,
       message: t(
-        'Meow! I’ve never seen such a big fish! Be careful in the deep sea.',
+        'Meow!  I’ve  never  seen  such  a  big  fish!  Be  careful  in  the  deep  sea.',
         '从来没见过这么大的鱼，在深海里要小心'
       ),
       duration: 5000
@@ -1847,7 +2436,7 @@ checkTutorialHintZones() {
       startCol: 73,
       endCol: 73,
       message: t(
-        'Another glowing treasure! We are really lucky.',
+        'Another  glowing  treasure!  We  are  really  lucky.',
         '又有发光的宝藏了，我们运气真好'
       ),
       duration: 5000
@@ -1863,7 +2452,7 @@ checkTutorialHintZones() {
         startCol: 16,
         endCol: 16,
         message: t(
-          'My excellent sense of smell tells me that green potion is something good.',
+          'My  excellent  sense  of  smell  tells  me  that  green  potion  is  something  good.',
           '从我出色的嗅觉来看，那瓶绿色药剂是好东西呢'
         ),
         duration: 5000
@@ -1873,7 +2462,7 @@ checkTutorialHintZones() {
         startCol: 25,
         endCol: 25,
         message: t(
-          'City pipes… I really don’t like water. Can we go somewhere else, meow?',
+          'City  pipes…  I  really  don’t  like  water.  Can  we  go  somewhere  else,  meow?',
           '人类的城市管道……我真的不喜欢水，我们可以去别的地方吗，喵'
         ),
         duration: 5000
@@ -1904,62 +2493,54 @@ drawTopCenterHint() {
   }
 
   if (!message) return;
+  const displayMessage = `: ${message}`;
 
   push();
 
   textSize(12);
-  textAlign(LEFT, CENTER);
+  textAlign(CENTER, CENTER);
   noStroke();
 
-  const catImg = window.followPlayerCat;
+  const catImg = window.uiCatHead;
 
-  const catW = 42;
-  const catH = 20;
+  const catW = 12;
+  const catH = 12;
+  const catGap = 6;
   const paddingX = 12;
-  const paddingY = 7;
-  const gap = 8;
 
-  const textW = textWidth(message);
-  const bubbleW = textW + paddingX * 2;
-  const bubbleH = 26;
+  const textW = textWidth(displayMessage);
+  const totalW = catW + catGap + textW;
+  const groupStartX = (width - totalW) / 2;
+  const catX = groupStartX + catW / 2;
+  const textX = groupStartX + catW + catGap + textW / 2;
+  const textY = TOP_PROGRESS_BAR_Y + TOP_PROGRESS_BAR_H + 20;
+  const catY = textY - 2;
 
-  const totalW = catW + gap + bubbleW;
-
-  const startX = (width - totalW) / 2;
-  const bubbleX = startX + catW + gap;
-  const centerY = height - INV_BAR_H - 20;
-
-  // 小猫贴图
-  if (catImg && catImg.width > 0) {
-    imageMode(CENTER);
-    image(catImg, startX + catW / 2, centerY, catW, catH);
-  } else {
-    fill(255, 220, 160);
-    rect(startX, centerY - catH / 2, catW, catH, 4);
-  }
-
-  // 气泡主体
   rectMode(CORNER);
-  fill(255, 255, 255, 230);
-  stroke(45, 45, 55, 220);
-  strokeWeight(2);
-  rect(bubbleX, centerY - bubbleH / 2, bubbleW, bubbleH, 7);
 
-  // 气泡左侧小尖角
-  fill(255, 255, 255, 230);
-  triangle(
-    bubbleX,
-    centerY - 5,
-    bubbleX,
-    centerY + 5,
-    bubbleX - 8,
-    centerY
-  );
+  // 文字底部半透明黑色高亮
+  const textHighlightH = 14;
+  const textHighlightLeftExtend = catW + catGap + 4;
+  const textHighlightW = textW + 16 + textHighlightLeftExtend;
+  const textHighlightY = textY - textHighlightH / 2 - 2;
+  const textHighlightX = textX - (textW + 16) / 2 - textHighlightLeftExtend;
+  noStroke();
+  fill(0, 0, 0, 85);
+  rect(textHighlightX, textHighlightY, textHighlightW, textHighlightH);
 
   // 文字
   noStroke();
-  fill(35, 35, 45);
-  text(message, bubbleX + paddingX, centerY);
+  fill(255);
+  text(displayMessage, textX, textY);
+
+  // 小猫贴图（置于高亮和文字上层）
+  if (catImg && catImg.width > 0) {
+    imageMode(CENTER);
+    image(catImg, catX, catY, catW, catH);
+  } else {
+    fill(255, 220, 160);
+    rect(catX - catW / 2, catY - catH / 2, catW, catH, 4);
+  }
 
   pop();
 }
@@ -2562,7 +3143,7 @@ class FactoryLevel extends ForestLevel {
       [3,12,[Db,Db,Bk,N,N,N,N,N,N,N,Bk,Bk]],
       [4,12,[Db,Db,Bk,N,N,N,N,N,N,N,Bk,Bk]],
       [5,12,[N,N,N,N,N,N,N,N,N,N,N,PIPE_NARROW_LEFT]],
-      [6,12,[Db,Db,N,N,N,N,N,N,N,N,N,PIPE_NARROW_LEFT]],
+      [6,12,[N,N,N,N,N,N,N,N,N,N,N,PIPE_NARROW_LEFT]],
       [7,12,[Db,Db,N,N,N,N,N,N,N,N,N,PIPE_NARROW_LEFT]],
       [8,12,[Db,Db,Bk,Bk,N,N,N,N,N,N,N,PIPE_NARROW_LEFT]],
       [9,12,[Db,Db,Bk,Bk,N,N,N,N,N,N,N,PIPE_NARROW_LEFT]],
@@ -2598,10 +3179,10 @@ class FactoryLevel extends ForestLevel {
       [39,12,[Db,N,N,N,N,N,N,N,N,N,N,Bk]],
       [40,12,[N,N,N,N,N,N,N,N,N,N,N,Bk]],
       [41,12,[Db,N,N,N,N,N,N,N,N,N,Bk,Bk]],
-      [42,12,[Db,N,N,N,N,N,N,N,N,N,Bk,Bk]],
-      [43,12,[Db,N,N,N,N,N,N,N,N,N,Bk,Bk]],
+      [42,12,[Db,Db,N,N,N,N,N,N,N,N,Bk,Bk]],
+      [43,12,[Db,Db,N,N,N,N,N,N,N,N,Bk,Bk]],
       [44,12,[Db,Bk,Bk,N,N,N,N,N,N,N,Bk,Bk]],
-      [45,12,[Db,Bk,Bk,N,N,N,N,N,N,Bk,Bk,Bk]],
+      [45,12,[Db,Bk,N,N,N,N,N,N,N,Bk,Bk,Bk]],
       [46,12,[Db,Bk,Bk,N,N,N,N,N,N,Bk,Bk,Bk]],
       [47,12,[Db,Bk,N,N,N,N,N,N,N,Bk,Bk,N]],
       [48,12,[N,N,N,N,N,N,N,N,N,Bk,Bk,N]],
@@ -2626,7 +3207,7 @@ class FactoryLevel extends ForestLevel {
       [67,12,[Db,Db,N,N,N,N,N,N,N,N,N,PIPE_NARROW_LEFT]],
       [68,12,[Db,Db,Bk,Bk,N,N,N,N,N,N,N,PIPE_NARROW_LEFT]],
       [69,12,[Db,Db,Bk,Bk,N,N,N,N,N,N,N,PIPE_NARROW_LEFT]],
-      [70,12,[Db,Db,Bk,Bk,N,N,N,N,N,N,N,PIPE_NARROW_LEFT]],
+      [70,12,[Db,Db,Bk,N,N,N,N,N,N,N,N,PIPE_NARROW_LEFT]],
       [71,12,[Db,Bk,Bk,Bk,N,N,N,N,N,N,N,PIPE_NARROW_LEFT]],
       [72,12,[Bk,Bk,N,N,N,N,N,N,N,N,N,PIPE_NARROW_LEFT]],
       [73,12,[A,N,N,N,N,N,Bk,N,N,N,N,PIPE_NARROW_LEFT]],
@@ -2634,7 +3215,7 @@ class FactoryLevel extends ForestLevel {
       [75,12,[A,N,N,N,N,N,Bk,Bk,N,N,N,PIPE_NARROW_LEFT]],
       [76,12,[A,N,N,N,N,N,Bk,Bk,N,N,N,PIPE_NARROW_LEFT]],
       [77,12,[A,N,N,N,N,N,Bk,Bk,N,N,N,PIPE_NARROW_LEFT]],
-      [78,12,[Db,Bk,N,N,N,N,Bk,Bk,N,N,Bk,Bk]],
+      [78,12,[Db,N,N,N,N,N,Bk,Bk,N,N,Bk,Bk]],
       [79,12,[Db,Bk,N,N,N,N,Bk,Bk,N,N,Bk,Bk]],
       [80,12,[Db,Bk,Bk,Bk,N,N,Bk,Bk,N,N,N,Bk]],
       [81,12,[Db,Bk,Bk,Bk,N,N,N,Bk,N,N,N,Bk]],
@@ -2708,13 +3289,61 @@ class FactoryLevel extends ForestLevel {
     this.pipeFlowVisibleMs = 3000;
     this.pipeFlowSquareVisibleMs = 3000;
     this.pipeFlowHeight = 26;
+    this._pipeFlowZonesCacheFrame = -1;
+    this._pipeFlowZonesCache = [];
+    this.spikeTravelPx = 32;
+    this.spikeCycleMs = 1400;
+    this.spikes = [];
+    this.setupFactoryTrapAndButton();
+    // spike
+    this.addSpikeOnTopBrick(9);
+    this.addSpikeOnTopBrick(10);
+    this.addSpikeOnTopBrick(20, { targetRow: 3 });
+    this.addSpikeOnTopBrick(22, { targetRow: 3 });
+    this.addSpikeOnTopBrick(81, { targetRow: 3 });
+    this.addSpikeOnTopBrick(83, { targetRow: 3 });
+    // 可按如下方式在局内手动添加：this.addSpikeOnTopBrick(18, { targetRow: 3, width: 32, height: 8, phaseOffsetMs: 0 });
     const groundY = (col) => this.terrainHeights[col];
-    this.enemies.push(new Vex(10 * TILE_SIZE, 180, 40, 22));
+    // vex
+    this.enemies.push(new Vex(18 * TILE_SIZE, 2 * TILE_SIZE, 40, 22));
+    this.enemies.push(new Vex(107 * TILE_SIZE, 6 * TILE_SIZE, 40, 22));
+    // rabbit：两套机关各放 1 只（逻辑相同）
+    // 42-45：第45列兔子在按钮按下后跳到 col=44，距底部 3*TILE_SIZE 的砖块位置
+    this.items.push(new Rabbit(
+      45 * TILE_SIZE,
+      (CANVAS_H - 2 * TILE_SIZE) - 32,
+      32,
+      32,
+      {
+        scriptEnabled: true,
+        listenButtonCol: 42,
+        targetX: 44 * TILE_SIZE,
+        targetY: (CANVAS_H - 3 * TILE_SIZE) - 32
+      }
+    ));
+    // 66-70：第70列兔子在按钮按下后跳到 col=69，距底部 4*TILE_SIZE 的砖块位置
+    this.items.push(new Rabbit(
+      70 * TILE_SIZE,
+      (CANVAS_H - 3 * TILE_SIZE) - 32,
+      32,
+      32,
+      {
+        scriptEnabled: true,
+        listenButtonCol: 66,
+        targetX: 69 * TILE_SIZE,
+        targetY: (CANVAS_H - 4 * TILE_SIZE) - 32
+      }
+    ));
 
     // 第三关恢复道具药水瓶
     this.items.push(new Hp(18 * TILE_SIZE + 4, groundY(18) - 24, 24, 24, 'potion_bottle'));
     this.items.push(new Hp(52 * TILE_SIZE + 4, groundY(52) - 24, 24, 24, 'potion_bottle'));
     this.items.push(new Hp(88 * TILE_SIZE + 4, groundY(88) - 24, 24, 24, 'potion_bottle'));
+
+    // 石灰石
+    this.items.push(new Tool(7 * TILE_SIZE + 4, CANVAS_H - 2 * TILE_SIZE - 24, 24, 24, 'limestone'));
+    this.items.push(new Tool(36 * TILE_SIZE + 4, CANVAS_H - 4 * TILE_SIZE - 24, 24, 24, 'limestone'));
+    this.items.push(new Tool(55 * TILE_SIZE + 4, CANVAS_H - 6 * TILE_SIZE - 24, 24, 24, 'limestone'));
   }
 
   addTerrainColumn(col, heightTiles, tiles) {
@@ -2771,12 +3400,6 @@ class FactoryLevel extends ForestLevel {
         continue;
       }
 
-      if (tile === T.WATER) {
-        const row = i;
-        this.tileMap[col][row] = tile;
-        continue;
-      }
-
       const row = i;
       this.tileMap[col][row] = tile;
       const platform = new Platform(col * TILE_SIZE, y, TILE_SIZE, TILE_SIZE, terrainHeight > 0);
@@ -2791,6 +3414,7 @@ class FactoryLevel extends ForestLevel {
   }
 
   draw() {
+    this.drawFactorySpikes();
     super.draw();
 
     const flowState = this.getPipeFlowState();
@@ -2813,6 +3437,10 @@ class FactoryLevel extends ForestLevel {
   getActivePipeFlowZones(flowState = null) {
     const s = flowState || this.getPipeFlowState();
     if (!s) return [];
+    const cacheFrame = (typeof frameCount === 'number') ? frameCount : -1;
+    if (this._pipeFlowZonesCacheFrame === cacheFrame) {
+      return this._pipeFlowZonesCache;
+    }
 
     const zones = [];
     const y = 360 - 2 * TILE_SIZE; // row=1 对应 tile 的上边缘
@@ -2860,6 +3488,8 @@ class FactoryLevel extends ForestLevel {
         zones.push({ x: squareBaseX, y: squareBaseY + TILE_SIZE, w: TILE_SIZE, h: TILE_SIZE });
       }
     }
+    this._pipeFlowZonesCacheFrame = cacheFrame;
+    this._pipeFlowZonesCache = zones;
     return zones;
   }
 
@@ -2872,6 +3502,222 @@ class FactoryLevel extends ForestLevel {
 
     player.vx += 0.45; // 额外向右推力
     player.vy += 0.35; // 额外向下推力
+  }
+
+  setupFactoryTrapAndButton() {
+    // 支持多套机关（与 42-45 一致的逻辑可复用）
+    this.factoryMechanisms = [];
+    this.factoryButtons = [];
+    this.factoryButtonPressed = false; // 向后兼容：第一套按钮状态
+
+    this.addFactoryTrapButtonMechanism({ buttonCol: 42, buttonDbNth: 2, trapCol: 45, trapBottomTiles: 3 });
+    this.addFactoryTrapButtonMechanism({ buttonCol: 66, buttonDbNth: 2, trapCol: 70, trapBottomTiles: 4 });
+
+    // 向后兼容字段（指向第一套）
+    const first = this.factoryMechanisms[0];
+    if (first) {
+      this.factoryTrapPlatform = first.trapPlatform;
+      this.factoryTrapBaseY = first.trapBaseY;
+      this.factoryTrapLiftPx = first.liftPx;
+      this.factoryButtonPlatform = first.buttonPlatform;
+    }
+
+    this.updateFactoryMechanisms(null);
+  }
+
+  addFactoryTrapButtonMechanism({ buttonCol, buttonDbNth = 2, trapCol, trapBottomTiles = 3 }) {
+    const liftPx = 4 * TILE_SIZE;
+
+    // trap：默认放在距底部 3*TILE_SIZE 的高度（可通过 trapBottomTiles 调整）
+    const trapX = trapCol * TILE_SIZE;
+    const trapY = CANVAS_H - trapBottomTiles * TILE_SIZE;
+    const trapBaseY = trapY;
+    const trapPlatform = new Platform(trapX, trapY, TILE_SIZE, 8, false);
+    trapPlatform.draw = function () {
+      const img = window.tile_trap;
+      if (img && img.width > 0 && img.height > 0) image(img, this.x, this.y, this.w, this.h);
+      else { fill(150, 120, 80); rect(this.x, this.y, this.w, this.h); }
+    };
+    trapPlatform.collisionRects = [{ x: trapX, y: trapY, w: TILE_SIZE, h: 8 }];
+    this.platforms.push(trapPlatform);
+
+    // button：放在指定列的第 N 个 Db 上方
+    const buttonSurfaceY = this.getNthTileSurfaceY(buttonCol, T.DEEPSLATE_BRICKS, buttonDbNth);
+    if (buttonSurfaceY === null) return;
+    const buttonX = buttonCol * TILE_SIZE;
+    const buttonY = buttonSurfaceY - 8;
+    const buttonPlatform = new Platform(buttonX, buttonY, TILE_SIZE, 8, false);
+
+    const mechanism = {
+      buttonCol,
+      pressed: false,
+      buttonPlatform,
+      trapPlatform,
+      trapBaseY,
+      liftPx
+    };
+
+    buttonPlatform.draw = () => {
+      const img = mechanism.pressed ? window.tile_button_pressed : window.tile_button;
+      if (img && img.width > 0 && img.height > 0) image(img, buttonX, buttonY, TILE_SIZE, 8);
+      else {
+        if (mechanism.pressed) fill(170, 40, 40);
+        else fill(220, 50, 50);
+        rect(buttonX, buttonY, TILE_SIZE, 8);
+      }
+    };
+    this.platforms.push(buttonPlatform);
+
+    this.factoryMechanisms.push(mechanism);
+    this.factoryButtons.push({ platform: buttonPlatform, pressed: false, buttonCol });
+  }
+
+  getNthTileSurfaceY(col, tileType, nth = 1) {
+    if (col < 0 || col >= TERRAIN_COLS || nth <= 0) return null;
+    const column = this.tileMap[col] || [];
+    let count = 0;
+    for (let row = 0; row < column.length; row++) {
+      if (column[row] !== tileType) continue;
+      count++;
+      if (count === nth) return CANVAS_H - (row + 1) * TILE_SIZE;
+    }
+    return null;
+  }
+
+  updateFactoryMechanisms(player = null) {
+    if (!Array.isArray(this.factoryMechanisms) || this.factoryMechanisms.length === 0) return;
+
+    for (const m of this.factoryMechanisms) {
+      const buttonX = m.buttonPlatform.x;
+      const buttonY = m.buttonPlatform.y;
+      const pressed = this.isPlayerStandingOnFactoryButton(player, m.buttonPlatform);
+      m.pressed = pressed;
+
+      // button 碰撞箱：与 pressed 一致（20x4，底部居中）
+      const buttonCollisionH = 4;
+      const buttonCollisionY = buttonY + 4;
+      m.buttonPlatform.collisionRects = [{
+        x: buttonX + 6,
+        y: buttonCollisionY,
+        w: 20,
+        h: buttonCollisionH
+      }];
+
+      const trapY = m.trapBaseY - (pressed ? m.liftPx : 0);
+      m.trapPlatform.y = trapY;
+      m.trapPlatform.collisionRects = [{
+        x: m.trapPlatform.x,
+        y: trapY,
+        w: m.trapPlatform.w,
+        h: m.trapPlatform.h
+      }];
+
+      const btn = this.factoryButtons?.find(b => b.buttonCol === m.buttonCol);
+      if (btn) btn.pressed = pressed;
+    }
+
+    // 向后兼容：第一套按钮状态
+    this.factoryButtonPressed = !!this.factoryMechanisms[0]?.pressed;
+  }
+
+  isFactoryTrapAtTop() {
+    // 兼容旧接口：任意 trap 到顶返回 true
+    if (!Array.isArray(this.factoryMechanisms) || this.factoryMechanisms.length === 0) return false;
+    for (const m of this.factoryMechanisms) {
+      const topY = m.trapBaseY - m.liftPx;
+      if (m.trapPlatform?.y <= topY + 0.01) return true;
+    }
+    return false;
+  }
+
+  getNearestFactoryButtonPressed(entity) {
+    if (!entity || !Array.isArray(this.factoryButtons) || this.factoryButtons.length === 0) return false;
+    const entityCenterX = entity.x + entity.w / 2;
+    const entityCenterY = entity.y + entity.h / 2;
+    let nearest = null;
+    let nearestDistSq = Infinity;
+    for (const btn of this.factoryButtons) {
+      const p = btn?.platform;
+      if (!p) continue;
+      const cx = p.x + p.w / 2;
+      const cy = p.y + p.h / 2;
+      const dx = cx - entityCenterX;
+      const dy = cy - entityCenterY;
+      const d2 = dx * dx + dy * dy;
+      if (d2 < nearestDistSq) {
+        nearestDistSq = d2;
+        nearest = btn;
+      }
+    }
+    return !!nearest?.pressed;
+  }
+
+  isPlayerStandingOnFactoryButton(player, buttonPlatform = null) {
+    if (!player || typeof player.getCollisionBox !== 'function') return false;
+    const p = player.getCollisionBox();
+    const b = (buttonPlatform || this.factoryButtonPlatform)?.collisionRects?.[0];
+    if (!b) return false;
+    const overlapX = Math.min(p.x + p.w, b.x + b.w) - Math.max(p.x, b.x);
+    if (overlapX <= 0) return false;
+    const feetY = p.y + p.h;
+    return feetY >= b.y - 2 && feetY <= b.y + 6 && (player.vy ?? 0) >= -0.05;
+  }
+
+  isFactoryButtonPressedAtCol(col) {
+    if (!Array.isArray(this.factoryButtons)) return false;
+    const b = this.factoryButtons.find(btn => btn.buttonCol === col);
+    return !!b?.pressed;
+  }
+
+  addSpikeOnTopBrick(col, options = {}) {
+    const surfaceY = this.getTopBrickSurfaceY(col, options.targetRow);
+    if (surfaceY === null) return;
+    this.spikes.push({
+      x: col * TILE_SIZE,
+      surfaceY,
+      w: options.width ?? TILE_SIZE,
+      h: options.height ?? 8,
+      phaseOffsetMs: options.phaseOffsetMs ?? 0
+    });
+  }
+
+  getTopBrickSurfaceY(col, targetRow = null) {
+    const column = this.tileMap[col] || [];
+    if (Number.isInteger(targetRow)) {
+      if (targetRow < 0 || targetRow >= column.length) return null;
+      if (column[targetRow] !== T.BRICKS) return null;
+      return 360 - (targetRow + 1) * TILE_SIZE;
+    }
+    for (let row = column.length - 1; row >= 0; row--) {
+      if (column[row] !== T.BRICKS) continue;
+      return 360 - (row + 1) * TILE_SIZE;
+    }
+    return null;
+  }
+
+  getActiveSpikeZones() {
+    if (!Array.isArray(this.spikes) || this.spikes.length === 0) return [];
+    const now = millis();
+    return this.spikes.map((spike) => {
+      const t = (now + spike.phaseOffsetMs) % this.spikeCycleMs;
+      const phase01 = (1 - cos((t / this.spikeCycleMs) * TWO_PI)) * 0.5;
+      const y = spike.surfaceY - spike.h + phase01 * this.spikeTravelPx;
+      return { x: spike.x, y, w: spike.w, h: spike.h };
+    });
+  }
+
+  drawFactorySpikes() {
+    const zones = this.getActiveSpikeZones();
+    if (!zones.length) return;
+    const img = window.tile_spike;
+    for (const zone of zones) {
+      if (img && img.width > 0 && img.height > 0) {
+        image(img, zone.x, zone.y, zone.w, zone.h);
+      } else {
+        fill(210, 210, 220);
+        rect(zone.x, zone.y, zone.w, zone.h);
+      }
+    }
   }
 }
 
@@ -3539,10 +4385,7 @@ class Player extends Entity {
 
     // 碰撞箱尺寸（独立于贴图尺寸）
     this.collisionW = 16;
-    this.standingCollisionH = 56;
-    this.crouchScale = 0.78;
-    this.crouchingCollisionH = this.h * this.crouchScale;
-    this.collisionH = this.standingCollisionH;
+    this.collisionH = 50;
     this.collisionOffsetX = (this.w - this.collisionW) / 2;  // 水平居中：(32-24)/2 = 4
     this.collisionOffsetY = this.h - this.collisionH;  // 底部对齐
 
@@ -3556,6 +4399,12 @@ class Player extends Entity {
     this.activeLadder = null;
     this.climbSpeed = 2.1;
 
+    // 步伐节流 + 记录脚下材质
+    this._nextFootstepAt = 0;
+    this._groundTileType = T.NONE;
+    this._footstepDebugPrinted = false;
+    this._touchingLiquidLike = false;
+    this._liquidProbeNextAt = 0;
   }
   
   isInWater(level) {
@@ -3587,6 +4436,9 @@ class Player extends Entity {
   }
 
   update(platforms, level) {
+    const prevOnGround = this.onGround;
+    const prevVy = this.vy;
+
     // 地面上：每帧重置速度，完全由按键控制
     // 空中：保持惯性，但有空气阻力
     if (this.onGround) {
@@ -3598,13 +4450,10 @@ class Player extends Entity {
       if (Math.abs(this.vx) < 0.1) this.vx = 0;
     }
     
-    // 仅 WASD：A/D 水平移动，S 下蹲
+    // 仅 WASD：A/D 水平移动（S 不再用于陆地蹲下）
     const leftHeld = !!keys['a'];
     const rightHeld = !!keys['d'];
     const crouchHeld = !!keys['s'];
-    this.isCrouching = crouchHeld && this.onGround;
-    this.collisionH = this.isCrouching ? this.crouchingCollisionH : this.standingCollisionH;
-    this.collisionOffsetY = this.h - this.collisionH;
     if (leftHeld && !rightHeld) {
       this.vx = -this.speed;
     } else if (rightHeld && !leftHeld) {
@@ -3715,7 +4564,7 @@ class Player extends Entity {
     }
 
     // 世界下边界：防止掉出画布（即使底部全是水/无碰撞）
-    const maxY = CANVAS_H - this.h;
+    const maxY = CANVAS_H + 64;
     if (this.y > maxY) {
       this.y = maxY;
       this.vy = 0;
@@ -3727,6 +4576,71 @@ class Player extends Entity {
     if (isWaterStage && this.y < 0) {
       this.y = 0;
       if (this.vy < 0) this.vy = 0;
+    }
+
+    // ====== 跳落地音效：从空中 -> 落地的瞬间触发 ======
+    if (!prevOnGround && this.onGround && !inWater && !this.onLadder && prevVy > 0.2) {
+      tryPlaySfx('fall', { volume: 0.34, rate: 1 });
+    }
+
+    // ====== 液体/蓝色水流接触音效：仅 water/水管蓝色方块 ======
+    // 液体接触检测做低频采样，避免每帧重复扫蓝色流体区域导致卡顿
+    const nowMs = millis();
+    if (nowMs >= (this._liquidProbeNextAt ?? 0)) {
+      this._touchingLiquidLike =
+        !!inWater ||
+        isEntityTouchingBlueFlow(this, level);
+      this._liquidProbeNextAt = nowMs + 90;
+    } else if (!inWater && this._touchingLiquidLike) {
+      // 水体状态退出时尽快刷新，避免缓存残留
+      this._touchingLiquidLike =
+        isEntityTouchingBlueFlow(this, level);
+    } else if (inWater) {
+      this._touchingLiquidLike = true;
+    }
+
+    // 仅在“接触液体/蓝色方块 + 玩家正在移动”时播放 swim
+    const isMovingInLiquid = Math.abs(this.vx) > 0.12 || Math.abs(this.vy) > 0.12;
+    if (this._touchingLiquidLike && isMovingInLiquid) {
+      tryPlaySfx('swim', { volume: 0.26, rate: 1 });
+    }
+
+    // ====== 步伐音效：在地面上且水平移动时，按固定步频触发 ======
+    // 不在水关播放“脚步”，避免在水里像走路一样响
+    if (!(level instanceof WaterLevel) && this.onGround && Math.abs(this.vx) > 0.25) {
+      const now = millis();
+      if (now >= (this._nextFootstepAt ?? 0)) {
+        if (!canUseSound()) {
+          console.warn('[SFX] p5.sound not available (loadSound/userStartAudio missing)');
+        }
+        // 优先使用碰撞落地时记录的地面类型；否则用脚下坐标再查一次
+        let tileType = this._groundTileType;
+        if (tileType === T.NONE || tileType === undefined || tileType === null) {
+          const feetX = this.x + this.collisionOffsetX + this.collisionW / 2;
+          const feetY = this.y + this.collisionOffsetY + this.collisionH + 1;
+          tileType = level?.getTileTypeAtWorld?.(feetX, feetY) ?? T.NONE;
+        }
+        const key = tileTypeToFootstepKey(tileType);
+        const speedFactor = constrain(Math.abs(this.vx) / (this.speed || 1), 0.7, 1.35);
+        if (SFX.debug && !this._footstepDebugPrinted) {
+          this._footstepDebugPrinted = true;
+          console.log(
+            '[SFX] first footstep attempt:',
+            'key=', key,
+            'tileType=', tileType,
+            'loadedCount=', getLoadedSoundCount(key),
+            'audioState=', (typeof getAudioContext === 'function' ? getAudioContext()?.state : 'n/a')
+          );
+        }
+        tryPlaySfx(key, { volume: 0.28, rate: speedFactor });
+
+        // 步频：速度越快，间隔越短（单位 ms）
+        const baseInterval = 210;
+        this._nextFootstepAt = now + baseInterval / speedFactor;
+      }
+    } else {
+      // 停止走动后稍微延后，避免抖动导致极密集触发
+      this._nextFootstepAt = millis() + 60;
     }
   }
 
@@ -3799,6 +4713,7 @@ class Player extends Entity {
             this.onGround = true;
             this.jumpsRemaining = this.maxJumps;
             this.vy = 0;
+            this._groundTileType = p?._tileType ?? T.NONE;
             return;
           }
         }
@@ -3833,6 +4748,7 @@ class Player extends Entity {
             this.y = r.y - this.h; 
             this.onGround = true; 
             this.jumpsRemaining = this.maxJumps; 
+            this._groundTileType = p?._tileType ?? T.NONE;
           } else if (this.vy < 0) {
             this.y = r.y + r.h;
           }
@@ -3858,7 +4774,7 @@ class Player extends Entity {
           else this.x = r.x + r.w - this.collisionOffsetX;
           this.vx = 0;
         } else {
-          if (this.vy > 0) { this.y = r.y - this.h; this.onGround = true; this.jumpsRemaining = this.maxJumps; }
+          if (this.vy > 0) { this.y = r.y - this.h; this.onGround = true; this.jumpsRemaining = this.maxJumps; this._groundTileType = p?._tileType ?? T.NONE; }
           else if (this.vy < 0) this.y = r.y + r.h;
           this.vy = 0;
         }
@@ -4684,6 +5600,7 @@ class TNT extends Pollutant {
     if (this.armed || this.exploded) return;
     this.armed = true;
     this.armTime = now;
+    tryPlaySfx('tnt_fuse', { volume: 0.34, rate: 1 });
   }
 
   // 每帧更新：到点爆炸
@@ -4700,6 +5617,7 @@ class TNT extends Pollutant {
     if (this.exploded) return;
     this.exploded = true;
     this.removeAfter = now + this.postExplodeMs;
+    tryPlaySfx('tnt_explode', { volume: 0.44, rate: 1 });
 
     // 计算玩家是否在爆炸范围内（中心点距离）
     const tx = this.x + this.w / 2;
@@ -4745,6 +5663,7 @@ class TrappedBird extends Animal {
     this.flightSpeed = 1.9;
     this.wingTick = 0;
     this.facingRight = false;
+    this._birdSfxActive = false;
   }
   isTrapped() {
     return this.state === 'trapped';
@@ -4771,10 +5690,16 @@ class TrappedBird extends Animal {
   }
   update(platforms, level = null) {
     if (this.state === 'trapped') {
+      if (this._birdSfxActive) { this._birdSfxActive = false; sfxRelease('bird'); }
       super.update(platforms, level);
       return;
     }
-    if (this.state !== 'flying') return;
+    if (this.state !== 'flying') {
+      if (this._birdSfxActive) { this._birdSfxActive = false; sfxRelease('bird'); }
+      return;
+    }
+    if (!this._birdSfxActive) { this._birdSfxActive = true; sfxAcquire('bird'); }
+    tryPlaySfx('bird', { volume: 0.24, rate: 1 });
     const dx = this.targetX - this.x;
     const dy = this.targetY - this.y;
     if (Math.abs(dx) > 0.2) this.facingRight = dx > 0;
@@ -4783,6 +5708,7 @@ class TrappedBird extends Animal {
       this.x = this.targetX;
       this.y = this.targetY;
       this.state = 'landed';
+      if (this._birdSfxActive) { this._birdSfxActive = false; sfxRelease('bird'); }
       return;
     }
     this.x += (dx / d) * this.flightSpeed;
@@ -5169,6 +6095,95 @@ class LittleBird extends Animal {
   }
 }
 
+class Rabbit extends Animal {
+  constructor(x, y, w = 32, h = 32, opts = {}) {
+    super(x, y, w, h, null);
+    this.vx = 0;
+    this.vy = 0;
+    this.onGround = false;
+    this.facingRight = false;
+
+    // 碰撞箱：宽24高16，底部居中贴合 32x32 贴图
+    this.collisionW = 24;
+    this.collisionH = 16;
+    this.collisionOffsetX = (w - this.collisionW) / 2;
+    this.collisionOffsetY = h - this.collisionH;
+
+    // 第3关脚本行为（仅用于特定兔子）
+    this.scriptEnabled = !!opts.scriptEnabled;
+    this.listenButtonCol = Number.isFinite(opts.listenButtonCol) ? opts.listenButtonCol : null;
+    this.scriptTriggered = false;
+    this.scriptJumping = false;
+    this.scriptAwarded = false;
+    this.scriptStartAt = 0;
+    this.scriptDurationMs = 520;
+    this.scriptStartX = x;
+    this.scriptStartY = y;
+    this.scriptTargetX = Number.isFinite(opts.targetX) ? opts.targetX : x;
+    this.scriptTargetY = Number.isFinite(opts.targetY) ? opts.targetY : y;
+    this.scriptArcHeight = 2 * TILE_SIZE;
+  }
+
+  update(platforms, level = null) {
+    const now = millis();
+
+    // 脚本兔子：只要第42列按钮被按下，就跳到指定目标点（其余逻辑清空）
+    if (this.scriptEnabled && !this.scriptTriggered) {
+      const buttonPressed = this.listenButtonCol !== null
+        ? !!(level && typeof level.isFactoryButtonPressedAtCol === 'function' && level.isFactoryButtonPressedAtCol(this.listenButtonCol))
+        : !!(level && level.factoryButtonPressed);
+      if (buttonPressed && !this.scriptJumping) {
+        this.scriptJumping = true;
+        this.scriptStartAt = now;
+        this.scriptStartX = this.x;
+        this.scriptStartY = this.y;
+        this.facingRight = this.scriptTargetX > this.scriptStartX;
+      }
+    }
+
+    if (this.scriptEnabled && this.scriptJumping) {
+      const t = constrain((now - this.scriptStartAt) / this.scriptDurationMs, 0, 1);
+      const arc = -4 * this.scriptArcHeight * t * (1 - t);
+      this.x = lerp(this.scriptStartX, this.scriptTargetX, t);
+      this.y = lerp(this.scriptStartY, this.scriptTargetY, t) + arc;
+      this.vx = 0;
+      this.vy = 0;
+      this.onGround = false;
+      if (t >= 1) {
+        this.x = this.scriptTargetX;
+        this.y = this.scriptTargetY;
+        this.onGround = true;
+        this.scriptJumping = false;
+        this.scriptTriggered = true;
+        if (!this.scriptAwarded && typeof game?.addScore === 'function') {
+          game.addScore(1);
+          this.scriptAwarded = true;
+        }
+      }
+      return;
+    }
+
+    // 非脚本兔子：保持静止
+    this.vx = 0;
+    this.vy = 0;
+  }
+
+  draw() {
+    const img = window.rabbit;
+    if (img && img.width > 0) {
+      push();
+      imageMode(CENTER);
+      translate(this.x + this.w / 2, this.y + this.h / 2);
+      scale(this.facingRight ? -1 : 1, 1);
+      image(img, 0, 0, this.w, this.h);
+      pop();
+    } else {
+      fill(220, 220, 220);
+      rect(this.x, this.y, this.w, this.h);
+    }
+  }
+}
+
 class Hp extends Item {
   // hpType: 'apple' | 'golden_apple'
   constructor(x, y, w = 24, h = 24, hpType = 'apple') {
@@ -5361,23 +6376,22 @@ class UIManager {
   }
 
   getGuideMenuRect() {
-    const { menuRect, exitRect } = this.getTopRightButtons();
-    const margin = 8;
-    const gapFromButtons = 8;
     const panelH = 186;
-    const buttonColRight = Math.max(menuRect.x + menuRect.w, exitRect.x + exitRect.w);
-    const x0 = buttonColRight + gapFromButtons;
-    const panelW = Math.min(Math.floor(width * 0.48), 360, Math.max(0, width - x0 - margin));
-    const x = Math.round(constrain(x0, margin, Math.max(margin, width - margin - panelW)));
-    const y = constrain(menuRect.y + menuRect.h, 0, height - panelH);
+    const panelW = Math.min(Math.floor(width * 0.4), 300, Math.max(0, width));
+    const x = Math.round((width - panelW) / 2);
+    const y = Math.round((height - panelH) / 2);
     return { x, y, w: panelW, h: panelH };
   }
 
   getGuideTabRects() {
     const panel = this.getGuideMenuRect();
-    const tabW = (panel.w - 20) / 4;
-    const tabY = panel.y + 22;
-    return [0, 1, 2, 3].map(i => ({ x: panel.x + 10 + i * tabW, y: tabY, w: tabW - 4, h: 18 }));
+    const tabCount = 3;
+    const tabGap = 4;
+    const tabW = (panel.w - 28) / tabCount;
+    const totalTabW = tabCount * tabW + (tabCount - 1) * tabGap;
+    const tabStartX = panel.x + (panel.w - totalTabW) / 2;
+    const tabY = panel.y + 30;
+    return [0, 1, 2].map(i => ({ x: tabStartX + i * (tabW + tabGap), y: tabY, w: tabW, h: 22 }));
   }
 
   isInsideRect(mx, my, rect) {
@@ -5543,21 +6557,29 @@ class UIManager {
     textSize(10);
     text(name, x + 16, y - 1);
     fill(196, 214, 255);
-    textSize(9);
+    textSize(10);
     text(desc, x + 16, y + 8, 126);
   }
 
   drawGuideRow(x, y, w, icon, name, desc) {
-    fill(34, 52, 76, 210);
-    rect(x, y, w, 28, 6);
+    fill(0, 0, 0, 85);
+    rect(x, y, w, 32);
 
     const iconX = x + 6;
     const iconY = y + 6;
-    if (icon && icon.width > 0) image(icon, iconX, iconY, 16, 16);
-    else { fill(120, 160, 220); rect(iconX, iconY, 16, 16, 3); }
+    if (icon && icon.width > 0 && icon.height > 0) {
+      const iconBoxW = 16;
+      const iconBoxH = 16;
+      const scale = Math.min(iconBoxW / icon.width, iconBoxH / icon.height);
+      const drawW = icon.width * scale;
+      const drawH = icon.height * scale;
+      const drawX = iconX + (iconBoxW - drawW) / 2;
+      const drawY = iconY + (iconBoxH - drawH) / 2;
+      image(icon, drawX, drawY, drawW, drawH);
+    } else { fill(120, 160, 220); rect(iconX, iconY, 16, 16, 3); }
 
     fill(255);
-    textSize(11);
+    textSize(10);
     text(name, x + 28, y + 12);
     fill(196, 214, 255);
     textSize(10);
@@ -5581,10 +6603,6 @@ class UIManager {
           commonTools.waterBucket
         ],
         [
-          [window.plastic_bottle, t("Plastic Bottle", "塑料瓶"), t("Collect", "收集")],
-          [window.plastic_bag, t("Plastic Bag", "塑料袋"), t("Collect", "收集")]
-        ],
-        [
           [window.turtle_0, t("Turtle", "海龟"), t("Break iron bars to rescue", "拆除铁栏杆进行救援")],
           [window.fish, t("Fish", "小鱼"), t("Cut fishing net to rescue", "剪开渔网进行救援")]
         ],
@@ -5601,13 +6619,9 @@ class UIManager {
           commonTools.waterBucket,
           commonTools.limestone
         ],
-        [
-          [window.plastic_bottle, t("Plastic Bottle", "塑料瓶"), t("Collect", "收集")],
-          [window.plastic_bag, t("Plastic Bag", "塑料袋"), t("Collect", "收集")],
-          [window.tnt, "TNT", t("Keep away", "远离")]
-        ],
         [],
         [
+          [window.tile_spike, t("Spike", "尖刺"), t("Retracts and extends periodically", "会周期性升降并持续造成伤害")],
           [window.slimeSprite, t("Slime", "史莱姆"), t("Press F to attack", "按 F 攻击")],
           [window.vexSprite0, t("Vex", "怨灵"), t("Keep distance or attack", "保持距离或攻击")]
         ]
@@ -5622,10 +6636,6 @@ class UIManager {
         commonTools.vineSeed
       ],
       [
-        [window.plastic_bottle, t("Plastic Bottle", "塑料瓶"), t("Collect", "收集")],
-        [window.plastic_bag, t("Plastic Bag", "塑料袋"), t("Collect", "收集")]
-      ],
-      [
         [window.bird, t("Bird", "小鸟"), t("Click scissors to rescue", "点击剪刀进行救援")]
       ],
       [
@@ -5637,17 +6647,16 @@ class UIManager {
   drawGuideMenu(activeGuideTab = 0) {
     const panel = this.getGuideMenuRect();
     noStroke();
-    fill(20, 32, 50, 230);
-    rect(panel.x, panel.y, panel.w, panel.h, 4);
+    fill(0, 0, 0, 85);
+    rect(panel.x, panel.y, panel.w, panel.h);
 
     fill(255);
-    textSize(14);
-    textAlign(LEFT, BASELINE);
-    text(t("Field Guide", "图鉴"), panel.x + 10, panel.y + 16);
+    textSize(12);
+    textAlign(CENTER, BASELINE);
+    text(t("Field Guide", "图鉴"), panel.x + panel.w / 2, panel.y + 24);
 
     const tabLabels = [
       t("Tools", "工具"),
-      t("Pollutants", "污染物"),
       t("Trapped", "待救援"),
       t("Danger", "危险")
     ];
@@ -5655,11 +6664,11 @@ class UIManager {
     textAlign(CENTER, CENTER);
     for (let i = 0; i < tabs.length; i++) {
       const t = tabs[i];
-      fill(i === activeGuideTab ? color(68, 110, 162, 240) : color(40, 58, 86, 210));
-      rect(t.x, t.y, t.w, t.h, 4);
+      fill(i === activeGuideTab ? color(255, 255, 255, 85) : color(0, 0, 0, 85));
+      rect(t.x, t.y, t.w, t.h);
       fill(255);
       textSize(10);
-      text(tabLabels[i], t.x + t.w / 2, t.y + t.h / 2);
+      text(tabLabels[i], t.x + t.w / 2, t.y + t.h / 2 + 2);
     }
     textAlign(LEFT, BASELINE);
 
@@ -5667,9 +6676,14 @@ class UIManager {
 
     const tabIndex = constrain(activeGuideTab, 0, rowsByTab.length - 1);
     const rows = rowsByTab[tabIndex] || [];
-    const rowX = panel.x + 12;
-    const rowW = panel.w - 24;
-    let rowY = panel.y + 48;
+    const rowLeft = tabs[0]?.x ?? (panel.x + 14);
+    const lastTab = tabs[tabs.length - 1];
+    const rowRight = lastTab ? (lastTab.x + lastTab.w) : (panel.x + panel.w - 14);
+    const rowX = rowLeft;
+    const rowW = Math.max(0, rowRight - rowLeft);
+    const rowGap = 6;
+    const firstTab = tabs[0];
+    let rowY = firstTab ? (firstTab.y + firstTab.h + rowGap) : (panel.y + 56);
 
     if (!rows.length) {
       this.drawGuideRow(
@@ -5683,7 +6697,7 @@ class UIManager {
     } else {
       for (const [icon, name, desc] of rows) {
         this.drawGuideRow(rowX, rowY, rowW, icon, name, desc);
-        rowY += 34;
+        rowY += 32 + rowGap;
       }
     }
   }
@@ -5693,6 +6707,44 @@ class UIManager {
 // ====== p5.js 生命周期 ======
 function preload() {
   activeFont = null;
+
+  // 让 p5.sound 更明确地识别常见格式（有些环境下可避免扩展名/解码问题）
+  if (typeof soundFormats === 'function') {
+    try { soundFormats('wav', 'mp3', 'ogg'); } catch {}
+  }
+  console.log('[SFX] preload canUseSound=', canUseSound(), 'hasLoadSound=', typeof window.loadSound, 'hasUserStartAudio=', typeof window.userStartAudio);
+
+  // 约定：把音效放到 assets/sfx/ 下
+  const numbered = (dir, count = 8, ext = 'wav') => Array.from({ length: count }, (_, i) => `${dir}/${i}.${ext}`);
+
+  // 注意：不在 preload 直接 loadSound，避免 AudioContext 仍是 suspended 时解码卡住
+  queueSfxList('step_grass', [...numbered('assets/sfx/step_grass', 8, 'wav'), 'assets/sfx/step_grass.wav']);
+  queueSfxList('step_stone', [...numbered('assets/sfx/step_stone', 8, 'wav'), 'assets/sfx/step_stone.wav']);
+  queueSfxList('step_sand', [...numbered('assets/sfx/step_sand', 8, 'wav'), 'assets/sfx/step_sand.wav']);
+  queueSfxList('swim', ['assets/sfx/swim.wav']);
+  queueSfxList('fall', ['assets/sfx/fall.wav']);
+  queueSfxList('dig_grass', ['assets/sfx/dig_grass.wav']);
+  queueSfxList('dig_sand', ['assets/sfx/dig_sand.wav']);
+  queueSfxList('dig_stone', ['assets/sfx/dig_stone.wav']);
+  queueSfxList('hit', ['assets/sfx/hit.wav']);
+  queueSfxList('pour', ['assets/sfx/pour.wav']);
+  queueSfxList('lava', ['assets/sfx/lava.wav']);
+  queueSfxList('recover', ['assets/sfx/recover.wav']);
+  queueSfxList('trophy', ['assets/sfx/trophy.wav']);
+  queueSfxList('click', ['assets/sfx/click.mp3']);
+  queueSfxList('win', ['assets/sfx/win.mp3']);
+  queueSfxList('lost', ['assets/sfx/lost.mp3']);
+  queueSfxList('bird', [
+    ...numbered('assets/sfx/bird', 16, 'wav'),
+    ...numbered('assets/sfx/bird', 16, 'mp3'),
+    ...numbered('assets/sfx/bird', 16, 'ogg'),
+    'assets/sfx/bird.wav',
+    'assets/sfx/bird.mp3',
+    'assets/sfx/bird.ogg'
+  ]);
+  queueSfxList('spike', ['assets/sfx/spike.mp3']);
+  queueSfxList('tnt_fuse', ['assets/sfx/tnt/fuse.wav']);
+  queueSfxList('tnt_explode', ['assets/sfx/tnt/explode.wav']);
 }
 
 function setup() {
@@ -5701,7 +6753,59 @@ function setup() {
   c.elt.focus();
   c.elt.classList.add('game-canvas');
   c.elt.addEventListener('click', () => c.elt.focus());
+
+  // 兜底：某些运行方式下 preload 可能未执行，这里确保队列一定被填充
+  if (Object.keys(SFX.queuedPathsByKey || {}).length === 0) {
+    const numbered = (dir, count = 8, ext = 'wav') => Array.from({ length: count }, (_, i) => `${dir}/${i}.${ext}`);
+    queueSfxList('step_grass', [...numbered('assets/sfx/step_grass', 8, 'wav'), 'assets/sfx/step_grass.wav']);
+    queueSfxList('step_stone', [...numbered('assets/sfx/step_stone', 8, 'wav'), 'assets/sfx/step_stone.wav']);
+    queueSfxList('step_sand', [...numbered('assets/sfx/step_sand', 8, 'wav'), 'assets/sfx/step_sand.wav']);
+    queueSfxList('swim', ['assets/sfx/swim.wav']);
+    queueSfxList('fall', ['assets/sfx/fall.wav']);
+    queueSfxList('dig_grass', ['assets/sfx/dig_grass.wav']);
+    queueSfxList('dig_sand', ['assets/sfx/dig_sand.wav']);
+    queueSfxList('dig_stone', ['assets/sfx/dig_stone.wav']);
+    queueSfxList('hit', ['assets/sfx/hit.wav']);
+    queueSfxList('pour', ['assets/sfx/pour.wav']);
+    queueSfxList('lava', ['assets/sfx/lava.wav']);
+    queueSfxList('recover', ['assets/sfx/recover.wav']);
+    queueSfxList('trophy', ['assets/sfx/trophy.wav']);
+    queueSfxList('click', ['assets/sfx/click.mp3']);
+    queueSfxList('win', ['assets/sfx/win.mp3']);
+    queueSfxList('lost', ['assets/sfx/lost.mp3']);
+    queueSfxList('bird', [
+      ...numbered('assets/sfx/bird', 16, 'wav'),
+      ...numbered('assets/sfx/bird', 16, 'mp3'),
+      ...numbered('assets/sfx/bird', 16, 'ogg'),
+      'assets/sfx/bird.wav',
+      'assets/sfx/bird.mp3',
+      'assets/sfx/bird.ogg'
+    ]);
+    queueSfxList('spike', ['assets/sfx/spike.mp3']);
+    queueSfxList('tnt_fuse', ['assets/sfx/tnt/fuse.wav']);
+    queueSfxList('tnt_explode', ['assets/sfx/tnt/explode.wav']);
+    if (SFX.debug) console.log('[SFX] queued in setup fallback');
+  }
+
+  // 解锁浏览器音频上下文（需要用户手势）
+  const unlockAndLoadOnce = () => {
+    try { ensureAudioUnlocked(); } catch {}
+    try { startQueuedSfxLoads(); } catch {}
+  };
+  c.elt.addEventListener('pointerdown', unlockAndLoadOnce, { passive: true, once: true });
+  window.addEventListener('keydown', unlockAndLoadOnce, { passive: true, once: true });
   c.parent('game-container');
+  console.log('[SFX] setup canUseSound=', canUseSound());
+  setTimeout(() => {
+    if (!SFX.debug) return;
+    console.log(
+      '[SFX] loaded counts:',
+      'grass=', getLoadedSoundCount('step_grass'),
+      'stone=', getLoadedSoundCount('step_stone'),
+      'sand=', getLoadedSoundCount('step_sand'),
+      'audioState=', (typeof getAudioContext === 'function' ? getAudioContext()?.state : 'n/a')
+    );
+  }, 1000);
 
   // 添加原生键盘事件监听器（备用方案，防止 p5.js 事件丢失）
   window.addEventListener('keyup', (e) => {
@@ -5733,6 +6837,7 @@ function setup() {
   load('assets/pic/animals/bird.png', 'bird');
   load('assets/pic/animals/bird_flip.png', 'bird_flip');
   load('assets/pic/animals/fish.png', 'fish');
+  load('assets/pic/animals/rabbit.png', 'rabbit');
   load('assets/pic/animals/turtle_0.png', 'turtle_0');
   load('assets/pic/animals/turtle_1.png', 'turtle_1');
   load('assets/pic/animals/iron_bar.png', 'iron_bar');
@@ -5785,10 +6890,14 @@ function setup() {
   load('assets/pic/ui/trophy_fill.png', 'trophyFill');
   load('assets/pic/ui/progress.png', 'uiProgress');
   load('assets/pic/ui/cat.png', 'followPlayerCat');
+  load('assets/pic/ui/cat_head.png', 'uiCatHead');
   load('assets/pic/ui/inventory_container.png', 'invContainer');
   load('assets/pic/player_cat/cat_right.png', 'inventoryProgressCat');
   load('assets/pic/ui/menu.png', 'uiMenu');
   load('assets/pic/ui/exit.png', 'uiExit');
+  load('assets/pic/ui/level_1.png', 'uiLevel1');
+  load('assets/pic/ui/level_2.png', 'uiLevel2');
+  load('assets/pic/ui/level_3.png', 'uiLevel3');
 
 
 
@@ -5798,7 +6907,7 @@ function setup() {
     'grass_block_side', 'dirt', 'stone', 'deepslate',
     'deepslate_diamond_ore', 'deepslate_iron_ore',
     'diamond_ore', 'iron_ore', 'lava', 'acid', 'water', 'sand', 'gravel',
-    'bricks', 'pipe_narrow', 'deepslate_bricks', 'pipe_wide', 'pipe_wide_inner_corner', 'pipe_wide_outer_corner', 'pipe_narrow_corner', 'pipe_narrow_to_wide', 'pipe_narrow_to_narrow',
+    'bricks', 'pipe_narrow', 'deepslate_bricks', 'pipe_wide', 'pipe_wide_inner_corner', 'pipe_wide_outer_corner', 'pipe_narrow_corner', 'pipe_narrow_to_wide', 'pipe_narrow_to_narrow', 'spike', 'trap', 'button', 'button_pressed',
     // 树（仅作为背景装饰使用）
     'oak_leaves', 'oak_log',
     // 关卡2：水下植物与珊瑚（仅背景装饰）
@@ -5852,9 +6961,11 @@ function draw() {
     game.draw();
   }
   else if (game.state === "gameover") {
+    game.draw();
     drawGameOverScreen();
   }
   else if (game.state === "victory") {
+    game.draw();
     drawVictoryScreen();
   }
 }
@@ -5995,11 +7106,13 @@ function mousePressed() {
     const ui = getStartScreenRects();
 
     if (isInside(mouseX, mouseY, ui.startBtn)) {
+      tryPlaySfx('click', { volume: 0.32, rate: 1 });
       game.state = "levelSelect";
       return;
     }
 
     if (isInside(mouseX, mouseY, ui.settingsBtn)) {
+      tryPlaySfx('click', { volume: 0.32, rate: 1 });
       game.state = "settings";
       return;
     }
@@ -6010,6 +7123,7 @@ function mousePressed() {
     const ui = getLevelSelectRects();
 
     if (isInside(mouseX, mouseY, ui.level1)) {
+      tryPlaySfx('click', { volume: 0.32, rate: 1 });
       game = createGameWithSameSettings("forest");
       game.setup();
       game.beginPlaying();
@@ -6017,6 +7131,7 @@ function mousePressed() {
     }
 
     if (isInside(mouseX, mouseY, ui.level2)) {
+      tryPlaySfx('click', { volume: 0.32, rate: 1 });
       game = createGameWithSameSettings("water");
       game.setup();
       game.beginPlaying();
@@ -6024,6 +7139,7 @@ function mousePressed() {
     }
 
     if (isInside(mouseX, mouseY, ui.level3)) {
+      tryPlaySfx('click', { volume: 0.32, rate: 1 });
       game = createGameWithSameSettings("factory");
       game.setup();
       game.beginPlaying();
@@ -6031,6 +7147,7 @@ function mousePressed() {
     }
 
     if (isInside(mouseX, mouseY, ui.backBtn)) {
+      tryPlaySfx('click', { volume: 0.32, rate: 1 });
       game.state = "start";
       return;
     }
@@ -6042,26 +7159,31 @@ function mousePressed() {
     const s = game.settings;
 
     if (isInside(mouseX, mouseY, ui.musicMinus)) {
+      tryPlaySfx('click', { volume: 0.32, rate: 1 });
       s.musicVolume = max(0, s.musicVolume - 10);
       return;
     }
 
     if (isInside(mouseX, mouseY, ui.musicPlus)) {
+      tryPlaySfx('click', { volume: 0.32, rate: 1 });
       s.musicVolume = min(100, s.musicVolume + 10);
       return;
     }
 
     if (isInside(mouseX, mouseY, ui.sfxMinus)) {
+      tryPlaySfx('click', { volume: 0.32, rate: 1 });
       s.sfxVolume = max(0, s.sfxVolume - 10);
       return;
     }
 
     if (isInside(mouseX, mouseY, ui.sfxPlus)) {
+      tryPlaySfx('click', { volume: 0.32, rate: 1 });
       s.sfxVolume = min(100, s.sfxVolume + 10);
       return;
     }
 
     if (isInside(mouseX, mouseY, ui.fullscreen)) {
+      tryPlaySfx('click', { volume: 0.32, rate: 1 });
       s.fullscreen = !s.fullscreen;
       let fs = fullscreen();
       fullscreen(!fs);
@@ -6069,6 +7191,7 @@ function mousePressed() {
     }
 
     if (isInside(mouseX, mouseY, ui.language)) {
+      tryPlaySfx('click', { volume: 0.32, rate: 1 });
       const currentIndex = SUPPORTED_LANGUAGES.indexOf(s.language);
       const nextIndex = (currentIndex + 1) % SUPPORTED_LANGUAGES.length;
       s.language = SUPPORTED_LANGUAGES[nextIndex];
@@ -6076,6 +7199,7 @@ function mousePressed() {
     }
 
     if (isInside(mouseX, mouseY, ui.backBtn)) {
+      tryPlaySfx('click', { volume: 0.32, rate: 1 });
       game.state = "start";
       return;
     }
@@ -6083,6 +7207,7 @@ function mousePressed() {
 
   // game over / victory 页面，鼠标点击回开始页
   if (game.state === "gameover" || game.state === "victory") {
+    tryPlaySfx('click', { volume: 0.32, rate: 1 });
     game.resetToStartScreen();
   }
 }
@@ -6101,34 +7226,204 @@ function isInside(mx, my, rect) {
          my >= rect.y && my <= rect.y + rect.h;
 }
 
-function drawMenuButton(x, y, w, h, label, hovered = false) {
+function drawMenuButton(x, y, w, h, label, hovered = false, style = {}) {
   push();
-  stroke(255);
-  strokeWeight(2);
-  fill(hovered ? color(255, 170, 60) : color(30, 45, 85, 220));
-  rect(x, y, w, h, 12);
+  // Icon-only mode: render ONLY the icon, no border/fill/label.
+  if (style.onlyIcon) {
+    const iconImage = style.iconImage;
+    if (iconImage && iconImage.width > 0) {
+      const iconW = style.iconW ?? 20;
+      const iconH = style.iconH ?? 20;
+      const align = style.iconAlign ?? "bottomRight";
+      let cx = x + w / 2;
+      let cy = y + h / 2;
+      if (align === "bottomRight") {
+        cx = x + w - iconW / 2;
+        cy = y + h - iconH / 2;
+      }
+      imageMode(CENTER);
+      noTint();
+      image(iconImage, cx, cy, iconW, iconH);
+    }
+    pop();
+    return;
+  }
 
+  const borderColor = hovered
+    ? (style.hoverBorderColor ?? color(255, 235, 160))
+    : (style.borderColor ?? color(0));
+  const topColor = hovered
+    ? (style.hoverTopColor ?? color(255, 210, 70))
+    : (style.topColor ?? color(110, 170, 255));
+  const bottomColor = hovered
+    ? (style.hoverBottomColor ?? color(234, 124, 0))
+    : (style.bottomColor ?? color(73, 140, 253));
+  const labelColor = hovered
+    ? (style.hoverLabelColor ?? style.labelColor ?? color(255))
+    : (style.labelColor ?? color(255));
+  const labelStrokeColor = hovered
+    ? (style.hoverLabelStrokeColor ?? style.labelStrokeColor ?? color(0))
+    : (style.labelStrokeColor ?? color(0));
+  const labelStrokeWeight = style.labelStrokeWeight ?? 2;
+  const labelSize = style.labelSize ?? 20;
+  const labelYFactor = style.labelYFactor ?? 0.5;
+  const labelYOffset = style.labelYOffset ?? 0;
+  const borderWeight = style.borderWeight ?? 10;
+  const borderOffsetY = style.borderOffsetY ?? 2;
+  const midY = y + h / 2;
+
+  // Draw border first so it stays beneath the fill layers.
+  const cutCorners = style.cutCorners ?? false;
+  const cornerCutSize = style.cornerCutSize ?? 6;
+  const bw = Math.max(1, Math.floor(borderWeight));
+  // When using filled borders (cut-corner mode), we must keep fills inside the border,
+  // otherwise the fill will cover the border entirely.
+  const fillInset = cutCorners ? bw : 0;
+  const fillX = x + fillInset;
+  const fillY = y + fillInset;
+  const fillW = Math.max(0, w - fillInset * 2);
+  const fillH = Math.max(0, h - fillInset * 2);
+  const fillMidY = fillY + fillH / 2;
+  if (cutCorners) {
+    const cut = Math.max(0, Math.floor(cornerCutSize));
+    const by = y + borderOffsetY;
+    noStroke();
+    fill(borderColor);
+    // Top / bottom edges (skip corner squares).
+    rect(x + cut, by, Math.max(0, w - cut * 2), bw);
+    rect(x + cut, by + h - bw, Math.max(0, w - cut * 2), bw);
+    // Left / right edges (skip corner squares).
+    rect(x, by + cut, bw, Math.max(0, h - cut * 2));
+    rect(x + w - bw, by + cut, bw, Math.max(0, h - cut * 2));
+  } else {
+    stroke(borderColor);
+    strokeWeight(borderWeight);
+    noFill();
+    rect(x, y + borderOffsetY, w, h);
+  }
+
+  // Fill top half.
+  drawingContext.save();
+  drawingContext.beginPath();
+  drawingContext.rect(fillX, fillY, fillW, fillH / 2);
+  drawingContext.clip();
   noStroke();
-  fill(255);
+  fill(topColor);
+  rect(fillX, fillY, fillW, fillH);
+  drawingContext.restore();
+
+  // Fill bottom half.
+  drawingContext.save();
+  drawingContext.beginPath();
+  drawingContext.rect(fillX, fillMidY, fillW, fillH / 2);
+  drawingContext.clip();
+  noStroke();
+  fill(bottomColor);
+  rect(fillX, fillY, fillW, fillH);
+  drawingContext.restore();
+
+  stroke(labelStrokeColor);
+  strokeWeight(labelStrokeWeight);
+  fill(labelColor);
   textAlign(CENTER, CENTER);
-  textSize(20);
-  text(label, x + w / 2, y + h / 2);
+  textSize(labelSize);
+  text(label, x + w / 2, y + h * labelYFactor + labelYOffset);
+
+  // Optional icon for rich menu buttons (e.g. level preview).
+  const iconImage = style.iconImage;
+  if (iconImage && iconImage.width > 0) {
+    const iconW = style.iconW ?? 128;
+    const iconH = style.iconH ?? 128;
+    const iconCenterYOffset = style.iconCenterYOffset ?? h * 0.72;
+    const iconOutlineColor = style.iconOutlineColor ?? labelStrokeColor;
+    const iconOutlineWeight = style.iconOutlineWeight ?? labelStrokeWeight;
+    imageMode(CENTER);
+    noTint();
+    image(iconImage, x + w / 2, y + iconCenterYOffset, iconW, iconH);
+
+    // Outline for the icon (match label stroke style).
+    if (iconOutlineWeight > 0) {
+      push();
+      rectMode(CENTER);
+      noFill();
+      stroke(iconOutlineColor);
+      strokeWeight(iconOutlineWeight);
+      rect(x + w / 2, y + iconCenterYOffset, iconW, iconH);
+      pop();
+    }
+
+    // Optional trophy row (drawn beneath the icon).
+    const trophySlots = Math.max(0, Math.floor(style.trophySlots ?? 0));
+    if (trophySlots > 0) {
+      const trophyFilled = Math.min(Math.max(0, Math.floor(style.trophyFilled ?? 0)), trophySlots);
+      const trophySize = style.trophySize ?? 20;
+      const trophyGap = style.trophyGap ?? 4;
+      const trophyStride = trophySize + trophyGap;
+      const trophiesW = trophySlots * trophySize + (trophySlots - 1) * trophyGap;
+      const trophyX0 = x + w / 2 - trophiesW / 2;
+      const trophyY = y + (style.trophyY ?? (iconCenterYOffset + iconH / 2 + 12));
+      const trophyContainerImg = window.trophyContainer;
+      const trophyFillImg = window.trophyFill;
+      imageMode(CORNER);
+
+      for (let i = 0; i < trophySlots; i++) {
+        const tx = trophyX0 + i * trophyStride;
+        if (trophyContainerImg && trophyContainerImg.width > 0) {
+          image(trophyContainerImg, tx, trophyY, trophySize, trophySize);
+        } else {
+          noStroke();
+          fill(80);
+          rect(tx, trophyY, trophySize, trophySize);
+        }
+        if (i < trophyFilled) {
+          if (trophyFillImg && trophyFillImg.width > 0) {
+            image(trophyFillImg, tx, trophyY, trophySize, trophySize);
+          } else {
+            noStroke();
+            fill(220, 200, 60);
+            rect(tx + 2, trophyY + 2, trophySize - 4, trophySize - 4);
+          }
+        }
+      }
+    }
+  }
   pop();
 }
 
 function getStartScreenRects() {
+  const startBtnW = 140;
+  const startBtnH = 52;
+  const settingsBtnW = 140;
+  const settingsBtnH = 52;
+
   return {
-    startBtn: { x: width / 2 - 110, y: 150, w: 220, h: 52 },
-    settingsBtn: { x: width / 2 - 110, y: 220, w: 220, h: 52 }
+    startBtn: {
+      x: width / 2 - startBtnW / 2,
+      y: 150,
+      w: startBtnW,
+      h: startBtnH
+    },
+    settingsBtn: {
+      x: width / 2 - settingsBtnW / 2,
+      y: 220,
+      w: settingsBtnW,
+      h: settingsBtnH
+    }
   };
 }
 
 function getLevelSelectRects() {
+  const levelBtnW = 180;
+  const levelBtnH = 200;
+  const levelBtnGap = 30;
+  const backBtnX = 20;
+  const levelStartX = backBtnX;
+  const levelBtnY = height / 2 - levelBtnH / 2;
   return {
-    level1: { x: 70, y: 180, w: 140, h: 70 },
-    level2: { x: 250, y: 180, w: 140, h: 70 },
-    level3: { x: 430, y: 180, w: 140, h: 70 },
-    backBtn: { x: 20, y: 20, w: 100, h: 42 }
+    level1: { x: levelStartX, y: levelBtnY, w: levelBtnW, h: levelBtnH },
+    level2: { x: levelStartX + levelBtnW + levelBtnGap, y: levelBtnY, w: levelBtnW, h: levelBtnH },
+    level3: { x: levelStartX + (levelBtnW + levelBtnGap) * 2, y: levelBtnY, w: levelBtnW, h: levelBtnH },
+    backBtn: { x: backBtnX, y: 20, w: 80, h: 52 }
   };
 }
 
@@ -6143,18 +7438,84 @@ function getSettingsRects() {
     fullscreen: { x: 360, y: 215, w: 180, h: 42 },
     language:   { x: 360, y: 275, w: 180, h: 42 },
 
-    backBtn:    { x: 20, y: 20, w: 100, h: 42 }
+    backBtn:    { x: 20, y: 20, w: 80, h: 52 }
   };
 }
 
 // ====== startscreen ======
 function drawStartScreen() {
+  imageMode(CORNER);
   if (window.startBg && window.startBg.width > 0) {
-    image(window.startBg, 0, 0, width, height);
+    image(window.startBg, 0, 0, CANVAS_W, CANVAS_H);
   } else {
     background(50, 50, 100);
   }
-  
+
+  // Top-center game title on the start screen.
+  push();
+  // Force the title font to always be MojangRegular (independent of current language).
+  textFont(FONT_CONFIGS.mojangRegular.family);
+  textAlign(CENTER, TOP);
+  textSize(48);
+  textStyle(BOLD);
+  const titleY = 56;
+  const titleGap = 14;
+  const titleWords = [
+    { text: "SUPER", topColor: [253, 184, 0], bottomColor: [234, 124, 0] },
+    { text: "CAT", topColor: [253, 184, 0], bottomColor: [234, 124, 0] },
+    { text: "&", topColor: [122, 214, 252], bottomColor: [73, 140, 253] },
+    { text: "STEVE", topColor: [253, 184, 0], bottomColor: [234, 124, 0] }
+  ];
+  const totalTitleWidth = titleWords.reduce((sum, word, index) => {
+    const gap = index < titleWords.length - 1 ? titleGap : 0;
+    return sum + textWidth(word.text) + gap;
+  }, 0);
+
+  const drawSplitTitleWord = (wordText, centerX, topY, topColor, bottomColor) => {
+    const w = textWidth(wordText);
+    const h = textAscent() + textDescent();
+    const splitY = topY + h * 0.5;
+    const pad = 10;
+    const outlineOffsetY = 2;
+
+    // Draw a dark base first, then paint split colors on top.
+    stroke(0, 0, 0, 255);
+    strokeWeight(10);
+    fill(0, 0, 0, 255);
+    text(wordText, centerX, topY + outlineOffsetY);
+
+    // Draw top half color.
+    drawingContext.save();
+    drawingContext.beginPath();
+    drawingContext.rect(centerX - w / 2 - pad, topY - pad, w + pad * 2, (splitY - topY) + pad);
+    drawingContext.clip();
+    noStroke();
+    fill(topColor[0], topColor[1], topColor[2]);
+    text(wordText, centerX, topY);
+    drawingContext.restore();
+
+    // Draw bottom half color.
+    drawingContext.save();
+    drawingContext.beginPath();
+    drawingContext.rect(centerX - w / 2 - pad, splitY, w + pad * 2, (topY + h - splitY) + pad);
+    drawingContext.clip();
+    noStroke();
+    fill(bottomColor[0], bottomColor[1], bottomColor[2]);
+    text(wordText, centerX, topY);
+    drawingContext.restore();
+  };
+
+  let titleX = width / 2 - totalTitleWidth / 2;
+  for (const word of titleWords) {
+    const w = textWidth(word.text);
+    drawSplitTitleWord(word.text, titleX + w / 2, titleY, word.topColor, word.bottomColor);
+    titleX += w + titleGap;
+  }
+  textStyle(NORMAL);
+  noStroke();
+  fill(255);
+  pop();
+
   fill(255);
   textAlign(CENTER, CENTER);
   
@@ -6162,26 +7523,79 @@ textSize(16);
 fill(255, 230, 180);
 
 const ui = getStartScreenRects();
+const startBtnStyle = {
+  borderColor: color(0),
+  hoverBorderColor: color(255),
+  topColor: color(253, 184, 0),
+  bottomColor: color(234, 124, 0),
+  hoverTopColor: color(255, 234, 0),
+  hoverBottomColor: color(254, 174, 0),
+  labelColor: color(0),
+  hoverLabelColor: color(255),
+  labelStrokeColor: color(255, 245, 200),
+  hoverLabelStrokeColor: color(234, 124, 0),
+  labelStrokeWeight: 4,
+  borderWeight: 3,
+  borderOffsetY: 0,
+  cutCorners: true,
+  cornerCutSize: 3
+};
+const settingsBtnStyle = {
+  borderColor: color(0),
+  hoverBorderColor: color(255),
+  topColor: color(122, 214, 252),
+  bottomColor: color(73, 140, 253),
+  hoverTopColor: color(195, 245, 255),
+  hoverBottomColor: color(122, 214, 252),
+  labelColor: color(0),
+  hoverLabelColor: color(255),
+  labelStrokeColor: color(222, 255, 252),
+  hoverLabelStrokeColor: color(73, 140, 253),
+  labelStrokeWeight: 4,
+  borderWeight: 3,
+  borderOffsetY: 0,
+  cutCorners: true,
+  cornerCutSize: 3
+};
 
 drawMenuButton(
   ui.startBtn.x, ui.startBtn.y, ui.startBtn.w, ui.startBtn.h,
   t("Start", "开始"),
-  isInside(mouseX, mouseY, ui.startBtn)
+  isInside(mouseX, mouseY, ui.startBtn),
+  startBtnStyle
 );
 
 drawMenuButton(
   ui.settingsBtn.x, ui.settingsBtn.y, ui.settingsBtn.w, ui.settingsBtn.h,
   t("Settings", "设置"),
-  isInside(mouseX, mouseY, ui.settingsBtn)
+  isInside(mouseX, mouseY, ui.settingsBtn),
+  settingsBtnStyle
 );
 
-fill(255, 230, 180);
+const startHintText = t("Press  Start  to  begin  your  adventure!", "点击开始进入游戏！");
+const startHintX = width / 2;
+const startHintY = ui.settingsBtn.y + ui.settingsBtn.h + 60;
+const pulseScale = 1 + 0.01 * sin(millis() * 0.006);
+
 textAlign(CENTER, CENTER);
 textSize(16);
-text(
-  t("Press Start to begin your adventure", "点击开始进入游戏"),
-  width / 2,
-  ui.settingsBtn.y + ui.settingsBtn.h + 40);
+noStroke();
+
+// Draw shadow to the bottom-right.
+push();
+translate(startHintX + 1.5, startHintY + 1.5);
+scale(pulseScale);
+fill(0, 0, 0, 170);
+text(startHintText, 0, 0);
+pop();
+
+// Draw main hint text.
+push();
+translate(startHintX, startHintY);
+scale(pulseScale);
+fill(255, 255, 0);
+text(startHintText, 0, 0);
+pop();
 }
 
 function drawLevelSelectScreen() {
@@ -6200,116 +7614,408 @@ function drawLevelSelectScreen() {
   fill(230);
 
   const ui = getLevelSelectRects();
+  const trophyProgress = game?.settings?.levelTrophies || { forest: 0, water: 0, factory: 0 };
+  const slotsForest = TROPHY_SLOTS_BY_LEVEL.forest ?? MAX_TROPHY_SLOTS;
+  const slotsWater = TROPHY_SLOTS_BY_LEVEL.water ?? MAX_TROPHY_SLOTS;
+  const slotsFactory = TROPHY_SLOTS_BY_LEVEL.factory ?? MAX_TROPHY_SLOTS;
+  const level1BtnStyle = {
+    borderColor: color(0),
+    hoverBorderColor: color(255),
+    topColor: color(145, 225, 170),
+    bottomColor: color(80, 185, 115),
+    hoverTopColor: color(195, 245, 210),
+    hoverBottomColor: color(120, 210, 145),
+    labelColor: color(0),
+    hoverLabelColor: color(255),
+    labelStrokeColor: color(210, 255, 220),
+    hoverLabelStrokeColor: color(60, 150, 80),
+    labelStrokeWeight: 4,
+    labelSize: 18,
+    labelYFactor: 0.13,
+    iconImage: window.uiLevel1,
+    iconOutlineWeight: 3,
+    iconW: 128,
+    iconH: 128,
+    iconCenterYOffset: 104,
+    trophySlots: slotsForest,
+    trophyFilled: trophyProgress.forest ?? 0,
+    trophySize: 20,
+    trophyGap: 4,
+    trophyY: 174,
+    borderWeight: 3,
+    borderOffsetY: 0,
+    cutCorners: true,
+    cornerCutSize: 3
+  };
+  const level2BtnStyle = {
+    borderColor: color(0),
+    hoverBorderColor: color(255),
+    topColor: color(150, 210, 255),
+    bottomColor: color(95, 165, 245),
+    hoverTopColor: color(195, 245, 255),
+    hoverBottomColor: color(122, 214, 252),
+    labelColor: color(0),
+    hoverLabelColor: color(255),
+    labelStrokeColor: color(222, 255, 252),
+    hoverLabelStrokeColor: color(73, 140, 253),
+    labelStrokeWeight: 4,
+    labelSize: 18,
+    labelYFactor: 0.13,
+    iconImage: window.uiLevel2,
+    iconOutlineWeight: 3,
+    iconW: 128,
+    iconH: 128,
+    iconCenterYOffset: 104,
+    trophySlots: slotsWater,
+    trophyFilled: trophyProgress.water ?? 0,
+    trophySize: 20,
+    trophyGap: 4,
+    trophyY: 174,
+    borderWeight: 3,
+    borderOffsetY: 0,
+    cutCorners: true,
+    cornerCutSize: 3
+  };
+  const level3BtnStyle = {
+    borderColor: color(0),
+    hoverBorderColor: color(0),
+    topColor: color(205, 120, 95),
+    bottomColor: color(140, 70, 50),
+    hoverTopColor: color(242, 170, 140),
+    hoverBottomColor: color(186, 116, 90),
+    labelColor: color(0),
+    hoverLabelColor: color(255),
+    labelStrokeColor: color(235, 205, 196),
+    hoverLabelStrokeColor: color(126, 70, 55),
+    labelStrokeWeight: 4,
+    labelSize: 18,
+    labelYFactor: 0.13,
+    iconImage: window.uiLevel3,
+    iconOutlineWeight: 3,
+    iconW: 128,
+    iconH: 128,
+    iconCenterYOffset: 104,
+    trophySlots: slotsFactory,
+    trophyFilled: trophyProgress.factory ?? 0,
+    trophySize: 20,
+    trophyGap: 4,
+    trophyY: 174,
+    borderWeight: 3,
+    borderOffsetY: 0,
+    cutCorners: true,
+    cornerCutSize: 3
+  };
+  const backBtnStyle = {
+    borderColor: color(0),
+    hoverBorderColor: color(255),
+    topColor: color(253, 184, 0),
+    bottomColor: color(234, 124, 0),
+    hoverTopColor: color(255, 234, 0),
+    hoverBottomColor: color(254, 174, 0),
+    labelColor: color(0),
+    hoverLabelColor: color(255),
+    labelStrokeColor: color(255, 245, 200),
+    hoverLabelStrokeColor: color(234, 124, 0),
+    labelStrokeWeight: 4,
+    borderWeight: 3,
+    borderOffsetY: 0,
+    cutCorners: true,
+    cornerCutSize: 3
+  };
 
   drawMenuButton(
     ui.level1.x, ui.level1.y, ui.level1.w, ui.level1.h,
-    t("Level 1", "第一关"),
-    isInside(mouseX, mouseY, ui.level1)
+    t("Forest", "森林"),
+    isInside(mouseX, mouseY, ui.level1),
+    level1BtnStyle
   );
 
   drawMenuButton(
     ui.level2.x, ui.level2.y, ui.level2.w, ui.level2.h,
-    t("Level 2", "第二关"),
-    isInside(mouseX, mouseY, ui.level2)
+    t("Ocean", "海洋"),
+    isInside(mouseX, mouseY, ui.level2),
+    level2BtnStyle
   );
 
   drawMenuButton(
     ui.level3.x, ui.level3.y, ui.level3.w, ui.level3.h,
-    t("Level 3", "第三关"),
-    isInside(mouseX, mouseY, ui.level3)
+    t("Factory", "工厂"),
+    isInside(mouseX, mouseY, ui.level3),
+    level3BtnStyle
   );
 
-  fill(255, 230, 180);
+  const levelHintText = t("Choose  your  level!", "请选择关卡！");
+  const levelHintX = width / 2;
+  const startUi = getStartScreenRects();
+  const levelHintY = startUi.settingsBtn.y + startUi.settingsBtn.h + 60;
+  const levelHintPulseScale = 1 + 0.01 * sin(millis() * 0.006);
+
   textAlign(CENTER, CENTER);
   textSize(16);
+  noStroke();
 
-  text(
-  t("Choose your level", "请选择关卡"),
-  width / 2,
-  ui.level1.y + ui.level1.h + 60);
+  // Draw shadow to the bottom-right.
+  push();
+  translate(levelHintX + 1.5, levelHintY + 1.5);
+  scale(levelHintPulseScale);
+  fill(0, 0, 0, 170);
+  text(levelHintText, 0, 0);
+  pop();
+
+  // Draw main hint text.
+  push();
+  translate(levelHintX, levelHintY);
+  scale(levelHintPulseScale);
+  fill(255, 255, 0);
+  text(levelHintText, 0, 0);
+  pop();
 
   drawMenuButton(
     ui.backBtn.x, ui.backBtn.y, ui.backBtn.w, ui.backBtn.h,
     t("Back", "返回"),
-    isInside(mouseX, mouseY, ui.backBtn)
+    isInside(mouseX, mouseY, ui.backBtn),
+    backBtnStyle
   );
 }
 
 function drawSettingsScreen() {
-  background(28, 35, 60);
+  if (window.startBg && window.startBg.width > 0) {
+    image(window.startBg, 0, 0, CANVAS_W, CANVAS_H);
+  } else {
+    background(28, 35, 60);
+  }
 
-  fill(255);
+  stroke(255);
+  strokeWeight(4);
+  fill(0);
   textAlign(CENTER, CENTER);
   textSize(32);
   text(t("Settings", "设置"), width / 2, 55);
 
   const s = game.settings;
   const ui = getSettingsRects();
+  const settingsThemeBtnStyle = {
+    borderColor: color(0),
+    hoverBorderColor: color(255),
+    topColor: color(122, 214, 252),
+    bottomColor: color(73, 140, 253),
+    hoverTopColor: color(195, 245, 255),
+    hoverBottomColor: color(122, 214, 252),
+    labelColor: color(0),
+    hoverLabelColor: color(255),
+    labelStrokeColor: color(222, 255, 252),
+    hoverLabelStrokeColor: color(73, 140, 253),
+    labelStrokeWeight: 4,
+    borderWeight: 3,
+    borderOffsetY: 0,
+    cutCorners: true,
+    cornerCutSize: 3
+  };
 
   textAlign(LEFT, CENTER);
   textSize(20);
-  fill(255);
+  stroke(255);
+  strokeWeight(4);
+  fill(0);
 
-  text(t("Music Volume", "音乐音量"), 100, 120);
+  text(t("Music  Volume", "音乐音量"), 100, 120);
   text(`${s.musicVolume}`, 440, 120);
-  drawMenuButton(ui.musicMinus.x, ui.musicMinus.y, ui.musicMinus.w, ui.musicMinus.h, "-");
-  drawMenuButton(ui.musicPlus.x, ui.musicPlus.y, ui.musicPlus.w, ui.musicPlus.h, "+");
+  drawMenuButton(
+    ui.musicMinus.x, ui.musicMinus.y, ui.musicMinus.w, ui.musicMinus.h,
+    "-",
+    isInside(mouseX, mouseY, ui.musicMinus),
+    settingsThemeBtnStyle
+  );
+  drawMenuButton(
+    ui.musicPlus.x, ui.musicPlus.y, ui.musicPlus.w, ui.musicPlus.h,
+    "+",
+    isInside(mouseX, mouseY, ui.musicPlus),
+    settingsThemeBtnStyle
+  );
 
   text(t("SFX Volume", "音效音量"), 100, 175);
   text(`${s.sfxVolume}`, 440, 175);
-  drawMenuButton(ui.sfxMinus.x, ui.sfxMinus.y, ui.sfxMinus.w, ui.sfxMinus.h, "-");
-  drawMenuButton(ui.sfxPlus.x, ui.sfxPlus.y, ui.sfxPlus.w, ui.sfxPlus.h, "+");
+  drawMenuButton(
+    ui.sfxMinus.x, ui.sfxMinus.y, ui.sfxMinus.w, ui.sfxMinus.h,
+    "-",
+    isInside(mouseX, mouseY, ui.sfxMinus),
+    settingsThemeBtnStyle
+  );
+  drawMenuButton(
+    ui.sfxPlus.x, ui.sfxPlus.y, ui.sfxPlus.w, ui.sfxPlus.h,
+    "+",
+    isInside(mouseX, mouseY, ui.sfxPlus),
+    settingsThemeBtnStyle
+  );
 
   text(t("Fullscreen", "全屏开关"), 100, 235);
   drawMenuButton(
     ui.fullscreen.x, ui.fullscreen.y, ui.fullscreen.w, ui.fullscreen.h,
     s.fullscreen ? t("ON", "开启") : t("OFF", "关闭"),
-    isInside(mouseX, mouseY, ui.fullscreen)
+    isInside(mouseX, mouseY, ui.fullscreen),
+    settingsThemeBtnStyle
   );
 
   text(t("Language", "语言切换"), 100, 295);
   drawMenuButton(
     ui.language.x, ui.language.y, ui.language.w, ui.language.h,
     s.language,
-    isInside(mouseX, mouseY, ui.language)
+    isInside(mouseX, mouseY, ui.language),
+    settingsThemeBtnStyle
   );
 
   drawMenuButton(
     ui.backBtn.x, ui.backBtn.y, ui.backBtn.w, ui.backBtn.h,
     t("Back", "返回"),
-    isInside(mouseX, mouseY, ui.backBtn)
+    isInside(mouseX, mouseY, ui.backBtn),
+    {
+      borderColor: color(0),
+      hoverBorderColor: color(255),
+      topColor: color(253, 184, 0),
+      bottomColor: color(234, 124, 0),
+      hoverTopColor: color(255, 234, 0),
+      hoverBottomColor: color(254, 174, 0),
+      labelColor: color(0),
+      hoverLabelColor: color(255),
+      labelStrokeColor: color(255, 245, 200),
+      hoverLabelStrokeColor: color(234, 124, 0),
+      labelStrokeWeight: 4,
+      borderWeight: 3,
+      borderOffsetY: 0,
+      cutCorners: true,
+      cornerCutSize: 3
+    }
   );
 }
 
 
+function drawSplitOverlayTitle(wordText, centerX, centerY, topColor, bottomColor, outlineColor = [0, 0, 0], outlineWeight = 10) {
+  const w = textWidth(wordText);
+  const h = textAscent() + textDescent();
+  const topY = centerY - h / 2;
+  const splitY = centerY;
+  const pad = 10;
+
+  // Dark outline/base.
+  stroke(outlineColor[0], outlineColor[1], outlineColor[2], 255);
+  strokeWeight(outlineWeight);
+  fill(outlineColor[0], outlineColor[1], outlineColor[2], 255);
+  text(wordText, centerX, centerY + 2);
+
+  // Top half color.
+  drawingContext.save();
+  drawingContext.beginPath();
+  drawingContext.rect(centerX - w / 2 - pad, topY - pad, w + pad * 2, (splitY - topY) + pad);
+  drawingContext.clip();
+  noStroke();
+  fill(topColor[0], topColor[1], topColor[2]);
+  text(wordText, centerX, centerY);
+  drawingContext.restore();
+
+  // Bottom half color.
+  drawingContext.save();
+  drawingContext.beginPath();
+  drawingContext.rect(centerX - w / 2 - pad, splitY, w + pad * 2, (topY + h - splitY) + pad);
+  drawingContext.clip();
+  noStroke();
+  fill(bottomColor[0], bottomColor[1], bottomColor[2]);
+  text(wordText, centerX, centerY);
+  drawingContext.restore();
+}
+
 //===== gameover screen ======
 function drawGameOverScreen() {
-  background(0);
-  fill(255, 0, 0);
+  noStroke();
+  fill(0, 0, 0, 150);
+  rect(0, 0, width, height);
+
+  // 每行文字独立样式（可分别调文字色/描边色）
+  const gameOverTitleStyle = {
+    topColor: [253, 184, 0],
+    bottomColor: [234, 124, 0],
+    outlineColor: [0, 0, 0],
+    outlineWeight: 10
+  };
+  const gameOverHintStyle = { fill: [0, 0, 0], stroke: [0, 0, 0], strokeWeight: 3 };
+
   textAlign(CENTER, CENTER);
-  textSize(52);
-  text(t("GAME OVER", "游戏结束"), width / 2, height / 2 - 40);
-  textSize(24);
-  fill(255);
-  text(t("Press ENTER to Restart", "按 ENTER 重新开始"), width / 2, height / 2 + 20);
+  textSize(48);
+  drawSplitOverlayTitle(
+    t("YOU  LOSE!", "你失败了！"),
+    width / 2,
+    height / 2,
+    gameOverTitleStyle.topColor,
+    gameOverTitleStyle.bottomColor,
+    gameOverTitleStyle.outlineColor,
+    gameOverTitleStyle.outlineWeight
+  );
+
+  textSize(16);
+  const gameOverHintText = t("Press  ENTER  to  Restart.", "按 ENTER 重新开始。");
+  const gameOverHintX = width / 2;
+  const gameOverHintY = height - 32;
+  const gameOverHintPulseScale = 1 + 0.01 * sin(millis() * 0.006);
+  noStroke();
+  push();
+  translate(gameOverHintX + 1.5, gameOverHintY + 1.5);
+  scale(gameOverHintPulseScale);
+  fill(0, 0, 0, 170);
+  text(gameOverHintText, 0, 0);
+  pop();
+  push();
+  translate(gameOverHintX, gameOverHintY);
+  scale(gameOverHintPulseScale);
+  fill(255, 255, 0);
+  text(gameOverHintText, 0, 0);
+  pop();
 }
 
 
 function drawVictoryScreen() {
-  background(0, 100, 50); // 深绿色背景
-  fill(200, 255, 150); // 浅绿色文字
+  noStroke();
+  fill(0, 0, 0, 150);
+  rect(0, 0, width, height);
+
+  // 每行文字独立样式（可分别调文字色/描边色）
+  const victoryTitleStyle = {
+    topColor: [122, 214, 252],
+    bottomColor: [73, 140, 253],
+    outlineColor: [0, 0, 0],
+    outlineWeight: 10
+  };
+  const victoryScoreStyle = { fill: [0, 0, 0], stroke: [0, 0, 0], strokeWeight: 3 };
+  const victoryHintStyle = { fill: [0, 0, 0], stroke: [0, 0, 0], strokeWeight: 3 };
+
   textAlign(CENTER, CENTER);
-  textSize(52);
-  text(t("Victory!", "胜利!"), width / 2, height / 2 - 60);
+  textSize(48);
+  drawSplitOverlayTitle(
+    t("YOU  WIN!", "你赢了！"),
+    width / 2,
+    height / 2,
+    victoryTitleStyle.topColor,
+    victoryTitleStyle.bottomColor,
+    victoryTitleStyle.outlineColor,
+    victoryTitleStyle.outlineWeight
+  );
   
-  // 显示分数
-  textSize(36);
-  fill(255, 255, 100); // 金黄色
-  text(`${t("Score", "得分")}: ${game.player.score}`, width / 2, height / 2);
-  
-  textSize(28);
-  fill(200, 255, 150);
-  text(t("Press ENTER to Play Again", "按 ENTER 再玩一次"), width / 2, height / 2 + 60);
+  textSize(16);
+  const victoryHintText = t("Press  ENTER  to  Play  Again.", "按 ENTER 再玩一次。");
+  const victoryHintX = width / 2;
+  const victoryHintY = height - 32;
+  const victoryHintPulseScale = 1 + 0.01 * sin(millis() * 0.006);
+  noStroke();
+  push();
+  translate(victoryHintX + 1.5, victoryHintY + 1.5);
+  scale(victoryHintPulseScale);
+  fill(0, 0, 0, 170);
+  text(victoryHintText, 0, 0);
+  pop();
+  push();
+  translate(victoryHintX, victoryHintY);
+  scale(victoryHintPulseScale);
+  fill(255, 255, 0);
+  text(victoryHintText, 0, 0);
+  pop();
 }
 
 
