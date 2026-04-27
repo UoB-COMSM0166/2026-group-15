@@ -6681,7 +6681,14 @@ function preload() {
   queueSfxList('click', ['assets/sfx/click.mp3']);
   queueSfxList('win', ['assets/sfx/win.mp3']);
   queueSfxList('lost', ['assets/sfx/lost.mp3']);
-  queueSfxList('bird', [...numbered('assets/sfx/bird', 8, 'wav'), 'assets/sfx/bird.wav']);
+  queueSfxList('bird', [
+    ...numbered('assets/sfx/bird', 16, 'wav'),
+    ...numbered('assets/sfx/bird', 16, 'mp3'),
+    ...numbered('assets/sfx/bird', 16, 'ogg'),
+    'assets/sfx/bird.wav',
+    'assets/sfx/bird.mp3',
+    'assets/sfx/bird.ogg'
+  ]);
   queueSfxList('tnt_fuse', ['assets/sfx/tnt/fuse.wav']);
   queueSfxList('tnt_explode', ['assets/sfx/tnt/explode.wav']);
 }
@@ -6712,7 +6719,14 @@ function setup() {
     queueSfxList('click', ['assets/sfx/click.mp3']);
     queueSfxList('win', ['assets/sfx/win.mp3']);
     queueSfxList('lost', ['assets/sfx/lost.mp3']);
-    queueSfxList('bird', [...numbered('assets/sfx/bird', 8, 'wav'), 'assets/sfx/bird.wav']);
+    queueSfxList('bird', [
+      ...numbered('assets/sfx/bird', 16, 'wav'),
+      ...numbered('assets/sfx/bird', 16, 'mp3'),
+      ...numbered('assets/sfx/bird', 16, 'ogg'),
+      'assets/sfx/bird.wav',
+      'assets/sfx/bird.mp3',
+      'assets/sfx/bird.ogg'
+    ]);
     queueSfxList('tnt_fuse', ['assets/sfx/tnt/fuse.wav']);
     queueSfxList('tnt_explode', ['assets/sfx/tnt/explode.wav']);
     if (SFX.debug) console.log('[SFX] queued in setup fallback');
