@@ -638,7 +638,12 @@ flowchart TD
 
 
 ### 5.3 Design Conclusion
-Write here.
+
+The design stage helped us turn *Super Cat and Steve* from a general environmental platform game idea into a clearer system structure. By creating the class diagram, we identified the main responsibilities of each part of the game, such as `Game`, `Level`, `Player`, `Item`, `Enemy`, and `UIManager`. This made the project easier to divide between team members.
+
+For future implementation, we plan to continue improving the connection between level design, tools, and environmental tasks. One possible next step is to make each level have more unique interactions. For example, the ocean level could include more animal rescue tasks involving turtles and fish, while the factory level could make better use of pipes, wrench-based repair tasks, and industrial hazards. We would also like to improve UI feedback so that players can more clearly understand when a tool has worked, when an animal has been rescued, and how close they are to completing the level.
+
+The main difficulty we expect is keeping the system manageable as more features are added. More tools, enemies, animals, and level-specific behaviours could easily make the code harder to maintain. To reduce this risk, we would keep using the design structure shown in the class diagram: shared behaviour should stay in general parent classes such as `Level`, `Item`, and `Enemy`, while level-specific or object-specific behaviour should be placed in specialised classes. We would also test new mechanics in small steps before adding them into full levels. This would help us avoid breaking the existing game while still allowing the project to grow.
 
 ---
 
