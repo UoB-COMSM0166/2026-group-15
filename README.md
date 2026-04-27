@@ -617,6 +617,24 @@ We used black-box testing to evaluate whether the main gameplay features behaved
 | Restart after fail | The game is in the game-over state. | Press **Enter**. | The game returns to the start screen. |
 | Restart after victory | The game is in the victory state. | Press **Enter**. | The game returns to the start screen. |
 
+
+#### 7.3.2 White-Box Testing
+
+In this project, we used white-box testing to test internal game logic.To make this easier to use, we built a browser-based test runner page to show the test result more directly. Our white-box tests focus on stable internal logic, such as collision checks, player state updates, inventory limits, camera boundaries, hint-cat follow logic, and simple collision state changes.  
+
+| Test ID | Function / Area | Internal Logic Tested | Expected Result | Result |
+|---|---|---|---|---|
+| 01 | `rectCollision` | Overlap and edge-touch logic | Overlap returns true; edge-touch returns false | Pass |
+| 02 | `Player.collect` | Basic item collection into inventory | Item is added to inventory | Pass |
+| 03 | Inventory limit | Inventory upper bound under repeated collection | Inventory size stops at slot limit | Pass |
+| 04 | `Player.takeDamage` | Health lower-bound clamp | Health does not go below 0 | Pass |
+| 05 | `Player.jump` | First jump + second jump boost | Second jump uses stronger upward force | Pass |
+| 06 | `Game.updateCamera` | Left clamp, middle follow, right clamp | Camera stays within valid world range | Pass |
+| 07 | `HintCat.follow` | Relative follow position to player state | Cat follows to left and keeps bottom alignment | Pass |
+| 08 | `Game.checkCollisions` | Enemy contact damage + item pickup state changes | Health decreases and colliding item is collected | Pass |
+
+
+
 ---
 
 ## 8. Process
