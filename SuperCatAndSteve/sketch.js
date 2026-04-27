@@ -97,7 +97,8 @@ const SFX = {
     click: 120,
     win: 500,
     lost: 500,
-    bird: 520
+    bird: 520,
+    spike: 520
   },
   lastPlayedAtByKey: Object.create(null)
 };
@@ -961,6 +962,7 @@ class Game {
     // 状态进入音效（避免 draw 每帧重复播放）
     this._playedWinSfx = false;
     this._playedLostSfx = false;
+    this._spikeSfxActive = false;
   }
 
   getTrophySlotLimit() {
@@ -1204,6 +1206,7 @@ drawHealEffect(now) {
     this.activeGuideTab = 0;
     this._playedWinSfx = false;
     this._playedLostSfx = false;
+    if (this._spikeSfxActive) { this._spikeSfxActive = false; sfxRelease('spike'); }
   }
 
   resetToPlayingFromBeginning() {
@@ -1221,6 +1224,7 @@ drawHealEffect(now) {
     this.resetHintState();
     this._playedWinSfx = false;
     this._playedLostSfx = false;
+    if (this._spikeSfxActive) { this._spikeSfxActive = false; sfxRelease('spike'); }
   }
 
   resetHintState() {
@@ -1275,6 +1279,7 @@ drawHealEffect(now) {
         }
     }
     this.checkCollisions();
+    this.updateSpikeProximitySfx();
     this.updateMining();
     this.updateLavaSfx();
 
@@ -1330,6 +1335,29 @@ drawHealEffect(now) {
     } else {
       this.victoryAt = 0;
     }
+  }
+
+  updateSpikeProximitySfx() {
+    if (!this.player || !this.level || typeof this.level.getActiveSpikeZones !== 'function') {
+      if (this._spikeSfxActive) { this._spikeSfxActive = false; sfxRelease('spike'); }
+      return;
+    }
+    const playerBox = this.player.getCollisionBox();
+    const zones = this.level.getActiveSpikeZones();
+    const range = TILE_SIZE; // 1 格以内
+    const nearSpike = zones.some((z) =>
+      rectCollision(
+        playerBox.x, playerBox.y, playerBox.w, playerBox.h,
+        z.x - range, z.y - range, z.w + range * 2, z.h + range * 2
+      )
+    );
+
+    if (nearSpike) {
+      if (!this._spikeSfxActive) { this._spikeSfxActive = true; sfxAcquire('spike'); }
+      tryPlaySfx('spike', { volume: 0.30, rate: 1 });
+      return;
+    }
+    if (this._spikeSfxActive) { this._spikeSfxActive = false; sfxRelease('spike'); }
   }
 
   updateLavaSfx() {
@@ -6689,6 +6717,7 @@ function preload() {
     'assets/sfx/bird.mp3',
     'assets/sfx/bird.ogg'
   ]);
+  queueSfxList('spike', ['assets/sfx/spike.mp3']);
   queueSfxList('tnt_fuse', ['assets/sfx/tnt/fuse.wav']);
   queueSfxList('tnt_explode', ['assets/sfx/tnt/explode.wav']);
 }
@@ -6727,6 +6756,7 @@ function setup() {
       'assets/sfx/bird.mp3',
       'assets/sfx/bird.ogg'
     ]);
+    queueSfxList('spike', ['assets/sfx/spike.mp3']);
     queueSfxList('tnt_fuse', ['assets/sfx/tnt/fuse.wav']);
     queueSfxList('tnt_explode', ['assets/sfx/tnt/explode.wav']);
     if (SFX.debug) console.log('[SFX] queued in setup fallback');
