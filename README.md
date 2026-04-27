@@ -651,15 +651,31 @@ The main difficulty we expect is keeping the system manageable as more features 
 
 When we started building our game, we quickly realised most time went into three linked areas: getting the movement loop to feel right across different environments, making the hint cat feedback work clearly both in the world and in the UI, and building enemies that behave actively without feeling unfair. These sounded like three clear technical goals, but they turned into many prototypes, small fixes, and repeated tuning of the same core systems.
 
+## 6. Implementation
+
+When we started building our game, we quickly realised most time went into three linked areas: getting the movement loop to feel right across different environments, making the hint cat feedback work clearly both in the world and in the UI, and building enemies that behave actively without feeling unfair. These sounded like three clear technical goals, but they turned into many prototypes, small fixes, and repeated tuning of the same core systems.
+
 ### Challenge 1: Force-Based Movement across Land, Water and Pipes
 
 Our original plan for movement was standard platformer jumps on land, slower motion in water, and a clear “being pushed” feeling in pipes. The tricky part was doing this without three separate controllers, because that would be hard to maintain and even harder to tune.
 
 We kept one movement loop based on velocity plus environment-specific forces. On land, the player receives an upward impulse when jumping and gravity pulling them down, but we used lighter gravity while going up and heavier gravity while falling. This gave better jump control while keeping a clear sense of weight when landing.
 
+![Land – jumping behaviour](docs/images/Land%20–%20jumping%20behaviour.gif)
+>**Land – jumping behaviour** 
+>A short clip showing the player’s jump on solid ground, with lighter upward motion and a heavier fall to keep the character feeling responsive but grounded.
+
 Water exposed problems immediately. Simply lowering gravity slowed the drop but still felt like moving through air. We added upward buoyancy to counter part of gravity, and horizontal drag to reduce speed. The underlying “velocity plus forces” update loop stayed the same, but the very different values are what gave the ocean levels their distinct feel.
 
+![Underwater movement – buoyancy and drift](docs/images/Underwater%20movement%20–%20buoyancy%20and%20drift.gif)
+>**Underwater movement – buoyancy and drift**
+>The player moving underwater, gently rising or sinking when no input is given, illustrating the balance between gravity, buoyancy and drag.
+
 Pipes were different again: the player is mostly carried by a flow force, with friction to prevent endless acceleration. Getting the balance right took several rounds of playtesting: if the flow was too weak it had almost no impact, and if it was too strong it became very hard to control. The final version still felt powerful, but gave players enough time to react to hazards.
+
+![Pipes – flow-driven movement](docs/images/Pipes%20–%20flow-driven%20movement.gif)
+>**Pipes – flow‑driven movement**
+>The player travelling through a pipe section, being carried forward by the water flow while still having enough control to react to obstacles.
 
 The real difficulty was the interaction between environments. A change that improved jumping in the forest could easily break water exits or make pipes almost unplayable. To keep this manageable, we separated shared update logic from per-environment configuration data, so tuning usually meant adjusting numbers rather than rewriting movement code.
 
@@ -673,6 +689,10 @@ The core technical problem was how to avoid snapping the cat directly to the pla
 
 Obstacle handling reuses the same collision queries and terrain height checks as the player. The cat’s position is derived from world coordinates and ground height, so it automatically stays on walkable surfaces and respects platforms and walls, instead of needing its own physics controller.
 
+![Hint cat – delayed follow and HUD feedback](docs/images/Hint%20cat%20–%20delayed%20follow%20and%20HUD%20feedback.gif)
+>**Hint cat – delayed follow and HUD feedback**
+>The hint cat trailing slightly behind the player in the level while a matching cat icon and short messages appear on the progress bar in the HUD.
+
 We then connected this follower to the feedback systems in the HUD. The game already tracks level progress in the update loop, so we reused that value to drive both the top progress bar and a cat icon that moves along it. The displayed progress interpolates towards the maximum distance reached, which keeps the bar and icon smooth and consistent with the player’s movement. At the same time, the hint system uses the same UI cat as an anchor for short context-sensitive messages when the player rescues animals, collects pollutants or encounters hazards. In other words, the player sees the same hint character in two forms: as a delayed follower in the world, and as a cat icon on the progress bar that anchors messages about hazards, tools and objectives.
 
 ### Challenge 3: Enemy Pursuit and Splitting Slime Behaviour
@@ -683,14 +703,17 @@ A shared update loop handled detection, movement and damage. When the player att
 
 The slime added extra complexity. After taking enough damage, it splits into several smaller slimes instead of disappearing. Each child slime is spawned with its own position, collision box and an initial “splash” velocity so that the fragments spread out rather than stacking on one spot. These new slimes are immediately added to the main enemy update loop, so they inherit the same movement, pursuit and damage behaviour as any other enemy. Removing the parent while adding the children in the same frame required careful handling to avoid glitches in collision and damage checks.
 
+![Slime – splitting on damage](docs/images/Slime%20–%20splitting%20on%20damage.gif)
+>**Slime – splitting on damage**
+>A slime enemy taking damage, breaking apart into several smaller slimes that immediately continue to move and attack.
+
 For pursuit behaviour, we kept the logic straightforward. Chasing enemies compute their horizontal direction from the player’s position and move towards them whenever the player is within range. Vertical movement is heavily damped, especially in water or uneven terrain, so enemies do not instantly jump to the player’s height. Collision separation reuses the same approach as the player: when enemies overlap, the system pushes them apart along the least disruptive axis and clears the corresponding velocity component. This keeps close encounters stable, even when several enemies are active at once.
 
-By keeping everything inside a single update loop and reusing the same collision and damage systems, we could support both simple chasers and more complex enemies like the splitting slime without introducing separate subsystems for each one.
+![Enemies – active pursuit](docs/images/Enemies%20–%20active%20pursuit.gif)
+>**Enemies – active pursuit**
+>Enemies detecting the player and moving towards them, demonstrating the pursuit logic and collision handling used in the enemy system.
 
-待添加图片：
-图 1-3 Movement across environments GIF，展示 land jump → ocean movement → pipe current，展示森林跳跃 → 水下浮力 → 管道冲力
-图 4-5：Tool collection and item use 一张截图，展示小猫跟随与提示
-图 6：Progress bar with helper cat 一张截图，展示敌人跟踪与史莱姆
+By keeping everything inside a single update loop and reusing the same collision and damage systems, we could support both simple chasers and more complex enemies like the splitting slime without introducing separate subsystems for each one.
 
 ---
 
@@ -865,8 +888,6 @@ In this project, we used white-box testing to test internal game logic.To make t
 | 06 | `Game.updateCamera` | Left clamp, middle follow, right clamp | Camera stays within valid world range | Pass |
 | 07 | `HintCat.follow` | Relative follow position to player state | Cat follows to left and keeps bottom alignment | Pass |
 | 08 | `Game.checkCollisions` | Enemy contact damage + item pickup state changes | Health decreases and colliding item is collected | Pass |
-
-
 
 ---
 
