@@ -928,6 +928,62 @@ function drawTile(tileType, x, y) {
 let keys = {};
 let pressedKeys = new Set(); // 使用 Set 跟踪当前按下的键
 
+// A/D 同时按下时「谁后按谁生效」（滚键切换时常见一帧两键同按）
+let lastHorizPhysDownMs = { a: 0, d: 0 };
+// W/S 同上（爬梯 / 水中上浮与下潜）
+let lastVertPhysDownMs = { w: 0, s: 0 };
+
+// 与浏览器真实按键对齐：仅 WASD。
+// p5.js 2.x 内部用 KeyboardEvent.code（如 KeyW）登记 _downKeyCodes，不能用旧版数字 keyCode。
+const MOVEMENT_KEY_P5_INPUT = {
+  a: 'KeyA',
+  d: 'KeyD',
+  s: 'KeyS',
+  w: 'KeyW'
+};
+
+function movementKeyPhysicallyDown(k) {
+  const p5Input = MOVEMENT_KEY_P5_INPUT[k];
+  if (!p5Input) return false;
+  try {
+    return typeof keyIsDown === 'function' && keyIsDown(p5Input);
+  } catch {
+    return false;
+  }
+}
+
+/** 水平移动以 p5 物理键为准，不依赖 keys[]（避免与 keyPressed / 同步差一帧导致顿挫） */
+function readHorizontalMoveIntent() {
+  const physA = movementKeyPhysicallyDown('a');
+  const physD = movementKeyPhysicallyDown('d');
+  if (physA !== physD) return physA ? -1 : 1;
+  if (physA && physD) {
+    return lastHorizPhysDownMs.a >= lastHorizPhysDownMs.d ? -1 : 1;
+  }
+  return 0;
+}
+
+/** 垂直方向（爬梯 W/S、水中上浮/下潜）读物理键；W+S 同按时后按者优先 */
+function readVerticalMoveIntent() {
+  const physW = movementKeyPhysicallyDown('w');
+  const physS = movementKeyPhysicallyDown('s');
+  let up = false;
+  let down = false;
+  if (physW && physS) {
+    if (lastVertPhysDownMs.w >= lastVertPhysDownMs.s) {
+      up = true;
+      down = false;
+    } else {
+      up = false;
+      down = true;
+    }
+  } else {
+    up = physW;
+    down = physS;
+  }
+  return { up, down };
+}
+
 // ====== Game 类 ======
 let game;
 
@@ -4410,7 +4466,6 @@ class Player extends Entity {
     this.selectedSlot = -1;   // 当前鼠标选中的背包格子
     this.maxJumps = 2;
     this.jumpsRemaining = this.maxJumps;
-    this.swimUpHeld = false;  // 水中是否按住上浮键（空格）
 
     this.onLadder = false;      //与梯子交互
     this.activeLadder = null;
@@ -4461,41 +4516,30 @@ class Player extends Entity {
     const prevOnGround = this.onGround;
     const prevVy = this.vy;
 
-    // 地面上：每帧重置速度，完全由按键控制
-    // 空中：保持惯性，但有空气阻力
+    // WASD：水平 A/D、垂直 W/S 均读物理键（Key*），与 keys[] / 事件顺序解耦
+    const vert = readVerticalMoveIntent();
+    const crouchHeld = vert.down;
+    const moveH = readHorizontalMoveIntent();
+
     if (this.onGround) {
-      this.vx = 0;
+      this.vx = moveH * this.speed;
+    } else if (moveH !== 0) {
+      this.vx = moveH * this.speed;
     } else {
-      // 空中减速：每帧减少 5% 的水平速度（模拟空气阻力）
       this.vx *= 0.85;
-      // 速度太小时直接归零，避免永远飘
       if (Math.abs(this.vx) < 0.1) this.vx = 0;
     }
-    
-    // 仅 WASD：A/D 水平移动（S 不再用于陆地蹲下）
-    const leftHeld = !!keys['a'];
-    const rightHeld = !!keys['d'];
-    const crouchHeld = !!keys['s'];
-    if (leftHeld && !rightHeld) {
-      this.vx = -this.speed;
-    } else if (rightHeld && !leftHeld) {
-      this.vx = this.speed;
-    } else if (this.onGround) {
-      // 只有在地面上且没有按键时才停止
-      this.vx = 0;
-    }
-    // 如果在空中且没有按键，保持原有的 vx 但会逐渐减速
-    
+
     // 空中控制加成：在空中时水平移动速度提升 20%（水关禁用）
-    if (!(level instanceof WaterLevel) && !this.onGround && this.vx !== 0 && (leftHeld || rightHeld)) {
+    if (!(level instanceof WaterLevel) && !this.onGround && moveH !== 0) {
       this.vx *= 1.2;
     }
     
     if (this.vx !== 0) this.facingRight = this.vx > 0;
 
     const ladder = this.updateLadderState(level);
-    const climbUp = !!(keys['w'] || keys['arrowup']);
-    const climbDown = !!(keys['s'] || keys['arrowdown']);
+    const climbUp = vert.up;
+    const climbDown = vert.down;
 
   if (ladder) {
     const ladderCenterX = ladder.x + ladder.w / 2;
@@ -4555,12 +4599,12 @@ class Player extends Entity {
       // 允许在梯子上横向移动，方便从底部/中间离开
       let ladderDx = 0;
 
-      if (leftHeld) {
+      if (movementKeyPhysicallyDown('a')) {
         ladderDx = -this.speed * 0.45;
         this.facingRight = false;
       }
 
-      if (rightHeld) {
+      if (movementKeyPhysicallyDown('d')) {
         ladderDx = this.speed * 0.45;
         this.facingRight = true;
       }
@@ -4582,7 +4626,7 @@ class Player extends Entity {
       this.vx *= WATER_DRAG;
       this.vy *= WATER_DRAG;
       // 玩家输入额外影响垂直速度（保留上浮/下潜手感）
-      if (this.swimUpHeld) this.vy -= 0.38;
+      if (vert.up) this.vy -= 0.38;
       if (crouchHeld) this.vy += 0.20;
       this.vy = constrain(this.vy, -1.8, 1.8);
     } else {
@@ -6852,19 +6896,23 @@ function setup() {
     );
   }, 1000);
 
+  // 记录 WASD 物理按下先后（捕获阶段，早于 p5；滚键时两键同按一帧也能分胜负）
+  window.addEventListener('keydown', (e) => {
+    if (e.repeat) return;
+    if (e.code === 'KeyA') lastHorizPhysDownMs.a = millis();
+    else if (e.code === 'KeyD') lastHorizPhysDownMs.d = millis();
+    else if (e.code === 'KeyW') lastVertPhysDownMs.w = millis();
+    else if (e.code === 'KeyS') lastVertPhysDownMs.s = millis();
+  }, true);
+
   // 添加原生键盘事件监听器（备用方案，防止 p5.js 事件丢失）
   window.addEventListener('keyup', (e) => {
-    let k = (e.key || '').toLowerCase();
-    if (e.keyCode === 32) k = ' ';
-    // 覆盖 WASD + 方向键，作为 p5 keyReleased 丢失时的兜底同步
-    if (k === 'a' || k === 'd' || k === 's' || k === 'w' || k === 'arrowleft' || k === 'arrowright' || k === 'arrowdown' || k === 'arrowup' || k === ' ') {
+    const k = (e.key || '').toLowerCase();
+    if (k === 'a' || k === 'd' || k === 'w' || k === 's') {
       if (keys[k]) {
         console.log(`[原生事件] 检测到 ${k} 键松开`);
         keys[k] = false;
         pressedKeys.delete(k);
-        if ((k === 'w' || k === 'arrowup' || k === ' ') && game?.player) {
-          game.player.swimUpHeld = false;
-        }
       }
     }
   });
@@ -6983,16 +7031,6 @@ function draw() {
   if (drawingContext) {
     drawingContext.fontKerning = 'none';
   }
-  // 主动同步按键状态（修复浏览器 keyReleased 事件丢失的问题）
-  if (game && game.state === "playing") {
-    ['a', 'd', 's', 'w', 'arrowleft', 'arrowright', 'arrowdown', 'arrowup', ' '].forEach(k => {
-      if (keys[k] && !pressedKeys.has(k)) {
-        keys[k] = false;
-        if ((k === 'w' || k === 'arrowup' || k === ' ') && game.player) game.player.swimUpHeld = false;
-      }
-    });
-  }
-
   if (game.state === "start") {
     drawStartScreen();
   }
@@ -7093,9 +7131,9 @@ function keyPressed() {
   }
 
   if (inputKey === 'w') {
+    // 水中上浮由 update 内 readVerticalMoveIntent().up + keyIsDown 处理，此处不跳
     if (game.level && game.player && typeof game.player.isInWater === "function") {
       if (game.player.isInWater(game.level)) {
-        game.player.swimUpHeld = true;
         return false;
       }
     }
@@ -7119,11 +7157,6 @@ function keyReleased() {
   pressedKeys.delete(releasedKey);
   
   console.log("按键释放:", key, keyCode, "a:", keys['a'], "d:", keys['d'], "w:", keys['w'], "Set:", Array.from(pressedKeys));
-  
-  // 松开上浮键时，取消水中上浮标志
-  if (releasedKey === 'w') {
-    if (game?.player) game.player.swimUpHeld = false;
-  }
 }
 
 // 窗口失焦时清除所有按键状态（防止切换窗口导致按键卡住）
@@ -7131,9 +7164,6 @@ function windowBlurred() {
   console.log("窗口失焦，清除所有按键"); // 调试用
   keys = {};
   pressedKeys.clear(); // 清空 Set
-  if (game?.player) {
-    game.player.swimUpHeld = false;
-  }
 }
 
 function mousePressed() {
