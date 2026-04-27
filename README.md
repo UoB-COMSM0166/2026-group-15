@@ -661,19 +661,25 @@ Our original plan for movement was standard platformer jumps on land, slower mot
 
 We kept one movement loop based on velocity plus environment-specific forces. On land, the player receives an upward impulse when jumping and gravity pulling them down, but we used lighter gravity while going up and heavier gravity while falling. This gave better jump control while keeping a clear sense of weight when landing.
 
-![Land – jumping behaviour](docs/images/Land%20–%20jumping%20behaviour.gif)
+<p align="center">
+  <img src="docs/images/Land%20–%20jumping%20behaviour.gif" alt="Land – jumping behaviour" width="480">
+</p>
 >**Land – jumping behaviour :** 
 >A short clip showing the player’s jump on solid ground, with lighter upward motion and a heavier fall to keep the character feeling responsive but grounded.
 
 Water exposed problems immediately. Simply lowering gravity slowed the drop but still felt like moving through air. We added upward buoyancy to counter part of gravity, and horizontal drag to reduce speed. The underlying “velocity plus forces” update loop stayed the same, but the very different values are what gave the ocean levels their distinct feel.
 
-![Underwater movement – buoyancy and drift](docs/images/Underwater%20movement%20–%20buoyancy%20and%20drift.gif)
+<p align="center">
+  <img src="docs/images/Underwater%20movement%20–%20buoyancy%20and%20drift.gif" alt="Underwater movement – buoyancy and drift" width="480">
+</p>
 >**Underwater movement – buoyancy and drift :**
 >The player moving underwater, gently rising or sinking when no input is given, illustrating the balance between gravity, buoyancy and drag.
 
 Pipes were different again: the player is mostly carried by a flow force, with friction to prevent endless acceleration. Getting the balance right took several rounds of playtesting: if the flow was too weak it had almost no impact, and if it was too strong it became very hard to control. The final version still felt powerful, but gave players enough time to react to hazards.
 
-![Pipes – flow‑driven movement](docs/images/pipes-flow.gif)
+<p align="center">
+  <img src="docs/images/pipes-flow.gif" alt="Pipes – flow‑driven movement" width="480">
+</p>
 >**Pipes – flow‑driven movement :**
 >The player travelling through a pipe section, being carried forward by the water flow while still having enough control to react to obstacles.
 
@@ -689,7 +695,9 @@ The core technical problem was how to avoid snapping the cat directly to the pla
 
 Obstacle handling reuses the same collision queries and terrain height checks as the player. The cat’s position is derived from world coordinates and ground height, so it automatically stays on walkable surfaces and respects platforms and walls, instead of needing its own physics controller.
 
-![Hint cat – delayed follow and HUD feedback](docs/images/Hint%20cat%20–%20delayed%20follow%20and%20HUD%20feedback.gif)
+<p align="center">
+  <img src="docs/images/Hint%20cat%20–%20delayed%20follow%20and%20HUD%20feedback.gif" alt="Hint cat – delayed follow and HUD feedback" width="480">
+</p>
 >**Hint cat – delayed follow and HUD feedback :**
 >The hint cat trailing slightly behind the player in the level while a matching cat icon and short messages appear on the progress bar in the HUD.
 
@@ -703,13 +711,17 @@ A shared update loop handled detection, movement and damage. When the player att
 
 The slime added extra complexity. After taking enough damage, it splits into several smaller slimes instead of disappearing. Each child slime is spawned with its own position, collision box and an initial “splash” velocity so that the fragments spread out rather than stacking on one spot. These new slimes are immediately added to the main enemy update loop, so they inherit the same movement, pursuit and damage behaviour as any other enemy. Removing the parent while adding the children in the same frame required careful handling to avoid glitches in collision and damage checks.
 
-![Slime – splitting on damage](docs/images/Slime%20–%20splitting%20on%20damage.gif)
+<p align="center">
+  <img src="docs/images/Slime%20–%20splitting%20on%20damage.gif" alt="Slime – splitting on damage" width="480">
+</p>
 >**Slime – splitting on damage :**
 >A slime enemy taking damage, breaking apart into several smaller slimes that immediately continue to move and attack.
 
 For pursuit behaviour, we kept the logic straightforward. Chasing enemies compute their horizontal direction from the player’s position and move towards them whenever the player is within range. Vertical movement is heavily damped, especially in water or uneven terrain, so enemies do not instantly jump to the player’s height. Collision separation reuses the same approach as the player: when enemies overlap, the system pushes them apart along the least disruptive axis and clears the corresponding velocity component. This keeps close encounters stable, even when several enemies are active at once.
 
-![Enemies – active pursuit](docs/images/Enemies%20–%20active%20pursuit.gif)
+<p align="center">
+  <img src="docs/images/Enemies%20–%20active%20pursuit.gif" alt="Enemies – active pursuit" width="480">
+</p>
 >**Enemies – active pursuit :**
 >Enemies detecting the player and moving towards them, demonstrating the pursuit logic and collision handling used in the enemy system.
 
