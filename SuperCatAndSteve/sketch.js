@@ -20,7 +20,7 @@ const PLAYER_FOLLOW_CAT_W = 36;
 const PLAYER_FOLLOW_CAT_H = 16;
 
 // ========== TEMP 调试：每列地形底部列序号（删改时整段移除 + Game.draw 内对应一行）==========
-const DEBUG_DRAW_TERRAIN_COLUMN_INDEX = true;
+const DEBUG_DRAW_TERRAIN_COLUMN_INDEX = false;
 
 function drawDebugTerrainColumnIndexLabels() {
   if (!DEBUG_DRAW_TERRAIN_COLUMN_INDEX) return;
