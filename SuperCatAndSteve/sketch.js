@@ -20,7 +20,7 @@ const PLAYER_FOLLOW_CAT_W = 36;
 const PLAYER_FOLLOW_CAT_H = 16;
 
 // ========== TEMP 调试：每列地形底部列序号（删改时整段移除 + Game.draw 内对应一行）==========
-const DEBUG_DRAW_TERRAIN_COLUMN_INDEX = false;
+const DEBUG_DRAW_TERRAIN_COLUMN_INDEX = true;
 
 function drawDebugTerrainColumnIndexLabels() {
   if (!DEBUG_DRAW_TERRAIN_COLUMN_INDEX) return;
@@ -1194,6 +1194,16 @@ drawBucketPourAnim(now) {
   const progress = constrain((now - a.start) / a.duration, 0, 1);
 
   if (progress >= 1) {
+    if (!a.converted && Array.isArray(a.lavaTilesToConvert)) {
+      for (const tile of a.lavaTilesToConvert) {
+        const column = this.level.tileMap[tile.col];
+        if (column && column[tile.row] === T.LAVA) {
+          column[tile.row] = T.STONE;
+        }
+      }
+      a.converted = true;
+    }
+
     this.bucketPourAnim = null;
     return;
   }
@@ -1201,7 +1211,8 @@ drawBucketPourAnim(now) {
   const bucketImg = window.tool_enlarged_water_bucket;
   const waterImg = window.effect_water_stream;
 
-  const rotateEnd = 0.55;
+  const rotateEnd = 0.25;
+  const waterStart = 0.18;
   const rotateProgress = constrain(progress / rotateEnd, 0, 1);
 
   const fadeStart = 0.8;
@@ -1225,7 +1236,7 @@ drawBucketPourAnim(now) {
   }
 
   // 水柱：水桶旋转完毕后，完整水流直接出现，不做向下延伸
-  if (progress >= rotateEnd && waterImg && waterImg.width > 0) {
+  if (progress >= waterStart && waterImg && waterImg.width > 0) {
     push();
     imageMode(CENTER);
     translate(a.x + 10, a.y + 44);
@@ -1980,22 +1991,23 @@ tryUseWaterBucket() {
   // 附近没有岩浆就不消耗水桶
   if (targetCol === -1) return false;
 
-  let changed = 0;
+let lavaTilesToConvert = [];
 
-  // 从命中的那一格出发，向左右扩展，把同一行连续的一整片岩浆全部变为石头
-  const convertLine = (startCol, row, dir) => {
-    let col = startCol;
+const collectLine = (startCol, row, dir) => {
+  let col = startCol;
     while (col >= 0 && col < TERRAIN_COLS) {
       const column = this.level.tileMap[col];
       if (!column || column[row] !== T.LAVA) break;
-      column[row] = T.STONE;
-      changed++;
+
+      lavaTilesToConvert.push({ col, row });
       col += dir;
     }
-  };
+};
 
-  convertLine(targetCol, targetRow, -1); // 向左
-  convertLine(targetCol + 1, targetRow, 1); // 向右（从右边一格开始，避免重复）
+collectLine(targetCol, targetRow, -1);
+collectLine(targetCol + 1, targetRow, 1);
+
+let changed = lavaTilesToConvert.length;
 
 if (changed > 0) {
   // 第一关才播放水桶倾倒动画
@@ -2007,7 +2019,9 @@ if (changed > 0) {
       start: millis(),
       duration: 1500,
       x: lavaX + TILE_SIZE * 0.75,
-      y: lavaY - TILE_SIZE * 2
+      y: lavaY - TILE_SIZE * 2,
+      lavaTilesToConvert,
+      converted: false
     };
     tryPlaySfx('pour', { volume: 0.34, rate: 1 });
   }
@@ -2422,13 +2436,13 @@ checkTutorialHintZones() {
       },
       {
         id: 'forest_trapped_bird_hint',
-        startCol: 71,
+        startCol: 69,
         endCol: 71,
         message: t(
           'Poor  little  bird  is  trapped  in  a  net.  Maybe  we  can  help  it.',
           '可怜的小鸟被网困住了，也许我们有办法救他'
         ),
-        duration: 5000
+        duration: 8000
       },
       {
         id: 'forest_dynamite_hint',
@@ -2459,8 +2473,8 @@ checkTutorialHintZones() {
     },
     {
       id: 'water_seashell_hint',
-      startCol: 22,
-      endCol: 22,
+      startCol: 21,
+      endCol: 23,
       message: t(
         'Magic  seashell!  Maybe,  like  apples,  it  is  a  gift  from  nature.',
         '神奇海螺！也许和苹果一样是自然的馈赠'
@@ -4022,6 +4036,7 @@ class WaterLevel extends Level {
     this.items.push(new Tool(7 * TILE_SIZE + toolOffset, 360 - 2 * TILE_SIZE, 24, 24, 'scissor'));
     this.items.push(new Tool(53 * TILE_SIZE + toolOffset, 360 - 2 * TILE_SIZE, 24, 24, 'scissor'));
     this.items.push(new Tool(37 * TILE_SIZE + toolOffset, solidSurfaceY(37) - 24, 24, 24, 'wrench'));
+    this.items.push(new Tool(104 * TILE_SIZE + toolOffset, solidSurfaceY(104) - 24, 24, 24, 'wrench'));
 
     // 第48列海龟事件：初始静止，解锁条件为上方 47/48/49 三个铁栏杆全部被 wrench 拆除
     const turtleW = 62;
@@ -4144,7 +4159,9 @@ class WaterLevel extends Level {
     fish69List.forEach(f => f.bindNet(fishingNet69));
 
     //增加第二关的恢复道具贝壳
-    this.items.push(new Hp(25 * TILE_SIZE + 4, solidSurfaceY(25) - 24, 24, 24, 'seashell'));
+    this.items.push(new Hp(22 * TILE_SIZE + 4, solidSurfaceY(25) - 24, 24, 24, 'seashell'));
+    this.items.push(new Hp(33 * TILE_SIZE + 4, solidSurfaceY(33) - 24, 24, 24, 'seashell'));
+    this.items.push(new Hp(47 * TILE_SIZE + 4, solidSurfaceY(33) - 24, 24, 24, 'seashell'));
     this.items.push(new Hp(58 * TILE_SIZE + 4, solidSurfaceY(58) - 24, 24, 24, 'seashell'));
     this.items.push(new Hp(90 * TILE_SIZE + 4, solidSurfaceY(90) - 24, 24, 24, 'seashell'));
 
@@ -4476,12 +4493,17 @@ class Player extends Entity {
       const probeX = item.x + 4;
       const probeW = item.w - 8;
 
-      if (rectCollision(box.x, box.y, box.w, box.h, probeX, item.y, probeW, item.h)) {
+      // 上下多给一点余量：防止爬到顶部附近突然丢失 ladder 状态
+      const probeY = item.y - 10;
+      const probeH = item.h + 20;
+
+      if (rectCollision(box.x, box.y, box.w, box.h, probeX, probeY, probeW, probeH)) {
         return item;
       }
     }
+
     return null;
-}
+  }
 
   updateLadderState(level) {
     const ladder = this.findTouchingLadder(level);
@@ -4519,60 +4541,83 @@ class Player extends Entity {
     const climbUp = vert.up;
     const climbDown = vert.down;
 
-    if (ladder) {
+  if (ladder) {
     const ladderCenterX = ladder.x + ladder.w / 2;
     const playerCenterOffset = this.collisionOffsetX + this.collisionW / 2;
 
     const box = this.getCollisionBox();
     const playerFeetY = box.y + box.h;
+    const playerHeadY = box.y;
     const ladderTopY = ladder.y;
     const ladderBottomY = ladder.y + ladder.h;
 
-    // 人物脚底距离“梯子顶端”的容差
-    const topSnapTolerance = 6;
+    const leftHeld = !!(keys['a'] || keys['arrowleft']);
+    const rightHeld = !!(keys['d'] || keys['arrowright']);
+    const horizontalHeld = leftHeld || rightHeld;
+
+    // 顶部容差调大一点：到达顶端附近就把玩家放到平台上
+    const topSnapTolerance = 14;
     const nearLadderTop = Math.abs(playerFeetY - ladderTopY) <= topSnapTolerance;
 
-    // 只有角色脚底明显高于梯子底部时，才允许继续往下爬
+    // 只要人物还和梯子有接触，就允许挂在梯子上，不要松开 W 就掉落
+    const stillInsideLadderY = playerHeadY < ladderBottomY && playerFeetY > ladderTopY;
+
     const canClimbDown = climbDown && playerFeetY < ladderBottomY - 2;
 
-    // 只要人在梯子上，就把 X 吸附到梯子中线
-    this.x = ladderCenterX - playerCenterOffset;
+    // 到梯子顶端：直接吸附到平台顶面
+    if (nearLadderTop && !climbDown) {
+      this.y = ladderTopY - this.collisionH - this.collisionOffsetY;
+      this.vy = 0;
+      this.onGround = true;
+      this.jumpsRemaining = this.maxJumps;
 
-    // 正在爬梯
-    if (climbUp || canClimbDown) {
-      this.vx = 0;
+      // 不按左右时停住；按左右时允许离开梯子顶端
+      if (!horizontalHeld) {
+        this.vx = 0;
+        return;
+      }
+
+      // 按左右时不要 return，后面会继续走水平碰撞
+    } else if (climbUp || canClimbDown || stillInsideLadderY) {
+      // 还在梯子主体上：禁用重力，让玩家挂住
       this.vy = 0;
       this.onGround = false;
 
-      if (climbUp) this.y -= this.climbSpeed;
-      if (canClimbDown) this.y += this.climbSpeed;
+      // 只有按上下时才吸附到梯子中心线
+      if (climbUp || canClimbDown) {
+        this.x = ladderCenterX - playerCenterOffset;
+      }
+
+      if (climbUp) {
+        this.y -= this.climbSpeed;
+      }
+
+      if (canClimbDown) {
+        this.y += this.climbSpeed;
+      }
+
+      // 允许在梯子上横向移动，方便从底部/中间离开
+      let ladderDx = 0;
 
       if (movementKeyPhysicallyDown('a')) {
-        this.x -= this.speed * 0.45;
+        ladderDx = -this.speed * 0.45;
         this.facingRight = false;
       }
+
       if (movementKeyPhysicallyDown('d')) {
-        this.x += this.speed * 0.45;
+        ladderDx = this.speed * 0.45;
         this.facingRight = true;
       }
 
-      if (this.y < 0) this.y = 0;
-      const maxY = CANVAS_H - this.h;
-      if (this.y > maxY) this.y = maxY;
+      if (ladderDx !== 0) {
+        this.moveWithCollision(platforms, ladderDx, 0, true);
+      }
+
+      this.x = constrain(this.x, 0, WORLD_WIDTH - this.w);
 
       return;
     }
-
-    // 没有继续按爬梯，但已经到达梯子顶端附近：
-    // 让人物停在梯子顶，不再掉落
-    if (nearLadderTop) {
-      this.y = ladderTopY - this.collisionH - this.collisionOffsetY;
-      this.vx = 0;
-      this.vy = 0;
-      this.onGround = true;
-      return;
-    }
-    }
+  }
 
     const inWater = this.isInWater(level);
     if (inWater) {

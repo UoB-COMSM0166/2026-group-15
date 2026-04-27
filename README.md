@@ -43,8 +43,10 @@
   - [7.3 Testing](#73-testing)
 - [8. Process](#8-process)
 - [9. Sustainability](#9-sustainability)
-- [10. Conclusion](#9-conclusion)
-- [11. Individual Contribution](#10-individual-contribution)
+- [10. Conclusion](#10-conclusion)
+- [11. Individual Contribution](#11-individual-contribution)
+- [12. AI Statement](#12-AI-Statement)
+
 ---
 ## 1. Weekly Labs
 
@@ -52,9 +54,9 @@
 
 | **Week** | **Title** | **Documentation** |
 |:--------:|:---------------------------------------------------------|:---------------:|
-| 01       | Lab 1: Game Ideas                                        | [README](https://github.com/UoB-COMSM0166/2026-group-15/tree/main/Homework_Week1_GameIdeas) |
-| 02       | Lab 2: Spray Fun and Brainstorm                          | [README](https://github.com/UoB-COMSM0166/2026-group-15/tree/main/Homework_Week2_SprayFun) |
-| 03       | Lab 3: Prototype & Game Selection                        | [README](https://github.com/UoB-COMSM0166/2026-group-15/tree/main/Homework_Week3_Prototypes) |
+| 01       | Lab 1: Game Ideas                                        | [README](https://github.com/UoB-COMSM0166/2026-group-15/tree/main/Homework/Homework_Week1_GameIdeas) |
+| 02       | Lab 2: Spray Fun and Brainstorm                          | [README](https://github.com/UoB-COMSM0166/2026-group-15/tree/main/Homework/Homework_Week2_SprayFun) |
+| 03       | Lab 3: Prototype & Game Selection                        | [README](https://github.com/UoB-COMSM0166/2026-group-15/tree/main/Homework/Homework_Week3_Prototypes) |
 | 04       | Lab 4: User Stories & Requirements Engineering           | [README](link_to_readme_04) |
 | 05       | Lab 5: Object-Oriented Design & Agile Estimation         | [README](link_to_readme_05) |
 | 07       | Lab 7: Think Aloud Study & Heuristic Evaluation          | [README](link_to_readme_07) |
@@ -414,200 +416,120 @@ Looking back, the requirements stage was not just an early planning task. It pla
 </p>
 
 ### 5.1 Class Diagram
+
+The class diagram shows the high-level object-oriented design of *Super Cat and Steve*. The `Game` class works as the main controller, connecting the current `Level`, the `Player`, and the `UIManager`. The base `Level` class is extended by `ForestLevel`, `WaterLevel`, and `FactoryLevel`, so each world can define its own terrain, enemies, items, animals, and environmental behaviour while sharing the same overall game loop.
+
+The diagram also shows how the main gameplay objects are organised. The `Player` handles movement, combat, mining, item collection, and tool use. `Item` is extended into types such as `Tool`, `Pollutant`, and `Weapon`, while `Enemy` and `Animal` represent threats and rescue targets. Overall, the diagram presents the main design structure without including low-level implementation details.
+
 ```mermaid
 classDiagram
 
 class Game {
-  +levelType: string
-  +state: string
-  +level: Level
+  +currentLevel: Level
+  +state: GameState
   +player: Player
   +uiManager: UIManager
-  +setup()
+  +startGame()
+  +selectLevel(levelType)
   +update()
-  +draw()
   +checkCollisions()
-  +tryAttack()
+  +checkWinCondition()
 }
 
 class Level {
   +platforms
   +enemies
   +items
-  +terrainHeights
+  +animals
   +tileMap
   +loadAssets()
-  +draw()
-  +addTerrainColumn(col,h,tiles)
+  +generateTerrain()
+  +drawLevel()
 }
 
 class ForestLevel {
-  +loadAssets()
-  +drawTrees()
+  +generateTerrain()
 }
 
 class FactoryLevel {
-  +loadAssets()
-  +setupFactoryTrapAndButton()
-  +updateFactoryMechanisms(player)
+  +generateTerrain()
 }
 
 class WaterLevel {
-  +loadAssets()
-  +getSolidSurfaceY(col)
-  +snapEntityToSolidSurface(entity)
+  +generateTerrain()
 }
 
 class Platform {
-  +x
-  +y
-  +w
-  +h
   +isTerrain
-  +draw()
-}
-
-class Entity {
-  +x
-  +y
-  +w
-  +h
-  +getCollisionBox()
-  +collidesWith(obj)
 }
 
 class Player {
   +health
   +inventory
-  +equippedWeaponType
-  +update(platforms,level)
+  +equippedWeapon
+  +score
+  +move()
   +jump()
-  +collect(item)
+  +attack()
+  +collectItem(item)
+  +useTool(tool)
+  +mineBlock()
   +takeDamage(amount)
 }
 
 class Enemy {
   +health
-  +activated
-  +update(player,platforms,level)
+  +attackRange
+  +update(player)
+  +attackPlayer(player)
   +takeDamage(amount)
 }
 
 class Zombie
-class Drowned
-class Shark
-class Slime
-class Vex
 
 class Item {
-  +vy
-  +gravity
-  +update(platforms,level)
+  +itemType
+  +applyEffect(target)
 }
 
 class Pollutant {
-  +type
-  +value
-}
-
-class TNT {
-  +armed
-  +exploded
-  +arm(now)
-  +explode(now,player)
-}
-
-class Hp {
-  +hpType
+  +pollutionType
+  +applyEffect(target)
 }
 
 class Tool {
   +toolType
+  +use(target)
 }
 
-class Ladder {
-  +isPlacedLadder
+class Weapon {
+  +weaponType
+  +damage
+  +use(target)
 }
 
 class Animal {
-  +rescueAwarded
-  +canRescueWithTool(toolType)
-  +onRescued(game,toolType)
-}
-
-class TrappedBird {
-  +state
-  +startRescue(targetX,targetY)
-}
-
-class Turtle {
-  +state
-  +bindBars(bars)
-}
-
-class Fish {
-  +state
-  +bindNet(net)
-}
-
-class Rabbit {
-  +scriptEnabled
-}
-
-class IronBar {
-  +removed
-  +removeByWrench()
-}
-
-class FishingNet {
-  +removed
-  +removeByScissor()
-}
-
-class Dolphin {
-  +mounted
-  +used
-  +mount(player)
-  +dismount(player)
+  +rescueState
+  +onRescued()
 }
 
 class UIManager {
-  +drawHUD(player,showGuideMenu,activeGuideTab)
-  +drawGuideMenu(activeGuideTab)
-}
-
-class HintCat {
-  +follow(state)
+  +drawHUD(player)
+  +showGuide()
+  +updateProgress()
 }
 
 Level <|-- ForestLevel
-ForestLevel <|-- FactoryLevel
+Level <|-- FactoryLevel
 Level <|-- WaterLevel
 
-Entity <|-- Player
-Entity <|-- Enemy
-Entity <|-- Item
-Entity <|-- Animal
-Entity <|-- IronBar
-Entity <|-- FishingNet
-Entity <|-- Dolphin
-
 Enemy <|-- Zombie
-Enemy <|-- Drowned
-Enemy <|-- Shark
-Enemy <|-- Slime
-Enemy <|-- Vex
 
 Item <|-- Pollutant
-Pollutant <|-- TNT
-Item <|-- Hp
 Item <|-- Tool
-Item <|-- Ladder
+Item <|-- Weapon
 
-Animal <|-- TrappedBird
-Animal <|-- Turtle
-Animal <|-- Fish
-Animal <|-- Rabbit
+Item <|-- Animal
 
 Game *-- Player : has
 Game *-- Level : has
@@ -616,26 +538,114 @@ Game *-- UIManager : has
 Level *-- Platform : contains
 Level o-- Enemy : enemies
 Level o-- Item : items
-Level o-- Animal : items
-Level o-- Entity : items
+Level o-- Animal : animals
 
 Player o-- Item : inventory
-Turtle o-- IronBar : bars
-FishingNet o-- Fish : linkedFishes
-Fish --> FishingNet : linkedNet
-IronBar --> Turtle : linkedTurtle
+Player ..> Tool : uses
+Player ..> Weapon : uses
 
 UIManager ..> Player : render HUD
 UIManager ..> Game : read state
-HintCat ..> Player : test helper
+```
+
+### 5.2 Behavioural Diagram
+
+#### 5.2.1 State Machine Diagram
+
+The state machine diagram shows the main flow of *Super Cat and Steve* at the screen and game-state level. The player starts from the start screen, enters level selection, chooses one of the three worlds, and then moves into the playing state. During gameplay, the player can open the field guide, return to level selection, lose the game when health reaches zero, or win when the level objective is completed.
+
+
+```mermaid
+stateDiagram-v2
+    [*] --> StartScreen
+
+    StartScreen --> LevelSelection: Press Enter / Click Start
+    StartScreen --> Settings: Click Settings
+
+    Settings --> StartScreen: Back / Esc
+
+    LevelSelection --> Playing: Select Forest / Water / Factory
+    LevelSelection --> StartScreen: Back / Esc
+
+    state Playing {
+        [*] --> Gameplay
+        Gameplay --> FieldGuide: Open Menu
+        FieldGuide --> Gameplay: Close Menu
+    }
+
+    Playing --> LevelSelection: Click Exit (in HUD)
+    Playing --> GameOver: Player health reaches 0
+    Playing --> Victory: Level objective completed
+
+    GameOver --> StartScreen: Enter / Click
+    Victory --> StartScreen: Enter / Click
+```
+
+#### 5.2.2 Activity Diagram: Core Gameplay Loop
+
+The activity diagram focuses on what happens inside a level. It shows the player exploring the environment, moving through different terrain, collecting items, mining ores, using tools, fighting or avoiding enemies, and rescuing animals. These actions affect health, inventory, score, and progress. The loop continues until the player either completes the objective and reaches victory, or loses all health and enters the game-over state.
+
+
+```mermaid
+flowchart TD
+    A[Enter Selected Level] --> B[Explore Environment]
+
+    B --> C{Player Action}
+    C --> C1[Move / Jump / Swim / Use Pipes]
+    C --> C2[Collect Items]
+    C --> C3[Mine Blocks or Ores]
+    C --> C4[Use Tool]
+    C --> C5[Attack or Avoid Enemy]
+
+    C1 --> D{Encounter Hazard or Enemy?}
+    D -->|Enemy| E{Attack or Avoid?}
+    E -->|Attack| F[Enemy Takes Damage]
+    E -->|Avoid| B
+    F --> B
+
+    D -->|Hazard| G{Correct Tool Available?}
+    G -->|Yes| H[Use Tool to Clear or Reduce Hazard]
+    G -->|No| I[Avoid Hazard]
+    H --> B
+    I --> B
+
+    C2 --> J[Add Item to Inventory / Update Status]
+    J --> B
+
+    C3 --> K{Ore Improves Weapon?}
+    K -->|Yes| L[Upgrade Weapon]
+    K -->|No| B
+    L --> B
+
+    C4 --> M{Tool Used on Rescue Target?}
+    M -->|Yes| N[Rescue Animal and Increase Score]
+    M -->|No| B
+    N --> O{Objective Reached?}
+
+    C5 --> D
+
+    B --> P{Player Takes Damage?}
+    P -->|Yes| Q[Reduce Health]
+    P -->|No| O
+    Q --> R{Health <= 0?}
+    R -->|Yes| S[Game Over]
+    R -->|No| O
+
+    O -->|Yes| T[Victory]
+    O -->|No| B
 ```
 
 
-### 5.2 Communication Diagram
-Write here.
+
+
 
 ### 5.3 Design Conclusion
-Write here.
+
+The design stage helped us turn *Super Cat and Steve* from a general environmental platform game idea into a clearer system structure. By creating the class diagram, we identified the main responsibilities of each part of the game, such as `Game`, `Level`, `Player`, `Item`, `Enemy`, and `UIManager`. This made the project easier to divide between team members.
+
+For future implementation, we plan to continue improving the connection between level design, tools, and environmental tasks. One possible next step is to make each level have more unique interactions. For example, the ocean level could include more animal rescue tasks involving turtles and fish, while the factory level could make better use of pipes, wrench-based repair tasks, and industrial hazards. We would also like to improve UI feedback so that players can more clearly understand when a tool has worked, when an animal has been rescued, and how close they are to completing the level.
+
+The main difficulty we expect is keeping the system manageable as more features are added. More tools, enemies, animals, and level-specific behaviours could easily make the code harder to maintain. To reduce this risk, we would keep using the design structure shown in the class diagram: shared behaviour should stay in general parent classes such as `Level`, `Item`, and `Enemy`, while level-specific or object-specific behaviour should be placed in specialised classes. We would also test new mechanics in small steps before adding them into full levels. This would help us avoid breaking the existing game while still allowing the project to grow.
 
 ---
 
@@ -649,9 +659,30 @@ Our original plan for movement was standard platformer jumps on land, slower mot
 
 We kept one movement loop based on velocity plus environment-specific forces. On land, the player receives an upward impulse when jumping and gravity pulling them down, but we used lighter gravity while going up and heavier gravity while falling. This gave better jump control while keeping a clear sense of weight when landing.
 
+<p align="center">
+  <img src="docs/images/Land%20–%20jumping%20behaviour.gif" alt="Land – jumping behaviour">
+</p>
+
+>**Land – jumping behaviour :** 
+>A short clip showing the player’s jump on solid ground, with lighter upward motion and a heavier fall to keep the character feeling responsive but grounded.
+
 Water exposed problems immediately. Simply lowering gravity slowed the drop but still felt like moving through air. We added upward buoyancy to counter part of gravity, and horizontal drag to reduce speed. The underlying “velocity plus forces” update loop stayed the same, but the very different values are what gave the ocean levels their distinct feel.
 
+<p align="center">
+  <img src="docs/images/Underwater%20movement%20–%20buoyancy%20and%20drift.gif" alt="Underwater movement – buoyancy and drift">
+</p>
+
+>**Underwater movement – buoyancy and drift :**
+>The player moving underwater, gently rising or sinking when no input is given, illustrating the balance between gravity, buoyancy and drag.
+
 Pipes were different again: the player is mostly carried by a flow force, with friction to prevent endless acceleration. Getting the balance right took several rounds of playtesting: if the flow was too weak it had almost no impact, and if it was too strong it became very hard to control. The final version still felt powerful, but gave players enough time to react to hazards.
+
+<p align="center">
+  <img src="docs/images/pipes-flow.gif" alt="Pipes – flow‑driven movement">
+</p>
+
+>**Pipes – flow‑driven movement :**
+>The player travelling through a pipe section, being carried forward by the water flow while still having enough control to react to obstacles.
 
 The real difficulty was the interaction between environments. A change that improved jumping in the forest could easily break water exits or make pipes almost unplayable. To keep this manageable, we separated shared update logic from per-environment configuration data, so tuning usually meant adjusting numbers rather than rewriting movement code.
 
@@ -665,6 +696,13 @@ The core technical problem was how to avoid snapping the cat directly to the pla
 
 Obstacle handling reuses the same collision queries and terrain height checks as the player. The cat’s position is derived from world coordinates and ground height, so it automatically stays on walkable surfaces and respects platforms and walls, instead of needing its own physics controller.
 
+<p align="center">
+  <img src="docs/images/Hint%20cat%20–%20delayed%20follow%20and%20HUD%20feedback.gif" alt="Hint cat – delayed follow and HUD feedback">
+</p>
+
+>**Hint cat – delayed follow and HUD feedback :**
+>The hint cat trailing slightly behind the player in the level while a matching cat icon and short messages appear on the progress bar in the HUD.
+
 We then connected this follower to the feedback systems in the HUD. The game already tracks level progress in the update loop, so we reused that value to drive both the top progress bar and a cat icon that moves along it. The displayed progress interpolates towards the maximum distance reached, which keeps the bar and icon smooth and consistent with the player’s movement. At the same time, the hint system uses the same UI cat as an anchor for short context-sensitive messages when the player rescues animals, collects pollutants or encounters hazards. In other words, the player sees the same hint character in two forms: as a delayed follower in the world, and as a cat icon on the progress bar that anchors messages about hazards, tools and objectives.
 
 ### Challenge 3: Enemy Pursuit and Splitting Slime Behaviour
@@ -675,14 +713,23 @@ A shared update loop handled detection, movement and damage. When the player att
 
 The slime added extra complexity. After taking enough damage, it splits into several smaller slimes instead of disappearing. Each child slime is spawned with its own position, collision box and an initial “splash” velocity so that the fragments spread out rather than stacking on one spot. These new slimes are immediately added to the main enemy update loop, so they inherit the same movement, pursuit and damage behaviour as any other enemy. Removing the parent while adding the children in the same frame required careful handling to avoid glitches in collision and damage checks.
 
+<p align="center">
+  <img src="docs/images/Slime%20–%20splitting%20on%20damage.gif" alt="Slime – splitting on damage">
+</p>
+
+>**Slime – splitting on damage :**
+>A slime enemy taking damage, breaking apart into several smaller slimes that immediately continue to move and attack.
+
 For pursuit behaviour, we kept the logic straightforward. Chasing enemies compute their horizontal direction from the player’s position and move towards them whenever the player is within range. Vertical movement is heavily damped, especially in water or uneven terrain, so enemies do not instantly jump to the player’s height. Collision separation reuses the same approach as the player: when enemies overlap, the system pushes them apart along the least disruptive axis and clears the corresponding velocity component. This keeps close encounters stable, even when several enemies are active at once.
 
-By keeping everything inside a single update loop and reusing the same collision and damage systems, we could support both simple chasers and more complex enemies like the splitting slime without introducing separate subsystems for each one.
+<p align="center">
+  <img src="docs/images/Enemies%20–%20active%20pursuit.gif" alt="Enemies – active pursuit">
+</p>
 
-待添加图片：
-图 1-3 Movement across environments GIF，展示 land jump → ocean movement → pipe current，展示森林跳跃 → 水下浮力 → 管道冲力
-图 4-5：Tool collection and item use 一张截图，展示小猫跟随与提示
-图 6：Progress bar with helper cat 一张截图，展示敌人跟踪与史莱姆
+>**Enemies – active pursuit :**
+>Enemies detecting the player and moving towards them, demonstrating the pursuit logic and collision handling used in the enemy system.
+
+By keeping everything inside a single update loop and reusing the same collision and damage systems, we could support both simple chasers and more complex enemies like the splitting slime without introducing separate subsystems for each one.
 
 ---
 
@@ -858,8 +905,6 @@ In this project, we used white-box testing to test internal game logic.To make t
 | 07 | `HintCat.follow` | Relative follow position to player state | Cat follows to left and keeps bottom alignment | Pass |
 | 08 | `Game.checkCollisions` | Enemy contact damage + item pickup state changes | Health decreases and colliding item is collected | Pass |
 
-
-
 ---
 
 ## 8. Process
@@ -955,13 +1000,13 @@ In the end, we think this project was valuable not only because we made a playab
 </div>
 
 > We worked on the game collaboratively, and each of us had slightly different areas of focus. Overall, the workload was shared fairly, so we report an equal contribution for all team members.
+ 
+---
 
-### Additional Marks
+## 12. AI Statement
 
-You can delete this section in your own repo, it's just here for information. in addition to the marks above, we will be marking you on the following two points:
+Throughout the development of our game, we used generative AI tools, mainly GitHub Copilot in Visual Studio Code and ChatGPT, to support our software engineering work rather than replace it. AI was particularly helpful when considering architectural decisions and addressing technical problems. Early in the project, we consulted these tools to compare alternative code structures for the movement and enemy systems, and to explore how a single update loop could still handle different forces in land, water, and pipe environments. These interactions helped us understand the advantages and disadvantages of different approaches, but the final architecture, refactoring, and implementation were carried out by the team.
 
-- **Quality** of report writing, presentation, use of figures and visual material (5% of report grade) 
-  - Please write in a clear concise manner suitable for an interested layperson. Write as if this repo was publicly available.
-- **Documentation** of code (5% of report grade)
-  - Organise your code so that it could easily be picked up by another team in the future and developed further.
-  - Is your repo clearly organised? Is code well commented throughout?
+AI also assisted with specific implementation issues, especially those related to character behaviour and animation. For the hint cat follower, for example, we asked about different ways to implement delayed following, to choose suitable positions when obstacles were present, and to link in‑world behaviour with HUD feedback. We used AI in a similar way when analysing how gravity, buoyancy, drag, and flow forces could coexist within one system without making transitions between environments feel incorrect. In these cases, AI mainly acted as a tutor: it clarified concepts, suggested possible directions, and sometimes helped us identify why earlier ideas were not working as expected. We then implemented and adjusted these ideas in code ourselves and evaluated them through playtesting.
+
+For art, most sprites and tiles were drawn by team members, while a small number of in‑game assets were taken from online resources. We did not use generative image models to produce core gameplay art. AI was also used occasionally to check and refine English phrasing to improve clarity.
