@@ -414,7 +414,230 @@ Looking back, the requirements stage was not just an early planning task. It pla
 </p>
 
 ### 5.1 Class Diagram
-Write here.
+
+```mermaid
+classDiagram
+A <|-- B
+A : +x
+B : +run()
+```
+
+```mermaid
+classDiagram
+
+class Game {
+  +levelType: string
+  +state: string
+  +level: Level
+  +player: Player
+  +uiManager: UIManager
+  +setup()
+  +update()
+  +draw()
+  +checkCollisions()
+  +tryAttack()
+}
+
+class Level {
+  +platforms
+  +enemies
+  +items
+  +terrainHeights
+  +tileMap
+  +loadAssets()
+  +draw()
+  +addTerrainColumn(col,h,tiles)
+}
+
+class ForestLevel {
+  +loadAssets()
+  +drawTrees()
+}
+
+class FactoryLevel {
+  +loadAssets()
+  +setupFactoryTrapAndButton()
+  +updateFactoryMechanisms(player)
+}
+
+class WaterLevel {
+  +loadAssets()
+  +getSolidSurfaceY(col)
+  +snapEntityToSolidSurface(entity)
+}
+
+class Platform {
+  +x
+  +y
+  +w
+  +h
+  +isTerrain
+  +draw()
+}
+
+class Entity {
+  +x
+  +y
+  +w
+  +h
+  +getCollisionBox()
+  +collidesWith(obj)
+}
+
+class Player {
+  +health
+  +inventory
+  +equippedWeaponType
+  +update(platforms,level)
+  +jump()
+  +collect(item)
+  +takeDamage(amount)
+}
+
+class Enemy {
+  +health
+  +activated
+  +update(player,platforms,level)
+  +takeDamage(amount)
+}
+
+class Zombie
+class Drowned
+class Shark
+class Slime
+class Vex
+
+class Item {
+  +vy
+  +gravity
+  +update(platforms,level)
+}
+
+class Pollutant {
+  +type
+  +value
+}
+
+class TNT {
+  +armed
+  +exploded
+  +arm(now)
+  +explode(now,player)
+}
+
+class Hp {
+  +hpType
+}
+
+class Tool {
+  +toolType
+}
+
+class Ladder {
+  +isPlacedLadder
+}
+
+class Animal {
+  +rescueAwarded
+  +canRescueWithTool(toolType)
+  +onRescued(game,toolType)
+}
+
+class TrappedBird {
+  +state
+  +startRescue(targetX,targetY)
+}
+
+class Turtle {
+  +state
+  +bindBars(bars)
+}
+
+class Fish {
+  +state
+  +bindNet(net)
+}
+
+class Rabbit {
+  +scriptEnabled
+}
+
+class IronBar {
+  +removed
+  +removeByWrench()
+}
+
+class FishingNet {
+  +removed
+  +removeByScissor()
+}
+
+class Dolphin {
+  +mounted
+  +used
+  +mount(player)
+  +dismount(player)
+}
+
+class UIManager {
+  +drawHUD(player,showGuideMenu,activeGuideTab)
+  +drawGuideMenu(activeGuideTab)
+}
+
+class HintCat {
+  +follow(state)
+}
+
+Level <|-- ForestLevel
+ForestLevel <|-- FactoryLevel
+Level <|-- WaterLevel
+
+Entity <|-- Player
+Entity <|-- Enemy
+Entity <|-- Item
+Entity <|-- Animal
+Entity <|-- IronBar
+Entity <|-- FishingNet
+Entity <|-- Dolphin
+
+Enemy <|-- Zombie
+Enemy <|-- Drowned
+Enemy <|-- Shark
+Enemy <|-- Slime
+Enemy <|-- Vex
+
+Item <|-- Pollutant
+Pollutant <|-- TNT
+Item <|-- Hp
+Item <|-- Tool
+Item <|-- Ladder
+
+Animal <|-- TrappedBird
+Animal <|-- Turtle
+Animal <|-- Fish
+Animal <|-- Rabbit
+
+Game *-- Player : has
+Game *-- Level : has
+Game *-- UIManager : has
+
+Level *-- Platform : contains
+Level o-- Enemy : enemies
+Level o-- Item : items
+Level o-- Animal : items
+Level o-- Entity : items
+
+Player o-- Item : inventory
+Turtle o-- IronBar : bars
+FishingNet o-- Fish : linkedFishes
+Fish --> FishingNet : linkedNet
+IronBar --> Turtle : linkedTurtle
+
+UIManager ..> Player : render HUD
+UIManager ..> Game : read state
+HintCat ..> Player : test helper
+```
+
 
 ### 5.2 Communication Diagram
 Write here.
