@@ -63,6 +63,313 @@ const T = {
   BRICKS: 18, PIPE_NARROW: 19, DEEPSLATE_BRICKS: 20
 };
 
+// ====== 音效（步伐） ======
+const SFX = {
+  enabled: true,
+  sounds: Object.create(null), // key -> p5.SoundFile[]
+  nextIndexByKey: Object.create(null),
+  debug: true,
+  queuedPathsByKey: Object.create(null),
+  startedLoading: false,
+  mode: 'html', // 'html' | 'p5'（当前环境 p5.loadSound 返回 Promise 且回调不稳定，脚步音改用 html 更稳）
+  html: {
+    audiosByKey: Object.create(null), // key -> HTMLAudioElement[]
+    nextIndexByKey: Object.create(null)
+  },
+  minIntervalMsByKey: {
+    step_grass: 70,
+    step_stone: 70,
+    step_sand: 70
+  },
+  lastPlayedAtByKey: Object.create(null)
+};
+
+function canUseSound() {
+  const hasLoadSound = (typeof loadSound === 'function') || (typeof window !== 'undefined' && typeof window.loadSound === 'function');
+  const hasUserStartAudio = (typeof userStartAudio === 'function') || (typeof window !== 'undefined' && typeof window.userStartAudio === 'function');
+  return hasLoadSound && hasUserStartAudio;
+}
+
+function ensureAudioUnlocked() {
+  if (!canUseSound()) return false;
+  try {
+    if (typeof getAudioContext === 'function') {
+      const ctx = getAudioContext();
+      if (ctx && ctx.state !== 'running') {
+        (typeof userStartAudio === 'function' ? userStartAudio : window.userStartAudio)();
+      }
+      return ctx?.state === 'running';
+    }
+    (typeof userStartAudio === 'function' ? userStartAudio : window.userStartAudio)();
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function loadSfx(key, path) {
+  if (!canUseSound()) return;
+  try {
+    const _loadSound = (typeof loadSound === 'function') ? loadSound : window.loadSound;
+    const ret = _loadSound(
+      path,
+      () => console.log(`[SFX] loaded: ${key} <- ${path}`),
+      err => console.warn(`[SFX] load failed: ${key} (${path})`, err)
+    );
+    // p5.sound 在不同版本中可能返回 SoundFile 或 Promise<SoundFile>
+    if (ret && typeof ret.then === 'function') {
+      ret.then((snd) => {
+        if (snd && typeof snd.play === 'function') {
+          SFX.sounds[key] = [snd];
+        } else if (SFX.debug) {
+          console.warn(`[SFX] unexpected resolved sound for ${key} (${path})`, snd);
+        }
+      }).catch((e) => console.warn(`[SFX] load promise rejected: ${key} (${path})`, e));
+      return;
+    }
+    const snd = ret;
+    if (snd && typeof snd.play === 'function') SFX.sounds[key] = [snd];
+    else if (SFX.debug) console.warn(`[SFX] unexpected sound object for ${key} (${path})`, snd);
+  } catch (e) {
+    console.warn(`[SFX] load threw: ${key} (${path})`, e);
+  }
+}
+
+function loadSfxList(key, paths) {
+  if (!canUseSound()) return;
+  if (!Array.isArray(paths) || paths.length === 0) return;
+
+  if (!Array.isArray(SFX.sounds[key])) SFX.sounds[key] = [];
+
+  paths.forEach((path, idx) => {
+    try {
+      const _loadSound = (typeof loadSound === 'function') ? loadSound : window.loadSound;
+      const ret = _loadSound(
+        path,
+        () => console.log(`[SFX] loaded: ${key} <- ${path}`),
+        err => console.warn(`[SFX] load failed: ${key} (${path})`, err)
+      );
+      // 用 idx 保持“轮流播放”的顺序稳定
+      if (ret && typeof ret.then === 'function') {
+        ret.then((snd) => {
+          if (!Array.isArray(SFX.sounds[key])) SFX.sounds[key] = [];
+          if (snd && typeof snd.play === 'function') {
+            SFX.sounds[key][idx] = snd;
+          } else if (SFX.debug) {
+            console.warn(`[SFX] unexpected resolved sound for ${key} (${path})`, snd);
+          }
+        }).catch((e) => console.warn(`[SFX] load promise rejected: ${key} (${path})`, e));
+        return;
+      }
+      const snd = ret;
+      if (snd && typeof snd.play === 'function') SFX.sounds[key][idx] = snd;
+      else if (SFX.debug) console.warn(`[SFX] unexpected sound object for ${key} (${path})`, snd);
+    } catch (e) {
+      console.warn(`[SFX] load threw: ${key} (${path})`, e);
+    }
+  });
+}
+
+function loadHtmlAudioList(key, paths) {
+  if (!Array.isArray(paths) || paths.length === 0) return;
+  if (!Array.isArray(SFX.html.audiosByKey[key])) SFX.html.audiosByKey[key] = [];
+
+  paths.forEach((path, idx) => {
+    // 避免重复创建
+    if (SFX.html.audiosByKey[key][idx]) return;
+    try {
+      const a = new Audio();
+      a.preload = 'auto';
+      a.src = path;
+      a.load();
+      a.addEventListener('canplaythrough', () => {
+        if (SFX.debug) console.log(`[SFX][html] loaded: ${key} <- ${path}`);
+      }, { once: true });
+      a.addEventListener('error', () => {
+        if (SFX.debug) console.warn(`[SFX][html] load failed: ${key} (${path})`);
+      }, { once: true });
+      SFX.html.audiosByKey[key][idx] = a;
+    } catch (e) {
+      if (SFX.debug) console.warn(`[SFX][html] load threw: ${key} (${path})`, e);
+    }
+  });
+}
+
+function pickNextLoadedHtmlAudio(key) {
+  const list = SFX.html.audiosByKey[key];
+  if (!Array.isArray(list) || list.length === 0) return null;
+
+  const start = (SFX.html.nextIndexByKey[key] ?? 0) % list.length;
+  for (let i = 0; i < list.length; i++) {
+    const idx = (start + i) % list.length;
+    const a = list[idx];
+    if (!a) continue;
+    // readyState: 0 HAVE_NOTHING, 4 HAVE_ENOUGH_DATA
+    if (a.readyState < 3) continue;
+    SFX.html.nextIndexByKey[key] = (idx + 1) % list.length;
+    return a;
+  }
+  return null;
+}
+
+function getLoadedHtmlAudioCount(key) {
+  const list = SFX.html.audiosByKey[key];
+  if (!Array.isArray(list) || list.length === 0) return 0;
+  let n = 0;
+  for (const a of list) {
+    if (!a) continue;
+    if (a.readyState >= 3) n++;
+  }
+  return n;
+}
+
+function queueSfxList(key, paths) {
+  if (!Array.isArray(paths) || paths.length === 0) return;
+  if (!Array.isArray(SFX.queuedPathsByKey[key])) SFX.queuedPathsByKey[key] = [];
+  for (const p of paths) {
+    if (!SFX.queuedPathsByKey[key].includes(p)) SFX.queuedPathsByKey[key].push(p);
+  }
+}
+
+function startQueuedSfxLoads() {
+  if (SFX.startedLoading) return;
+  const keys = Object.keys(SFX.queuedPathsByKey || {});
+  if (SFX.debug) {
+    const lens = keys.map(k => `${k}=${(SFX.queuedPathsByKey[k] || []).length}`).join(', ');
+    console.log('[SFX] startQueuedSfxLoads keys=', keys, 'lens=', lens);
+  }
+  // 队列为空时不“锁死”startedLoading，允许后续补齐队列后重试
+  if (keys.length === 0) return;
+
+  SFX.startedLoading = true;
+  // 尽量在用户手势后开始加载，HTML Audio 也需要手势
+  ensureAudioUnlocked();
+
+  for (const key of keys) {
+    const paths = SFX.queuedPathsByKey[key];
+    if (SFX.mode === 'p5') loadSfxList(key, paths);
+    else loadHtmlAudioList(key, paths);
+  }
+}
+
+function pickNextLoadedSound(key) {
+  const list = SFX.sounds[key];
+  if (!Array.isArray(list) || list.length === 0) return null;
+
+  // 如果 list 中存在空洞（加载失败/未完成），轮询跳过
+  const start = (SFX.nextIndexByKey[key] ?? 0) % list.length;
+  for (let i = 0; i < list.length; i++) {
+    const idx = (start + i) % list.length;
+    const snd = list[idx];
+    if (!snd) continue;
+    if (typeof snd.play !== 'function') continue;
+    if (typeof snd.isLoaded !== 'function') continue;
+    if (!snd.isLoaded()) continue;
+    SFX.nextIndexByKey[key] = (idx + 1) % list.length;
+    return snd;
+  }
+  return null;
+}
+
+function getLoadedSoundCount(key) {
+  if (SFX.mode === 'html') return getLoadedHtmlAudioCount(key);
+  const list = SFX.sounds[key];
+  if (!Array.isArray(list) || list.length === 0) return 0;
+  let n = 0;
+  for (const snd of list) {
+    if (!snd) continue;
+    if (typeof snd.isLoaded !== 'function') continue;
+    if (!snd.isLoaded()) continue;
+    n++;
+  }
+  return n;
+}
+
+function tryPlaySfx(key, { volume = 0.35, rate = 1 } = {}) {
+  if (!SFX.enabled) return;
+  ensureAudioUnlocked();
+  // 兜底：即使没触发到 pointerdown/keydown 的 once 监听，也在首次尝试播放时启动加载
+  if (SFX.debug && !SFX.startedLoading) console.log('[SFX] tryPlaySfx triggers queued loads');
+  startQueuedSfxLoads();
+  if (SFX.mode === 'html') {
+    const a = pickNextLoadedHtmlAudio(key);
+    if (!a) return;
+    const now = millis();
+    const minGap = SFX.minIntervalMsByKey[key] ?? 60;
+    const lastAt = SFX.lastPlayedAtByKey[key] ?? -Infinity;
+    if (now - lastAt < minGap) return;
+    SFX.lastPlayedAtByKey[key] = now;
+
+    try {
+      a.pause();
+      a.currentTime = 0;
+      a.playbackRate = rate;
+      a.volume = volume;
+      const p = a.play();
+      if (p && typeof p.catch === 'function') p.catch(() => {});
+      if (SFX.debug) console.log('[SFX][html] play', key, 'rate=', rate, 'vol=', volume);
+    } catch (e) {
+      if (SFX.debug) console.warn('[SFX][html] play threw', key, e);
+    }
+    return;
+  }
+
+  if (!canUseSound()) return;
+  const snd = pickNextLoadedSound(key);
+  if (!snd) return;
+  if (typeof snd.isLoaded === 'function' && !snd.isLoaded()) return;
+
+  const now = millis();
+  const minGap = SFX.minIntervalMsByKey[key] ?? 60;
+  const lastAt = SFX.lastPlayedAtByKey[key] ?? -Infinity;
+  if (now - lastAt < minGap) return;
+  SFX.lastPlayedAtByKey[key] = now;
+
+  try {
+    // 用带参数的 play 更稳定（避免 setVolume/rate 在某些情况下不生效）
+    if (typeof snd.play === 'function') snd.play(0, rate, volume);
+    else {
+      if (typeof snd.rate === 'function') snd.rate(rate);
+      if (typeof snd.setVolume === 'function') snd.setVolume(volume);
+      snd.play();
+    }
+    if (SFX.debug) {
+      const dur = typeof snd.duration === 'function' ? snd.duration() : undefined;
+      console.log('[SFX] play', key, 'rate=', rate, 'vol=', volume, 'duration=', dur);
+    }
+  } catch (e) {
+    // 某些浏览器在音频上下文未解锁时会抛错；这里静默失败即可
+    if (SFX.debug) console.warn('[SFX] play threw', key, e);
+  }
+}
+
+function tileTypeToFootstepKey(tileType) {
+  // pipe tileType 是对象（textureKey/rotation），默认归到石质脚步
+  if (typeof isPipeTileType === 'function' && isPipeTileType(tileType)) return 'step_stone';
+  switch (tileType) {
+    case T.GRASS:
+    case T.DIRT:
+      return 'step_grass';
+    case T.SAND:
+    case T.GRAVEL:
+      return 'step_sand';
+    case T.STONE:
+    case T.DEEP:
+    case T.BRICKS:
+    case T.DEEPSLATE_BRICKS:
+    case T.COPPER:
+    case T.IRON:
+    case T.GOLD:
+    case T.DIAMOND:
+    case T.DEEP_COPPER:
+    case T.DEEP_IRON:
+    case T.DEEP_GOLD:
+    case T.DEEP_DIAMOND:
+    default:
+      return 'step_stone';
+  }
+}
+
 // UI 常量
 const SLOT_SIZE = 24, SLOT_GAP = 8, INV_PADDING = 8;
 const INV_BAR_W = 10 * (SLOT_SIZE + SLOT_GAP) + INV_PADDING * 2 - SLOT_GAP, INV_BAR_H = 40;
@@ -3872,6 +4179,10 @@ class Player extends Entity {
     this.activeLadder = null;
     this.climbSpeed = 2.1;
 
+    // 步伐节流 + 记录脚下材质
+    this._nextFootstepAt = 0;
+    this._groundTileType = T.NONE;
+    this._footstepDebugPrinted = false;
   }
   
   isInWater(level) {
@@ -4041,6 +4352,44 @@ class Player extends Entity {
       this.y = 0;
       if (this.vy < 0) this.vy = 0;
     }
+
+    // ====== 步伐音效：在地面上且水平移动时，按固定步频触发 ======
+    // 不在水关播放“脚步”，避免在水里像走路一样响
+    if (!(level instanceof WaterLevel) && this.onGround && Math.abs(this.vx) > 0.25) {
+      const now = millis();
+      if (now >= (this._nextFootstepAt ?? 0)) {
+        if (!canUseSound()) {
+          console.warn('[SFX] p5.sound not available (loadSound/userStartAudio missing)');
+        }
+        // 优先使用碰撞落地时记录的地面类型；否则用脚下坐标再查一次
+        let tileType = this._groundTileType;
+        if (tileType === T.NONE || tileType === undefined || tileType === null) {
+          const feetX = this.x + this.collisionOffsetX + this.collisionW / 2;
+          const feetY = this.y + this.collisionOffsetY + this.collisionH + 1;
+          tileType = level?.getTileTypeAtWorld?.(feetX, feetY) ?? T.NONE;
+        }
+        const key = tileTypeToFootstepKey(tileType);
+        const speedFactor = constrain(Math.abs(this.vx) / (this.speed || 1), 0.7, 1.35);
+        if (SFX.debug && !this._footstepDebugPrinted) {
+          this._footstepDebugPrinted = true;
+          console.log(
+            '[SFX] first footstep attempt:',
+            'key=', key,
+            'tileType=', tileType,
+            'loadedCount=', getLoadedSoundCount(key),
+            'audioState=', (typeof getAudioContext === 'function' ? getAudioContext()?.state : 'n/a')
+          );
+        }
+        tryPlaySfx(key, { volume: 0.28, rate: speedFactor });
+
+        // 步频：速度越快，间隔越短（单位 ms）
+        const baseInterval = 210;
+        this._nextFootstepAt = now + baseInterval / speedFactor;
+      }
+    } else {
+      // 停止走动后稍微延后，避免抖动导致极密集触发
+      this._nextFootstepAt = millis() + 60;
+    }
   }
 
   // 分步移动：将大的移动量拆分成多个小步，每步都检测碰撞
@@ -4112,6 +4461,7 @@ class Player extends Entity {
             this.onGround = true;
             this.jumpsRemaining = this.maxJumps;
             this.vy = 0;
+            this._groundTileType = p?._tileType ?? T.NONE;
             return;
           }
         }
@@ -4146,6 +4496,7 @@ class Player extends Entity {
             this.y = r.y - this.h; 
             this.onGround = true; 
             this.jumpsRemaining = this.maxJumps; 
+            this._groundTileType = p?._tileType ?? T.NONE;
           } else if (this.vy < 0) {
             this.y = r.y + r.h;
           }
@@ -4171,7 +4522,7 @@ class Player extends Entity {
           else this.x = r.x + r.w - this.collisionOffsetX;
           this.vx = 0;
         } else {
-          if (this.vy > 0) { this.y = r.y - this.h; this.onGround = true; this.jumpsRemaining = this.maxJumps; }
+          if (this.vy > 0) { this.y = r.y - this.h; this.onGround = true; this.jumpsRemaining = this.maxJumps; this._groundTileType = p?._tileType ?? T.NONE; }
           else if (this.vy < 0) this.y = r.y + r.h;
           this.vy = 0;
         }
@@ -6094,6 +6445,24 @@ class UIManager {
 // ====== p5.js 生命周期 ======
 function preload() {
   activeFont = null;
+
+  // 让 p5.sound 更明确地识别常见格式（有些环境下可避免扩展名/解码问题）
+  if (typeof soundFormats === 'function') {
+    try { soundFormats('wav', 'mp3', 'ogg'); } catch {}
+  }
+  console.log('[SFX] preload canUseSound=', canUseSound(), 'hasLoadSound=', typeof window.loadSound, 'hasUserStartAudio=', typeof window.userStartAudio);
+
+  // 约定：把音效放到 assets/sfx/ 下（你可以替换文件名或扩展名）
+  // - assets/sfx/step_grass/0.wav, 1.wav, ...
+  // - assets/sfx/step_stone/0.wav, 1.wav, ...
+  // - assets/sfx/step_sand/0.wav, 1.wav, ...
+  // 兼容：也支持旧的单文件写法 assets/sfx/step_grass.wav 等
+  const numbered = (dir, count = 8, ext = 'wav') => Array.from({ length: count }, (_, i) => `${dir}/${i}.${ext}`);
+
+  // 注意：不在 preload 直接 loadSound，避免 AudioContext 仍是 suspended 时解码卡住
+  queueSfxList('step_grass', [...numbered('assets/sfx/step_grass', 8, 'wav'), 'assets/sfx/step_grass.wav']);
+  queueSfxList('step_stone', [...numbered('assets/sfx/step_stone', 8, 'wav'), 'assets/sfx/step_stone.wav']);
+  queueSfxList('step_sand', [...numbered('assets/sfx/step_sand', 8, 'wav'), 'assets/sfx/step_sand.wav']);
 }
 
 function setup() {
@@ -6102,7 +6471,35 @@ function setup() {
   c.elt.focus();
   c.elt.classList.add('game-canvas');
   c.elt.addEventListener('click', () => c.elt.focus());
+
+  // 兜底：某些运行方式下 preload 可能未执行，这里确保队列一定被填充
+  if (Object.keys(SFX.queuedPathsByKey || {}).length === 0) {
+    const numbered = (dir, count = 8, ext = 'wav') => Array.from({ length: count }, (_, i) => `${dir}/${i}.${ext}`);
+    queueSfxList('step_grass', [...numbered('assets/sfx/step_grass', 8, 'wav'), 'assets/sfx/step_grass.wav']);
+    queueSfxList('step_stone', [...numbered('assets/sfx/step_stone', 8, 'wav'), 'assets/sfx/step_stone.wav']);
+    queueSfxList('step_sand', [...numbered('assets/sfx/step_sand', 8, 'wav'), 'assets/sfx/step_sand.wav']);
+    if (SFX.debug) console.log('[SFX] queued in setup fallback');
+  }
+
+  // 解锁浏览器音频上下文（需要用户手势）
+  const unlockAndLoadOnce = () => {
+    try { ensureAudioUnlocked(); } catch {}
+    try { startQueuedSfxLoads(); } catch {}
+  };
+  c.elt.addEventListener('pointerdown', unlockAndLoadOnce, { passive: true, once: true });
+  window.addEventListener('keydown', unlockAndLoadOnce, { passive: true, once: true });
   c.parent('game-container');
+  console.log('[SFX] setup canUseSound=', canUseSound());
+  setTimeout(() => {
+    if (!SFX.debug) return;
+    console.log(
+      '[SFX] loaded counts:',
+      'grass=', getLoadedSoundCount('step_grass'),
+      'stone=', getLoadedSoundCount('step_stone'),
+      'sand=', getLoadedSoundCount('step_sand'),
+      'audioState=', (typeof getAudioContext === 'function' ? getAudioContext()?.state : 'n/a')
+    );
+  }, 1000);
 
   // 添加原生键盘事件监听器（备用方案，防止 p5.js 事件丢失）
   window.addEventListener('keyup', (e) => {
