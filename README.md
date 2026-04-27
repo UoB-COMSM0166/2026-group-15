@@ -546,8 +546,96 @@ UIManager ..> Player : render HUD
 UIManager ..> Game : read state
 ```
 
-### 5.2 Communication Diagram
-Write here.
+### 5.2 Behavioural Diagram
+
+#### 5.2.1 State Machine Diagram
+
+The state machine diagram shows the main flow of *Super Cat and Steve* at the screen and game-state level. The player starts from the start screen, enters level selection, chooses one of the three worlds, and then moves into the playing state. During gameplay, the player can open the field guide, return to level selection, lose the game when health reaches zero, or win when the level objective is completed.
+
+
+```mermaid
+stateDiagram-v2
+    [*] --> StartScreen
+
+    StartScreen --> LevelSelection: Press Enter / Click Start
+    StartScreen --> Settings: Click Settings
+
+    Settings --> StartScreen: Back / Esc
+
+    LevelSelection --> Playing: Select Forest / Water / Factory
+    LevelSelection --> StartScreen: Back / Esc
+
+    state Playing {
+        [*] --> Gameplay
+        Gameplay --> FieldGuide: Open Menu
+        FieldGuide --> Gameplay: Close Menu
+    }
+
+    Playing --> LevelSelection: Click Exit (in HUD)
+    Playing --> GameOver: Player health reaches 0
+    Playing --> Victory: Level objective completed
+
+    GameOver --> StartScreen: Enter / Click
+    Victory --> StartScreen: Enter / Click
+```
+
+#### 5.2.2 Activity Diagram: Core Gameplay Loop
+
+The activity diagram focuses on what happens inside a level. It shows the player exploring the environment, moving through different terrain, collecting items, mining ores, using tools, fighting or avoiding enemies, and rescuing animals. These actions affect health, inventory, score, and progress. The loop continues until the player either completes the objective and reaches victory, or loses all health and enters the game-over state.
+
+
+```mermaid
+flowchart TD
+    A[Enter Selected Level] --> B[Explore Environment]
+
+    B --> C{Player Action}
+    C --> C1[Move / Jump / Swim / Use Pipes]
+    C --> C2[Collect Items]
+    C --> C3[Mine Blocks or Ores]
+    C --> C4[Use Tool]
+    C --> C5[Attack or Avoid Enemy]
+
+    C1 --> D{Encounter Hazard or Enemy?}
+    D -->|Enemy| E{Attack or Avoid?}
+    E -->|Attack| F[Enemy Takes Damage]
+    E -->|Avoid| B
+    F --> B
+
+    D -->|Hazard| G{Correct Tool Available?}
+    G -->|Yes| H[Use Tool to Clear or Reduce Hazard]
+    G -->|No| I[Avoid Hazard]
+    H --> B
+    I --> B
+
+    C2 --> J[Add Item to Inventory / Update Status]
+    J --> B
+
+    C3 --> K{Ore Improves Weapon?}
+    K -->|Yes| L[Upgrade Weapon]
+    K -->|No| B
+    L --> B
+
+    C4 --> M{Tool Used on Rescue Target?}
+    M -->|Yes| N[Rescue Animal and Increase Score]
+    M -->|No| B
+    N --> O{Objective Reached?}
+
+    C5 --> D
+
+    B --> P{Player Takes Damage?}
+    P -->|Yes| Q[Reduce Health]
+    P -->|No| O
+    Q --> R{Health <= 0?}
+    R -->|Yes| S[Game Over]
+    R -->|No| O
+
+    O -->|Yes| T[Victory]
+    O -->|No| B
+```
+
+
+
+
 
 ### 5.3 Design Conclusion
 Write here.
