@@ -1250,7 +1250,9 @@ drawHealEffect(now) {
 handleMousePressed(mx, my) {
   const topRight = this.uiManager.getTopRightButtons();
   if (this.uiManager.isInsideRect(mx, my, topRight.exitRect)) {
-    this.resetToStartScreen();
+    this.state = "levelSelect";
+    this.showGuideMenu = false;
+    this.activeGuideTab = 0;
     return;
   }
   if (this.uiManager.isInsideRect(mx, my, topRight.menuRect)) {
@@ -5374,23 +5376,22 @@ class UIManager {
   }
 
   getGuideMenuRect() {
-    const { menuRect, exitRect } = this.getTopRightButtons();
-    const margin = 8;
-    const gapFromButtons = 8;
     const panelH = 186;
-    const buttonColRight = Math.max(menuRect.x + menuRect.w, exitRect.x + exitRect.w);
-    const x0 = buttonColRight + gapFromButtons;
-    const panelW = Math.min(Math.floor(width * 0.48), 360, Math.max(0, width - x0 - margin));
-    const x = Math.round(constrain(x0, margin, Math.max(margin, width - margin - panelW)));
-    const y = constrain(menuRect.y + menuRect.h, 0, height - panelH);
+    const panelW = Math.min(Math.floor(width * 0.4), 300, Math.max(0, width));
+    const x = Math.round((width - panelW) / 2);
+    const y = Math.round((height - panelH) / 2);
     return { x, y, w: panelW, h: panelH };
   }
 
   getGuideTabRects() {
     const panel = this.getGuideMenuRect();
-    const tabW = (panel.w - 20) / 4;
-    const tabY = panel.y + 22;
-    return [0, 1, 2, 3].map(i => ({ x: panel.x + 10 + i * tabW, y: tabY, w: tabW - 4, h: 18 }));
+    const tabCount = 3;
+    const tabGap = 4;
+    const tabW = (panel.w - 28) / tabCount;
+    const totalTabW = tabCount * tabW + (tabCount - 1) * tabGap;
+    const tabStartX = panel.x + (panel.w - totalTabW) / 2;
+    const tabY = panel.y + 30;
+    return [0, 1, 2].map(i => ({ x: tabStartX + i * (tabW + tabGap), y: tabY, w: tabW, h: 22 }));
   }
 
   isInsideRect(mx, my, rect) {
@@ -5556,21 +5557,29 @@ class UIManager {
     textSize(10);
     text(name, x + 16, y - 1);
     fill(196, 214, 255);
-    textSize(9);
+    textSize(10);
     text(desc, x + 16, y + 8, 126);
   }
 
   drawGuideRow(x, y, w, icon, name, desc) {
-    fill(34, 52, 76, 210);
-    rect(x, y, w, 28, 6);
+    fill(0, 0, 0, 85);
+    rect(x, y, w, 32);
 
     const iconX = x + 6;
     const iconY = y + 6;
-    if (icon && icon.width > 0) image(icon, iconX, iconY, 16, 16);
-    else { fill(120, 160, 220); rect(iconX, iconY, 16, 16, 3); }
+    if (icon && icon.width > 0 && icon.height > 0) {
+      const iconBoxW = 16;
+      const iconBoxH = 16;
+      const scale = Math.min(iconBoxW / icon.width, iconBoxH / icon.height);
+      const drawW = icon.width * scale;
+      const drawH = icon.height * scale;
+      const drawX = iconX + (iconBoxW - drawW) / 2;
+      const drawY = iconY + (iconBoxH - drawH) / 2;
+      image(icon, drawX, drawY, drawW, drawH);
+    } else { fill(120, 160, 220); rect(iconX, iconY, 16, 16, 3); }
 
     fill(255);
-    textSize(11);
+    textSize(10);
     text(name, x + 28, y + 12);
     fill(196, 214, 255);
     textSize(10);
@@ -5594,10 +5603,6 @@ class UIManager {
           commonTools.waterBucket
         ],
         [
-          [window.plastic_bottle, t("Plastic Bottle", "塑料瓶"), t("Collect", "收集")],
-          [window.plastic_bag, t("Plastic Bag", "塑料袋"), t("Collect", "收集")]
-        ],
-        [
           [window.turtle_0, t("Turtle", "海龟"), t("Break iron bars to rescue", "拆除铁栏杆进行救援")],
           [window.fish, t("Fish", "小鱼"), t("Cut fishing net to rescue", "剪开渔网进行救援")]
         ],
@@ -5613,11 +5618,6 @@ class UIManager {
         [
           commonTools.waterBucket,
           commonTools.limestone
-        ],
-        [
-          [window.plastic_bottle, t("Plastic Bottle", "塑料瓶"), t("Collect", "收集")],
-          [window.plastic_bag, t("Plastic Bag", "塑料袋"), t("Collect", "收集")],
-          [window.tnt, "TNT", t("Keep away", "远离")]
         ],
         [],
         [
@@ -5635,10 +5635,6 @@ class UIManager {
         commonTools.vineSeed
       ],
       [
-        [window.plastic_bottle, t("Plastic Bottle", "塑料瓶"), t("Collect", "收集")],
-        [window.plastic_bag, t("Plastic Bag", "塑料袋"), t("Collect", "收集")]
-      ],
-      [
         [window.bird, t("Bird", "小鸟"), t("Click scissors to rescue", "点击剪刀进行救援")]
       ],
       [
@@ -5650,17 +5646,16 @@ class UIManager {
   drawGuideMenu(activeGuideTab = 0) {
     const panel = this.getGuideMenuRect();
     noStroke();
-    fill(20, 32, 50, 230);
-    rect(panel.x, panel.y, panel.w, panel.h, 4);
+    fill(0, 0, 0, 85);
+    rect(panel.x, panel.y, panel.w, panel.h);
 
     fill(255);
-    textSize(14);
-    textAlign(LEFT, BASELINE);
-    text(t("Field Guide", "图鉴"), panel.x + 10, panel.y + 16);
+    textSize(12);
+    textAlign(CENTER, BASELINE);
+    text(t("Field Guide", "图鉴"), panel.x + panel.w / 2, panel.y + 24);
 
     const tabLabels = [
       t("Tools", "工具"),
-      t("Pollutants", "污染物"),
       t("Trapped", "待救援"),
       t("Danger", "危险")
     ];
@@ -5668,11 +5663,11 @@ class UIManager {
     textAlign(CENTER, CENTER);
     for (let i = 0; i < tabs.length; i++) {
       const t = tabs[i];
-      fill(i === activeGuideTab ? color(68, 110, 162, 240) : color(40, 58, 86, 210));
-      rect(t.x, t.y, t.w, t.h, 4);
+      fill(i === activeGuideTab ? color(255, 255, 255, 85) : color(0, 0, 0, 85));
+      rect(t.x, t.y, t.w, t.h);
       fill(255);
       textSize(10);
-      text(tabLabels[i], t.x + t.w / 2, t.y + t.h / 2);
+      text(tabLabels[i], t.x + t.w / 2, t.y + t.h / 2 + 2);
     }
     textAlign(LEFT, BASELINE);
 
@@ -5680,9 +5675,14 @@ class UIManager {
 
     const tabIndex = constrain(activeGuideTab, 0, rowsByTab.length - 1);
     const rows = rowsByTab[tabIndex] || [];
-    const rowX = panel.x + 12;
-    const rowW = panel.w - 24;
-    let rowY = panel.y + 48;
+    const rowLeft = tabs[0]?.x ?? (panel.x + 14);
+    const lastTab = tabs[tabs.length - 1];
+    const rowRight = lastTab ? (lastTab.x + lastTab.w) : (panel.x + panel.w - 14);
+    const rowX = rowLeft;
+    const rowW = Math.max(0, rowRight - rowLeft);
+    const rowGap = 6;
+    const firstTab = tabs[0];
+    let rowY = firstTab ? (firstTab.y + firstTab.h + rowGap) : (panel.y + 56);
 
     if (!rows.length) {
       this.drawGuideRow(
@@ -5696,7 +5696,7 @@ class UIManager {
     } else {
       for (const [icon, name, desc] of rows) {
         this.drawGuideRow(rowX, rowY, rowW, icon, name, desc);
-        rowY += 34;
+        rowY += 32 + rowGap;
       }
     }
   }
@@ -6309,16 +6309,15 @@ function getStartScreenRects() {
 function getLevelSelectRects() {
   const levelBtnW = 180;
   const levelBtnH = 200;
-  const levelBtnGap = 20;
-  const levelGroupW = levelBtnW * 3 + levelBtnGap * 2;
-  const levelStartX = width / 2 - levelGroupW / 2;
-  // Center the whole 3-button group on screen.
+  const levelBtnGap = 30;
+  const backBtnX = 20;
+  const levelStartX = backBtnX;
   const levelBtnY = height / 2 - levelBtnH / 2;
   return {
     level1: { x: levelStartX, y: levelBtnY, w: levelBtnW, h: levelBtnH },
     level2: { x: levelStartX + levelBtnW + levelBtnGap, y: levelBtnY, w: levelBtnW, h: levelBtnH },
     level3: { x: levelStartX + (levelBtnW + levelBtnGap) * 2, y: levelBtnY, w: levelBtnW, h: levelBtnH },
-    backBtn: { x: 20, y: 20, w: 140, h: 52 }
+    backBtn: { x: backBtnX, y: 20, w: 80, h: 52 }
   };
 }
 
@@ -6333,7 +6332,7 @@ function getSettingsRects() {
     fullscreen: { x: 360, y: 215, w: 180, h: 42 },
     language:   { x: 360, y: 275, w: 180, h: 42 },
 
-    backBtn:    { x: 20, y: 20, w: 140, h: 52 }
+    backBtn:    { x: 20, y: 20, w: 80, h: 52 }
   };
 }
 
@@ -6573,15 +6572,15 @@ function drawLevelSelectScreen() {
   };
   const level3BtnStyle = {
     borderColor: color(0),
-    hoverBorderColor: color(255),
-    topColor: color(255, 205, 120),
-    bottomColor: color(245, 150, 65),
-    hoverTopColor: color(255, 230, 160),
-    hoverBottomColor: color(255, 185, 95),
+    hoverBorderColor: color(0),
+    topColor: color(205, 120, 95),
+    bottomColor: color(140, 70, 50),
+    hoverTopColor: color(242, 170, 140),
+    hoverBottomColor: color(186, 116, 90),
     labelColor: color(0),
     hoverLabelColor: color(255),
-    labelStrokeColor: color(255, 240, 195),
-    hoverLabelStrokeColor: color(170, 95, 25),
+    labelStrokeColor: color(235, 205, 196),
+    hoverLabelStrokeColor: color(126, 70, 55),
     labelStrokeWeight: 4,
     labelSize: 18,
     labelYFactor: 0.13,
