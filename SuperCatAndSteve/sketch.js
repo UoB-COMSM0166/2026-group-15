@@ -154,11 +154,11 @@ const LANGUAGE_FONT_KEY_MAP = {
 const I18N_BY_EN = {
   Start: { FR: 'Démarrer', RU: 'Старт', JA: 'スタート', KO: '시작' },
   Settings: { FR: 'Paramètres', RU: 'Настройки', JA: '設定', KO: '설정' },
-  'Press Start to begin your adventure': { FR: 'Appuyez sur Démarrer pour commencer votre aventure', RU: 'Нажмите Старт, чтобы начать приключение', JA: 'スタートを押して冒険を始めよう', KO: '시작을 눌러 모험을 시작하세요' },
+  'Press  Start  to  begin  your  adventure': { FR: 'Appuyez sur Démarrer pour commencer votre aventure', RU: 'Нажмите Старт, чтобы начать приключение', JA: 'スタートを押して冒険を始めよう', KO: '시작을 눌러 모험을 시작하세요' },
   'Level 1': { FR: 'Niveau 1', RU: 'Уровень 1', JA: 'レベル1', KO: '레벨 1' },
   'Level 2': { FR: 'Niveau 2', RU: 'Уровень 2', JA: 'レベル2', KO: '레벨 2' },
   'Level 3': { FR: 'Niveau 3', RU: 'Уровень 3', JA: 'レベル3', KO: '레벨 3' },
-  'Choose your level': { FR: 'Choisissez votre niveau', RU: 'Выберите уровень', JA: 'レベルを選択', KO: '레벨을 선택하세요' },
+  'Choose  your  level': { FR: 'Choisissez votre niveau', RU: 'Выберите уровень', JA: 'レベルを選択', KO: '레벨을 선택하세요' },
   Back: { FR: 'Retour', RU: 'Назад', JA: '戻る', KO: '뒤로' },
   'Music Volume': { FR: 'Volume de la musique', RU: 'Громкость музыки', JA: '音楽音量', KO: '음악 볼륨' },
   'SFX Volume': { FR: 'Volume des effets', RU: 'Громкость эффектов', JA: '効果音音量', KO: '효과음 볼륨' },
@@ -200,24 +200,24 @@ const I18N_BY_EN = {
   'Vine ladder grown': {FR: 'Échelle de liane créée',RU: 'Лестница из лозы создана',JA: 'つるのはしごを作った',KO: '덩굴 사다리가 생성되었습니다'},
   'Cannot plant vine here': {FR: 'Impossible de planter ici',RU: 'Здесь нельзя посадить лозу',JA: 'ここには植えられない',KO: '여기에는 심을 수 없습니다'},
   'Vine seed must be planted on nearby ground': {FR: 'La graine doit être plantée sur un sol proche',RU: 'Семя лозы можно сажать только на ближайшей земле',JA: '近くの地面にしか植えられない',KO: '가까운地面にのみ植えられます'},
-  'Move with W/S/A/D, press F to attack, click inventory items to use them': {FR: 'Déplacez-vous avec W/S/A/D, appuyez sur F pour attaquer, cliquez sur les objets de l’inventaire pour les utiliser',RU: 'Двигайтесь с W/S/A/D, нажмите F для атаки, щёлкните предметы в инвентаре, чтобы использовать их',JA: 'W/S/A/Dで移動、Fキーで攻撃、インベントリ内のアイテムをクリックして使用',KO: 'W/S/A/D로 이동, F 키로 공격, 인벤토리의 아이템을 클릭해 사용'},
-  'Lava ahead. Try picking up the bucket and using it.': {FR: 'De la lave devant vous. Essayez de ramasser le seau et de l’utiliser.',RU: 'Впереди лава. Попробуйте подобрать ведро и использовать его.',JA: '前方に溶岩があります。バケツを拾って使ってみましょう。',KO: '앞에 용암이 있습니다. 양동이를 주워 사용해 보세요.'},
-  'Great! Water and fire reacted chemically. You can pass now.': {FR: 'Super ! L’eau et le feu ont réagi chimiquement. Vous pouvez passer maintenant.',RU: 'Отлично! Вода и огонь вступили в химическую реакцию. Теперь можно пройти.',JA: 'すごい！水と火が化学反応を起こしました。もう通れます。',KO: '좋아요! 물과 불이 화학 반응을 일으켰습니다. 이제 지나갈 수 있습니다.'},
-  'It\'s a zombie! Quickly press F to attack it.': {FR: 'C’est un zombie ! Appuyez vite sur F pour l’attaquer.',RU: 'Это зомби! Быстро нажмите F, чтобы атаковать его.',JA: 'ゾンビです！すぐにFキーで攻撃しましょう。',KO: '좀비입니다! 빨리 F 키로 공격하세요.'},
-  'It\'s a magic seed. It will grow into a vine ladder.': {FR: 'C’est une graine magique. Elle deviendra une échelle de lianes.',RU: 'Это волшебное семя. Оно вырастет в лиановую лестницу.',JA: '魔法の種です。つるのはしごに成長します。',KO: '마법의 씨앗입니다. 덩굴 사다리로 자랍니다.'},
-  'A pair of scissors! You can use them to rescue trapped animals.': {FR: 'Une paire de ciseaux ! Vous pouvez les utiliser pour sauver les animaux piégés.',RU: 'Ножницы! Их можно использовать, чтобы спасти пойманных животных.',JA: 'ハサミです！捕まった動物を助けるのに使えます。',KO: '가위입니다! 갇힌 동물을 구하는 데 사용할 수 있습니다.'},
-  'Oh no, a slime is blocking the way!': {FR: 'Oh non, un slime bloque le passage !',RU: 'О нет, слизень преградил путь!',JA: 'しまった、スライムが道をふさいでいる！',KO: '이런, 슬라임이 길을 막고 있어요!'},
-  'Apples are a gift from the forest. Eat them for a pleasant surprise.': {FR: 'Les pommes sont un cadeau de la forêt. Mangez-les pour une agréable surprise.',RU: 'Яблоки — дар леса. Съешьте их, и вас ждёт приятный сюрприз.',JA: 'リンゴは森からの贈り物です。食べると嬉しい効果があります。',KO: '사과는 숲의 선물입니다. 먹으면 기분 좋은 효과가 있습니다.'},
-  'Poor little bird is trapped in a net. Maybe we can help it.': {FR: 'Le pauvre petit oiseau est piégé dans un filet. Nous pouvons peut-être l’aider.',RU: 'Бедная маленькая птица попала в сеть. Возможно, мы сможем ей помочь.',JA: 'かわいそうな小鳥が網に捕まっています。助ける方法があるかもしれません。',KO: '불쌍한 작은 새가 그물에 갇혔어요. 우리가 도울 방법이 있을지도 몰라요.'},
-  'It\'s dynamite. Do not touch it!': {FR: 'C’est de la dynamite. N’y touchez pas !',RU: 'Это динамит. Не трогайте его!',JA: 'ダイナマイトです。触らないでください！',KO: '다이너마이트입니다. 절대 만지지 마세요!'},
-  'There seems to be treasure buried in the seabed gravel ahead. Click to mine it.': {FR: 'Il semble y avoir un trésor enfoui dans le gravier du fond marin. Cliquez pour le miner.',RU: 'Похоже, в морском гравии впереди спрятано сокровище. Нажмите, чтобы добыть его.',JA: '前方の海底の砂利には宝が埋まっているようです。クリックして採掘しましょう。',KO: '앞쪽 해저 자갈에 보물이 묻혀 있는 것 같습니다. 클릭하여 채굴하세요.'},
-  'Magic seashell! Maybe, like apples, it is a gift from nature.': {FR: 'Coquillage magique ! Peut-être, comme les pommes, est-ce un cadeau de la nature.',RU: 'Волшебная ракушка! Возможно, как и яблоки, это дар природы.',JA: '魔法の貝殻！リンゴのように自然からの贈り物かもしれません。',KO: '마법의 조개입니다! 사과처럼 자연이 준 선물일지도 모릅니다.'},
-  'Meow! Steve, there is a turtle that has lost its freedom.': {FR: 'Miaou ! Steve, il y a une tortue qui a perdu sa liberté.',RU: 'Мяу! Стив, там черепаха, которая лишилась свободы.',JA: 'ニャー！スティーブ、自由を失ったカメがいるよ。',KO: '야옹! 스티브, 자유를 잃은 거북이가 있어요.'},
-  'Meow! I’ve never seen such a big fish! Be careful in the deep sea.': {FR: 'Miaou ! Je n’ai jamais vu un poisson aussi grand ! Fais attention dans les profondeurs.',RU: 'Мяу! Я никогда не видел такую большую рыбу! Будь осторожен в глубоком море.',JA: 'ニャー！こんなに大きな魚は初めて見た！深海では気をつけて。',KO: '야옹! 이렇게 큰 물고기는 처음 봐요! 깊은 바다에서는 조심하세요.'},
-  'Another glowing treasure! We are really lucky.': {FR: 'Encore un trésor lumineux ! Nous avons vraiment de la chance.',RU: 'Ещё одно светящееся сокровище! Нам действительно повезло.',JA: 'また光る宝物だ！本当に運がいいね。',KO: '또 빛나는 보물이야! 정말 운이 좋네요.'},
-  'My excellent sense of smell tells me that green potion is something good.': {FR: 'Mon excellent odorat me dit que cette potion verte est une bonne chose.',RU: 'Моё отличное обоняние подсказывает, что это зелёное зелье — хорошая вещь.',JA: '優れた嗅覚によると、あの緑の薬は良いものみたいです。',KO: '제 뛰어난 후각으로 보아 저 초록 물약은 좋은 것 같아요.'},
-  'City pipes… I really don’t like water. Can we go somewhere else, meow?': {FR: 'Les tuyaux de la ville… je n’aime vraiment pas l’eau. On peut aller ailleurs, miaou ?',RU: 'Городские трубы… я правда не люблю воду. Может, пойдём в другое место, мяу?',JA: '街の配管…水は本当に苦手。別のところに行ける？ニャー？',KO: '도시의 파이프… 저는 물이 정말 싫어요. 다른 데로 갈 수 있을까요? 야옹?'},
-  'The dolphin attracts nearby tools and seashells!': {FR: 'Le dauphin attire les outils et les coquillages proches !',RU: 'Дельфин притягивает ближайшие инструменты и ракушки!',JA: 'イルカが近くの道具や貝殻を引き寄せます！',KO: '돌고래가 근처의 도구와 조개를 끌어당깁니다!'},
+  'Move  with  W/S/A/D,  press  F  to  attack,  click  inventory  items  to  use  them': {FR: 'Déplacez-vous avec W/S/A/D, appuyez sur F pour attaquer, cliquez sur les objets de l’inventaire pour les utiliser',RU: 'Двигайтесь с W/S/A/D, нажмите F для атаки, щёлкните предметы в инвентаре, чтобы использовать их',JA: 'W/S/A/Dで移動、Fキーで攻撃、インベントリ内のアイテムをクリックして使用',KO: 'W/S/A/D로 이동, F 키로 공격, 인벤토리의 아이템을 클릭해 사용'},
+  'Lava  ahead.  Try  picking  up  the  bucket  and  using  it.': {FR: 'De la lave devant vous. Essayez de ramasser le seau et de l’utiliser.',RU: 'Впереди лава. Попробуйте подобрать ведро и использовать его.',JA: '前方に溶岩があります。バケツを拾って使ってみましょう。',KO: '앞에 용암이 있습니다. 양동이를 주워 사용해 보세요.'},
+  'Great!  Water  and  fire  reacted  chemically.  You  can  pass  now.': {FR: 'Super ! L’eau et le feu ont réagi chimiquement. Vous pouvez passer maintenant.',RU: 'Отлично! Вода и огонь вступили в химическую реакцию. Теперь можно пройти.',JA: 'すごい！水と火が化学反応を起こしました。もう通れます。',KO: '좋아요! 물과 불이 화학 반응을 일으켰습니다. 이제 지나갈 수 있습니다.'},
+  'It\'s  a  zombie!  Quickly  press  F  to  attack  it.': {FR: 'C’est un zombie ! Appuyez vite sur F pour l’attaquer.',RU: 'Это зомби! Быстро нажмите F, чтобы атаковать его.',JA: 'ゾンビです！すぐにFキーで攻撃しましょう。',KO: '좀비입니다! 빨리 F 키로 공격하세요.'},
+  'It\'s  a  magic  seed.  It  will  grow  into  a  vine  ladder.': {FR: 'C’est une graine magique. Elle deviendra une échelle de lianes.',RU: 'Это волшебное семя. Оно вырастет в лиановую лестницу.',JA: '魔法の種です。つるのはしごに成長します。',KO: '마법의 씨앗입니다. 덩굴 사다리로 자랍니다.'},
+  'A  pair  of  scissors!  You  can  use  them  to  rescue  trapped  animals.': {FR: 'Une paire de ciseaux ! Vous pouvez les utiliser pour sauver les animaux piégés.',RU: 'Ножницы! Их можно использовать, чтобы спасти пойманных животных.',JA: 'ハサミです！捕まった動物を助けるのに使えます。',KO: '가위입니다! 갇힌 동물을 구하는 데 사용할 수 있습니다.'},
+  'Oh  no,  a  slime  is  blocking  the  way!': {FR: 'Oh non, un slime bloque le passage !',RU: 'О нет, слизень преградил путь!',JA: 'しまった、スライムが道をふさいでいる！',KO: '이런, 슬라임이 길을 막고 있어요!'},
+  'Apples  are  a  gift  from  the  forest.  Eat  them  for  a  pleasant  surprise.': {FR: 'Les pommes sont un cadeau de la forêt. Mangez-les pour une agréable surprise.',RU: 'Яблоки — дар леса. Съешьте их, и вас ждёт приятный сюрприз.',JA: 'リンゴは森からの贈り物です。食べると嬉しい効果があります。',KO: '사과는 숲의 선물입니다. 먹으면 기분 좋은 효과가 있습니다.'},
+  'Poor  little  bird  is  trapped  in  a  net.  Maybe  we  can  help  it.': {FR: 'Le pauvre petit oiseau est piégé dans un filet. Nous pouvons peut-être l’aider.',RU: 'Бедная маленькая птица попала в сеть. Возможно, мы сможем ей помочь.',JA: 'かわいそうな小鳥が網に捕まっています。助ける方法があるかもしれません。',KO: '불쌍한 작은 새가 그물에 갇혔어요. 우리가 도울 방법이 있을지도 몰라요.'},
+  'It\'s  dynamite.  Do  not  touch  it!': {FR: 'C’est de la dynamite. N’y touchez pas !',RU: 'Это динамит. Не трогайте его!',JA: 'ダイナマイトです。触らないでください！',KO: '다이너마이트입니다. 절대 만지지 마세요!'},
+  'There  seems  to  be  treasure  buried  in  the  seabed  gravel  ahead.  Click  to  mine  it.': {FR: 'Il semble y avoir un trésor enfoui dans le gravier du fond marin. Cliquez pour le miner.',RU: 'Похоже, в морском гравии впереди спрятано сокровище. Нажмите, чтобы добыть его.',JA: '前方の海底の砂利には宝が埋まっているようです。クリックして採掘しましょう。',KO: '앞쪽 해저 자갈에 보물이 묻혀 있는 것 같습니다. 클릭하여 채굴하세요.'},
+  'Magic  seashell!  Maybe,  like  apples,  it  is  a  gift  from  nature.': {FR: 'Coquillage magique ! Peut-être, comme les pommes, est-ce un cadeau de la nature.',RU: 'Волшебная ракушка! Возможно, как и яблоки, это дар природы.',JA: '魔法の貝殻！リンゴのように自然からの贈り物かもしれません。',KO: '마법의 조개입니다! 사과처럼 자연이 준 선물일지도 모릅니다.'},
+  'Meow!  Steve,  there  is  a  turtle  that  has  lost  its  freedom.': {FR: 'Miaou ! Steve, il y a une tortue qui a perdu sa liberté.',RU: 'Мяу! Стив, там черепаха, которая лишилась свободы.',JA: 'ニャー！スティーブ、自由を失ったカメがいるよ。',KO: '야옹! 스티브, 자유를 잃은 거북이가 있어요.'},
+  'Meow!  I’ve  never  seen  such  a  big  fish!  Be  careful  in  the  deep  sea.': {FR: 'Miaou ! Je n’ai jamais vu un poisson aussi grand ! Fais attention dans les profondeurs.',RU: 'Мяу! Я никогда не видел такую большую рыбу! Будь осторожен в глубоком море.',JA: 'ニャー！こんなに大きな魚は初めて見た！深海では気をつけて。',KO: '야옹! 이렇게 큰 물고기는 처음 봐요! 깊은 바다에서는 조심하세요.'},
+  'Another  glowing  treasure!  We  are  really  lucky.': {FR: 'Encore un trésor lumineux ! Nous avons vraiment de la chance.',RU: 'Ещё одно светящееся сокровище! Нам действительно повезло.',JA: 'また光る宝物だ！本当に運がいいね。',KO: '또 빛나는 보물이야! 정말 운이 좋네요.'},
+  'My  excellent  sense  of  smell  tells  me  that  green  potion  is  something  good.': {FR: 'Mon excellent odorat me dit que cette potion verte est une bonne chose.',RU: 'Моё отличное обоняние подсказывает, что это зелёное зелье — хорошая вещь.',JA: '優れた嗅覚によると、あの緑の薬は良いものみたいです。',KO: '제 뛰어난 후각으로 보아 저 초록 물약은 좋은 것 같아요.'},
+  'City  pipes…  I  really  don’t  like  water.  Can  we  go  somewhere  else,  meow?': {FR: 'Les tuyaux de la ville… je n’aime vraiment pas l’eau. On peut aller ailleurs, miaou ?',RU: 'Городские трубы… я правда не люблю воду. Может, пойдём в другое место, мяу?',JA: '街の配管…水は本当に苦手。別のところに行ける？ニャー？',KO: '도시의 파이프… 저는 물이 정말 싫어요. 다른 데로 갈 수 있을까요? 야옹?'},
+  'The  dolphin  attracts  nearby  tools  and  seashells!': {FR: 'Le dauphin attire les outils et les coquillages proches !',RU: 'Дельфин притягивает ближайшие инструменты и ракушки!',JA: 'イルカが近くの道具や貝殻を引き寄せます！',KO: '돌고래가 근처의 도구와 조개를 끌어당깁니다!'},
 
 };
 let activeFont;
@@ -1280,7 +1280,7 @@ handleMousePressed(mx, my) {
   if (item instanceof Tool) {
     const used = this.handleSelectedToolUse(slotIndex, item);
     if (!used) {
-      this.showToolHint(t("No valid target nearby", "附近没有可交互目标"));
+      this.showToolHint(t("No  valid  target  nearby", "附近没有可交互目标"));
     }
   }
 }
@@ -1430,7 +1430,7 @@ if (changed > 0) {
   }
   if (!this.triggeredTutorialHints.has('forest_water_lava_reaction_done')) {
     this.tutorialHintMessage = t(
-      'Great! Water and fire reacted chemically. You can pass now.',
+      'Great!  Water  and  fire  reacted  chemically.  You  can  pass  now.',
       '太棒了！水火发生化学反应，可以正常通行了'
     );
     this.tutorialHintUntil = millis() + 5000;
@@ -1556,7 +1556,7 @@ updateDolphinMagnet() {
   // 海豚离场只在第 70 列后生效
   if (playerCol > DOLPHIN_END_COL) {
     dolphin.dismount(this.player);
-    this.showToolHint(t("The dolphin swims away after helping you!", "海豚完成帮助后游走了！"), 1800);
+    this.showToolHint(t("The  dolphin  swims  away  after  helping  you!", "海豚完成帮助后游走了！"), 1800);
     return;
   }
 
@@ -1622,7 +1622,7 @@ updateDolphinMagnet() {
       if (!this.player.dolphinUsed) {
       item.mount(this.player);
       this.showToolHint(t(
-        "The dolphin attracts nearby tools and seashells!",
+        "The  dolphin  attracts  nearby  tools  and  seashells!",
         "海豚会帮你吸引附近的工具和贝壳！"
     ), 3800);
   }
@@ -1726,7 +1726,7 @@ checkTutorialHintZones() {
       startCol: 0,
       endCol: 4,
       message: t(
-        'Move with W/S/A/D, press F to attack, click inventory items to use them',
+        'Move  with  W/S/A/D,  press  F  to  attack,  click  inventory  items  to  use  them',
         'W/S/A/D 控制人物移动，按 F 键攻击，鼠标单击物品栏内的物品以使用物品'
       ),
       duration: 6000
@@ -1741,7 +1741,7 @@ checkTutorialHintZones() {
         startCol: 6,
         endCol: 6,
         message: t(
-          'Lava ahead. Try picking up the bucket and using it.',
+          'Lava  ahead.  Try  picking  up  the  bucket  and  using  it.',
           '前面有岩浆，试试拾取水桶并使用吧'
         ),
         duration: 6000
@@ -1751,7 +1751,7 @@ checkTutorialHintZones() {
         startCol: 15,
         endCol: 15,
         message: t(
-          'It\'s a zombie! Quickly press F to attack it.',
+          'It\'s  a  zombie!  Quickly  press  F  to  attack  it.',
           '是僵尸！快使用 F 键攻击他'
         ),
         duration: 5000
@@ -1761,7 +1761,7 @@ checkTutorialHintZones() {
         startCol: 21,
         endCol: 21,
         message: t(
-          'It\'s a magic seed. It will grow into a vine ladder.',
+          'It\'s  a  magic  seed.  It  will  grow  into  a  vine  ladder.',
           '是魔法种子，他会长成一个藤蔓梯子'
         ),
         duration: 5000
@@ -1771,7 +1771,7 @@ checkTutorialHintZones() {
         startCol: 28,
         endCol: 28,
         message: t(
-          'A pair of scissors! You can use them to rescue trapped animals.',
+          'A  pair  of  scissors!  You  can  use  them  to  rescue  trapped  animals.',
           '一把剪刀！可以用来解救被困的小动物'
         ),
         duration: 5000
@@ -1781,7 +1781,7 @@ checkTutorialHintZones() {
         startCol: 75,
         endCol: 75,
         message: t(
-          'Oh no, a slime is blocking the way!',
+          'Oh  no,  a  slime  is  blocking  the  way!',
           '哦不，史莱姆挡住了去路'
         ),
         duration: 5000
@@ -1791,7 +1791,7 @@ checkTutorialHintZones() {
         startCol: 42,
         endCol: 42,
         message: t(
-          'Apples are a gift from the forest. Eat them for a pleasant surprise.',
+          'Apples  are  a  gift  from  the  forest.  Eat  them  for  a  pleasant  surprise.',
           '苹果是森林的礼物，吃下会有惊喜哦'
         ),
         duration: 5000
@@ -1801,7 +1801,7 @@ checkTutorialHintZones() {
         startCol: 71,
         endCol: 71,
         message: t(
-          'Poor little bird is trapped in a net. Maybe we can help it.',
+          'Poor  little  bird  is  trapped  in  a  net.  Maybe  we  can  help  it.',
           '可怜的小鸟被网困住了，也许我们有办法救他'
         ),
         duration: 5000
@@ -1811,7 +1811,7 @@ checkTutorialHintZones() {
         startCol: 96,
         endCol: 96,
         message: t(
-          'It\'s dynamite. Do not touch it!',
+          'It\'s  dynamite.  Do  not  touch  it!',
           '是炸药，千万不要接触他'
         ),
         duration: 5000
@@ -1828,7 +1828,7 @@ checkTutorialHintZones() {
       startCol: 15,
       endCol: 15,
       message: t(
-        'There seems to be treasure buried in the seabed gravel ahead. Click to mine it.',
+        'There  seems  to  be  treasure  buried  in  the  seabed  gravel  ahead.  Click  to  mine  it.',
         '前方的海底沙砾里似乎埋藏着宝藏，单击以挖矿'
       ),
       duration: 6000
@@ -1838,7 +1838,7 @@ checkTutorialHintZones() {
       startCol: 22,
       endCol: 22,
       message: t(
-        'Magic seashell! Maybe, like apples, it is a gift from nature.',
+        'Magic  seashell!  Maybe,  like  apples,  it  is  a  gift  from  nature.',
         '神奇海螺！也许和苹果一样是自然的馈赠'
       ),
       duration: 5000
@@ -1848,7 +1848,7 @@ checkTutorialHintZones() {
       startCol: 41,
       endCol: 41,
       message: t(
-        'Meow! Steve, there is a turtle that has lost its freedom.',
+        'Meow!  Steve,  there  is  a  turtle  that  has  lost  its  freedom.',
         '喵！史蒂夫，那儿有一只失去自由的海龟'
       ),
       duration: 5000
@@ -1858,7 +1858,7 @@ checkTutorialHintZones() {
       startCol: 9,
       endCol: 9,
       message: t(
-        'Meow! I’ve never seen such a big fish! Be careful in the deep sea.',
+        'Meow!  I’ve  never  seen  such  a  big  fish!  Be  careful  in  the  deep  sea.',
         '从来没见过这么大的鱼，在深海里要小心'
       ),
       duration: 5000
@@ -1868,7 +1868,7 @@ checkTutorialHintZones() {
       startCol: 73,
       endCol: 73,
       message: t(
-        'Another glowing treasure! We are really lucky.',
+        'Another  glowing  treasure!  We  are  really  lucky.',
         '又有发光的宝藏了，我们运气真好'
       ),
       duration: 5000
@@ -1884,7 +1884,7 @@ checkTutorialHintZones() {
         startCol: 16,
         endCol: 16,
         message: t(
-          'My excellent sense of smell tells me that green potion is something good.',
+          'My  excellent  sense  of  smell  tells  me  that  green  potion  is  something  good.',
           '从我出色的嗅觉来看，那瓶绿色药剂是好东西呢'
         ),
         duration: 5000
@@ -1894,7 +1894,7 @@ checkTutorialHintZones() {
         startCol: 25,
         endCol: 25,
         message: t(
-          'City pipes… I really don’t like water. Can we go somewhere else, meow?',
+          'City  pipes…  I  really  don’t  like  water.  Can  we  go  somewhere  else,  meow?',
           '人类的城市管道……我真的不喜欢水，我们可以去别的地方吗，喵'
         ),
         duration: 5000
@@ -1925,62 +1925,54 @@ drawTopCenterHint() {
   }
 
   if (!message) return;
+  const displayMessage = `: ${message}`;
 
   push();
 
   textSize(12);
-  textAlign(LEFT, CENTER);
+  textAlign(CENTER, CENTER);
   noStroke();
 
-  const catImg = window.followPlayerCat;
+  const catImg = window.uiCatHead;
 
-  const catW = 42;
-  const catH = 20;
+  const catW = 12;
+  const catH = 12;
+  const catGap = 6;
   const paddingX = 12;
-  const paddingY = 7;
-  const gap = 8;
 
-  const textW = textWidth(message);
-  const bubbleW = textW + paddingX * 2;
-  const bubbleH = 26;
+  const textW = textWidth(displayMessage);
+  const totalW = catW + catGap + textW;
+  const groupStartX = (width - totalW) / 2;
+  const catX = groupStartX + catW / 2;
+  const textX = groupStartX + catW + catGap + textW / 2;
+  const textY = TOP_PROGRESS_BAR_Y + TOP_PROGRESS_BAR_H + 20;
+  const catY = textY - 2;
 
-  const totalW = catW + gap + bubbleW;
-
-  const startX = (width - totalW) / 2;
-  const bubbleX = startX + catW + gap;
-  const centerY = height - INV_BAR_H - 20;
-
-  // 小猫贴图
-  if (catImg && catImg.width > 0) {
-    imageMode(CENTER);
-    image(catImg, startX + catW / 2, centerY, catW, catH);
-  } else {
-    fill(255, 220, 160);
-    rect(startX, centerY - catH / 2, catW, catH, 4);
-  }
-
-  // 气泡主体
   rectMode(CORNER);
-  fill(255, 255, 255, 230);
-  stroke(45, 45, 55, 220);
-  strokeWeight(2);
-  rect(bubbleX, centerY - bubbleH / 2, bubbleW, bubbleH, 7);
 
-  // 气泡左侧小尖角
-  fill(255, 255, 255, 230);
-  triangle(
-    bubbleX,
-    centerY - 5,
-    bubbleX,
-    centerY + 5,
-    bubbleX - 8,
-    centerY
-  );
+  // 文字底部半透明黑色高亮
+  const textHighlightH = 14;
+  const textHighlightLeftExtend = catW + catGap + 4;
+  const textHighlightW = textW + 16 + textHighlightLeftExtend;
+  const textHighlightY = textY - textHighlightH / 2 - 2;
+  const textHighlightX = textX - (textW + 16) / 2 - textHighlightLeftExtend;
+  noStroke();
+  fill(0, 0, 0, 85);
+  rect(textHighlightX, textHighlightY, textHighlightW, textHighlightH);
 
   // 文字
   noStroke();
-  fill(35, 35, 45);
-  text(message, bubbleX + paddingX, centerY);
+  fill(255);
+  text(displayMessage, textX, textY);
+
+  // 小猫贴图（置于高亮和文字上层）
+  if (catImg && catImg.width > 0) {
+    imageMode(CENTER);
+    image(catImg, catX, catY, catW, catH);
+  } else {
+    fill(255, 220, 160);
+    rect(catX - catW / 2, catY - catH / 2, catW, catH, 4);
+  }
 
   pop();
 }
@@ -5806,6 +5798,7 @@ function setup() {
   load('assets/pic/ui/trophy_fill.png', 'trophyFill');
   load('assets/pic/ui/progress.png', 'uiProgress');
   load('assets/pic/ui/cat.png', 'followPlayerCat');
+  load('assets/pic/ui/cat_head.png', 'uiCatHead');
   load('assets/pic/ui/inventory_container.png', 'invContainer');
   load('assets/pic/player_cat/cat_right.png', 'inventoryProgressCat');
   load('assets/pic/ui/menu.png', 'uiMenu');
@@ -6472,7 +6465,7 @@ drawMenuButton(
   settingsBtnStyle
 );
 
-const startHintText = t("Press Start to begin your adventure!", "点击开始进入游戏！");
+const startHintText = t("Press  Start  to  begin  your  adventure!", "点击开始进入游戏！");
 const startHintX = width / 2;
 const startHintY = ui.settingsBtn.y + ui.settingsBtn.h + 60;
 const pulseScale = 1 + 0.01 * sin(millis() * 0.006);
@@ -6644,7 +6637,7 @@ function drawLevelSelectScreen() {
     level3BtnStyle
   );
 
-  const levelHintText = t("Choose your level!", "请选择关卡！");
+  const levelHintText = t("Choose  your  level!", "请选择关卡！");
   const levelHintX = width / 2;
   const startUi = getStartScreenRects();
   const levelHintY = startUi.settingsBtn.y + startUi.settingsBtn.h + 60;
