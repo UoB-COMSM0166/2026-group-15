@@ -5869,9 +5869,11 @@ function draw() {
     game.draw();
   }
   else if (game.state === "gameover") {
+    game.draw();
     drawGameOverScreen();
   }
   else if (game.state === "victory") {
+    game.draw();
     drawVictoryScreen();
   }
 }
@@ -6782,34 +6784,133 @@ function drawSettingsScreen() {
 }
 
 
+function drawSplitOverlayTitle(wordText, centerX, centerY, topColor, bottomColor, outlineColor = [0, 0, 0], outlineWeight = 10) {
+  const w = textWidth(wordText);
+  const h = textAscent() + textDescent();
+  const topY = centerY - h / 2;
+  const splitY = centerY;
+  const pad = 10;
+
+  // Dark outline/base.
+  stroke(outlineColor[0], outlineColor[1], outlineColor[2], 255);
+  strokeWeight(outlineWeight);
+  fill(outlineColor[0], outlineColor[1], outlineColor[2], 255);
+  text(wordText, centerX, centerY + 2);
+
+  // Top half color.
+  drawingContext.save();
+  drawingContext.beginPath();
+  drawingContext.rect(centerX - w / 2 - pad, topY - pad, w + pad * 2, (splitY - topY) + pad);
+  drawingContext.clip();
+  noStroke();
+  fill(topColor[0], topColor[1], topColor[2]);
+  text(wordText, centerX, centerY);
+  drawingContext.restore();
+
+  // Bottom half color.
+  drawingContext.save();
+  drawingContext.beginPath();
+  drawingContext.rect(centerX - w / 2 - pad, splitY, w + pad * 2, (topY + h - splitY) + pad);
+  drawingContext.clip();
+  noStroke();
+  fill(bottomColor[0], bottomColor[1], bottomColor[2]);
+  text(wordText, centerX, centerY);
+  drawingContext.restore();
+}
+
 //===== gameover screen ======
 function drawGameOverScreen() {
-  background(0);
-  fill(255, 0, 0);
+  noStroke();
+  fill(0, 0, 0, 150);
+  rect(0, 0, width, height);
+
+  // 每行文字独立样式（可分别调文字色/描边色）
+  const gameOverTitleStyle = {
+    topColor: [253, 184, 0],
+    bottomColor: [234, 124, 0],
+    outlineColor: [0, 0, 0],
+    outlineWeight: 10
+  };
+  const gameOverHintStyle = { fill: [0, 0, 0], stroke: [0, 0, 0], strokeWeight: 3 };
+
   textAlign(CENTER, CENTER);
-  textSize(52);
-  text(t("GAME OVER", "游戏结束"), width / 2, height / 2 - 40);
-  textSize(24);
-  fill(255);
-  text(t("Press ENTER to Restart", "按 ENTER 重新开始"), width / 2, height / 2 + 20);
+  textSize(48);
+  drawSplitOverlayTitle(
+    t("YOU LOSE!", "你失败了！"),
+    width / 2,
+    height / 2,
+    gameOverTitleStyle.topColor,
+    gameOverTitleStyle.bottomColor,
+    gameOverTitleStyle.outlineColor,
+    gameOverTitleStyle.outlineWeight
+  );
+
+  textSize(16);
+  const gameOverHintText = t("Press  ENTER  to  Restart.", "按 ENTER 重新开始。");
+  const gameOverHintX = width / 2;
+  const gameOverHintY = height - 32;
+  const gameOverHintPulseScale = 1 + 0.01 * sin(millis() * 0.006);
+  noStroke();
+  push();
+  translate(gameOverHintX + 1.5, gameOverHintY + 1.5);
+  scale(gameOverHintPulseScale);
+  fill(0, 0, 0, 170);
+  text(gameOverHintText, 0, 0);
+  pop();
+  push();
+  translate(gameOverHintX, gameOverHintY);
+  scale(gameOverHintPulseScale);
+  fill(255, 255, 0);
+  text(gameOverHintText, 0, 0);
+  pop();
 }
 
 
 function drawVictoryScreen() {
-  background(0, 100, 50); // 深绿色背景
-  fill(200, 255, 150); // 浅绿色文字
+  noStroke();
+  fill(0, 0, 0, 150);
+  rect(0, 0, width, height);
+
+  // 每行文字独立样式（可分别调文字色/描边色）
+  const victoryTitleStyle = {
+    topColor: [122, 214, 252],
+    bottomColor: [73, 140, 253],
+    outlineColor: [0, 0, 0],
+    outlineWeight: 10
+  };
+  const victoryScoreStyle = { fill: [0, 0, 0], stroke: [0, 0, 0], strokeWeight: 3 };
+  const victoryHintStyle = { fill: [0, 0, 0], stroke: [0, 0, 0], strokeWeight: 3 };
+
   textAlign(CENTER, CENTER);
-  textSize(52);
-  text(t("Victory!", "胜利!"), width / 2, height / 2 - 60);
+  textSize(48);
+  drawSplitOverlayTitle(
+    t("YOU WIN!", "你赢了！"),
+    width / 2,
+    height / 2,
+    victoryTitleStyle.topColor,
+    victoryTitleStyle.bottomColor,
+    victoryTitleStyle.outlineColor,
+    victoryTitleStyle.outlineWeight
+  );
   
-  // 显示分数
-  textSize(36);
-  fill(255, 255, 100); // 金黄色
-  text(`${t("Score", "得分")}: ${game.player.score}`, width / 2, height / 2);
-  
-  textSize(28);
-  fill(200, 255, 150);
-  text(t("Press ENTER to Play Again", "按 ENTER 再玩一次"), width / 2, height / 2 + 60);
+  textSize(16);
+  const victoryHintText = t("Press  ENTER  to  Play  Again.", "按 ENTER 再玩一次。");
+  const victoryHintX = width / 2;
+  const victoryHintY = height - 32;
+  const victoryHintPulseScale = 1 + 0.01 * sin(millis() * 0.006);
+  noStroke();
+  push();
+  translate(victoryHintX + 1.5, victoryHintY + 1.5);
+  scale(victoryHintPulseScale);
+  fill(0, 0, 0, 170);
+  text(victoryHintText, 0, 0);
+  pop();
+  push();
+  translate(victoryHintX, victoryHintY);
+  scale(victoryHintPulseScale);
+  fill(255, 255, 0);
+  text(victoryHintText, 0, 0);
+  pop();
 }
 
 
