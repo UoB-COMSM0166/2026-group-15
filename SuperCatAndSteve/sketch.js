@@ -4074,7 +4074,6 @@ class WaterLevel extends Level {
 
     // ===== 敌人和物品生成（基于当前地形）=====
     this.enemies.push(new Drowned(6 * TILE_SIZE - 16, 96, 64, 64));
-    this.enemies.push(new Drowned(17 * TILE_SIZE - 16, 32, 64, 64));
     this.enemies.push(new Drowned(39 * TILE_SIZE - 16, 96, 64, 64));
     this.enemies.push(new Drowned(52 * TILE_SIZE - 16, 232, 64, 64));
     this.enemies.push(new Shark(15 * TILE_SIZE, 150, 84, 68));
@@ -6955,8 +6954,7 @@ class UIManager {
       return [
         [
           commonTools.scissor,
-          commonTools.wrench,
-          commonTools.waterBucket
+          commonTools.wrench
         ],
         [
           [window.turtle_0, t("Turtle", "海龟"), t("Break iron bars to rescue", "拆除铁栏杆进行救援")],
@@ -6972,13 +6970,14 @@ class UIManager {
     if (levelType === "factory") {
       return [
         [
-          commonTools.waterBucket,
           commonTools.limestone
         ],
-        [],
+        [
+          [window.rabbit, t("Rabbit", "兔子"), t("Press button to rescue", "按下按钮进行救援")]
+        ],
         [
           [window.tile_spike, t("Spike", "尖刺"), t("Retracts and extends periodically", "会周期性升降并持续造成伤害")],
-          [window.slimeSprite, t("Slime", "史莱姆"), t("Press F to attack", "按 F 攻击")],
+          [window.tile_acid, t("Acid Pool", "酸液池"), t("Use limestone to neutralize", "使用石灰石中和")],
           [window.vexSprite0, t("Vex", "怨灵"), t("Keep distance or attack", "保持距离或攻击")]
         ]
       ];
