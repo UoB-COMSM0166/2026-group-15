@@ -4235,6 +4235,15 @@ class WaterLevel extends Level {
   drawTrees() {
     // 水关：treeColumns 既包含树木，也包含水下植物/珊瑚，只做装饰，不参与碰撞
     if (!this.treeColumns) return;
+    const oceanDecorKinds = new Set([
+      'seagrass', 'tall_seagrass_1', 'tall_seagrass_2',
+      'tube_coral', 'tube_coral_fan',
+      'horn_coral', 'horn_coral_fan',
+      'fire_coral', 'fire_coral_fan',
+      'bubble_coral', 'bubble_coral_fan',
+      'brain_coral', 'brain_coral_fan',
+      'kelp_1', 'kelp_2', 'kelp_3', 'kelp_4', 'kelp_5'
+    ]);
 
     const spriteMap = {
       log: window.tile_oak_log,
@@ -4268,6 +4277,7 @@ class WaterLevel extends Level {
 
     push();
     imageMode(CORNER);
+    const t = millis() * 0.001;
 
     for (let col = 0; col < this.treeColumns.length; col++) {
       const column = this.treeColumns[col] || [];
@@ -4275,8 +4285,16 @@ class WaterLevel extends Level {
         const kind = column[i];
         if (!kind || kind === T.NONE) continue;
 
-        const x = col * TILE_SIZE;
-        const y = 360 - (i + 1) * TILE_SIZE;
+        const baseX = col * TILE_SIZE;
+        const baseY = 360 - (i + 1) * TILE_SIZE;
+        let x = baseX;
+        let y = baseY;
+        if (oceanDecorKinds.has(kind)) {
+          const phase = col * 0.83 + i * 0.47;
+          // 轻微左右漂移 + 轻微下沉后回位（不改碰撞，仅视觉）
+          x += Math.sin(t * 1.05 + phase) * 1.8;
+          y += ((Math.sin(t * 0.78 + phase * 1.31) + 1) * 0.5) * 1.6;
+        }
 
         const img = spriteMap[kind];
         if (img && img.width > 0) {
@@ -4418,6 +4436,9 @@ class WaterLevel extends Level {
       rect(0, 0, WORLD_WIDTH, CANVAS_H);
     }
 
+    // 背景装饰：先于地形绘制，确保装饰层位于实体地形下方
+    this.drawTrees();
+
     // ===== 上层：正常地形（沙子/石头/水池等），逻辑与判定保持不变 =====
     for (let col = 0; col < TERRAIN_COLS; col++) {
       for (let row = 0; row < (this.tileMap[col]?.length || 0); row++) {
@@ -4427,9 +4448,6 @@ class WaterLevel extends Level {
         drawTile(type, col * TILE_SIZE, y);
       }
     }
-
-    // 背景树：画在地形之后、实体之前（纯背景，无碰撞/交互）
-    this.drawTrees();
 
     // 绘制浮空平台、敌人、物品（生命值≤0 的敌人不绘制，已在 checkCollisions 中从列表移除）
     this.platforms.filter(p => !p.isTerrain).forEach(p => p.draw());
