@@ -125,6 +125,7 @@ This changes the purpose of play. Progress is not only about reaching the end of
 
 <br>
 
+
 #### Main Tasks
 
 <div align="center">
@@ -150,48 +151,61 @@ This changes the purpose of play. Progress is not only about reaching the end of
 
 <br>
 
+
+#### Tools and Useful Items
+
 #### Tools and Useful Items
 
 <div align="center">
 
-<table border="1" cellpadding="12" cellspacing="0">
-  <tr>
-    <td align="center" width="16.6%">
-      <img src="./SuperCatAndSteve/assets/pic/item/tool/scissor.png" width="90" alt="Scissors"><br><br>
-      <strong>Scissors</strong><br>
-      Cut traps and nets. Used to rescue birds and fish.
-    </td>
-    <td align="center" width="16.6%">
-      <img src="./SuperCatAndSteve/assets/pic/item/tool/enlarged_water_bucket.png" width="90" alt="Water Bucket"><br><br>
-      <strong>Water Bucket</strong><br>
-      Used to deal with environmental hazards such as lava.
-    </td>
-    <td align="center" width="16.6%">
-      <img src="./SuperCatAndSteve/assets/pic/item/tool/limestone.png" width="90" alt="Limestone"><br><br>
-      <strong>Limestone</strong><br>
-      Used to neutralise acid pools.
-    </td>
-    <td align="center" width="16.6%">
-      <img src="./SuperCatAndSteve/assets/pic/item/tool/seed.png" width="90" alt="Vine Seed"><br><br>
-      <strong>Vine Seed</strong><br>
-      Used to grow a climbable vine in the forest level.
-    </td>
-    <td align="center" width="16.6%">
-      <img src="./SuperCatAndSteve/assets/pic/item/tool/vine.png" width="90" alt="Vine"><br><br>
-      <strong>Vine</strong><br>
-      Created after using the vine seed. It works as a ladder and helps the player reach higher platforms.
-    </td>
-    <td align="center" width="16.6%">
-      <img src="./SuperCatAndSteve/assets/pic/item/tool/wrench.png" width="90" alt="Wrench"><br><br>
-      <strong>Wrench</strong><br>
-      Used to break iron cage and rescue turtles.
-    </td>
-  </tr>
-</table>
+  <table border="1" cellpadding="12" cellspacing="0" width="80%">
+    <tr>
+      <td align="center" width="33.3%">
+        <img src="./SuperCatAndSteve/assets/pic/item/tool/enlarged_water_bucket.png" width="90" alt="Water Bucket"><br><br>
+        <strong>Water Bucket</strong><br>
+        A versatile container used to deal with environmental hazards, such as cooling down lava to pass safely.
+      </td>
+      <td align="center" width="33.3%">
+        <img src="./SuperCatAndSteve/assets/pic/item/tool/scissor.png" width="90" alt="Scissors"><br><br>
+        <strong>Scissors</strong><br>
+        Used to cut traps and nets found in the environment. Essential for rescuing trapped birds and fish.
+      </td>
+      <td align="center" width="33.3%">
+        <img src="./SuperCatAndSteve/assets/pic/cursor/cursor_mine.png" width="90" alt="Mining Tool"><br><br>
+        <strong>Mining Tool</strong><br>
+        A specialized tool used for mining precious minerals or breaking through specific environmental blocks.
+      </td>
+    </tr>
+  </table>
+
+  <br>
+
+  <table border="1" cellpadding="12" cellspacing="0" width="100%">
+    <tr>
+      <td align="center" width="25%">
+        <img src="./SuperCatAndSteve/assets/pic/item/tool/seed.png" width="90" alt="Vine Seed"><br><br>
+        <strong>Vine Seed</strong><br>
+        Can be planted in specific spots within the forest level to quickly grow a tall, climbable vine.
+      </td>
+      <td align="center" width="25%">
+        <img src="./SuperCatAndSteve/assets/pic/item/tool/vine.png" width="30" alt="Vine"><br><br>
+        <strong>Vine</strong><br>
+        Created after using the vine seed. It works as a ladder and helps the player reach higher platforms.
+      </td>
+      <td align="center" width="25%">
+        <img src="./SuperCatAndSteve/assets/pic/item/tool/wrench.png" width="90" alt="Wrench"><br><br>
+        <strong>Wrench</strong><br>
+        A heavy-duty tool used to break iron cages and rescue turtles held captive in the factory level.
+      </td>
+      <td align="center" width="25%">
+        <img src="./SuperCatAndSteve/assets/pic/item/tool/limestone.png" width="90" alt="Limestone"><br><br>
+        <strong>Limestone</strong><br>
+        A reactive mineral used to neutralise dangerous acid pools, making them safe for the player to cross.
+      </td>
+    </tr>
+  </table>
 
 </div>
-
-<br>
 
 #### Healing Items
 
