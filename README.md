@@ -199,22 +199,22 @@ This changes the purpose of play. Progress is not only about reaching the end of
 
 <table border="1" cellpadding="12" cellspacing="0">
   <tr>
-    <td align="center" width="50%">
+    <td align="center" width="25%">
       <img src="./SuperCatAndSteve/assets/pic/item/hp/apple.png" width="90" alt="Apple"><br><br>
       <strong>Apple</strong><br>
       A healing item that Restores health when collected. Appears in forest level.
     </td>
-    <td align="center" width="50%">
+    <td align="center" width="25%">
       <img src="./SuperCatAndSteve/assets/pic/item/hp/golden_apple.png" width="90" alt="Golden Apple"><br><br>
       <strong>Golden Apple</strong><br>
       A stronger healing item that restores more health than a normal apple. Appears in forest level.
     </td>
-      <td align="center" width="50%">
+      <td align="center" width="25%">
       <img src="./SuperCatAndSteve/assets/pic/item/hp/seashell.png" width="90" alt="Sea Shell"><br><br>
       <strong>Sea Shell</strong><br>
       A natural healing item that restores health. Appears in ocean level.
     </td>
-        <td align="center" width="50%">
+        <td align="center" width="25%">
       <img src="./SuperCatAndSteve/assets/pic/item/hp/potion_bottle.png" width="90" alt="potion bottle"><br><br>
       <strong>Potion</strong><br>
       A magical healing item that restores health. Appears in factory level.
@@ -232,20 +232,25 @@ This changes the purpose of play. Progress is not only about reaching the end of
 
 <table border="1" cellpadding="12" cellspacing="0">
   <tr>
-    <td align="center" width="33%">
+    <td align="center" width="25%">
       <img src="./SuperCatAndSteve/assets/pic/animals/bird.png" width="100" alt="Bird"><br><br>
       <strong>Bird</strong><br>
       It is caught in a trap and can be freed with scissors.
     </td>
-    <td align="center" width="33%">
+    <td align="center" width="25%">
       <img src="./SuperCatAndSteve/assets/pic/animals/turtle_0.png" width="100" alt="Turtle"><br><br>
       <strong>Turtle</strong><br>
       It is trapped in an iron cage and can be freed with wrenches.
     </td>
-    <td align="center" width="33%">
+    <td align="center" width="25%">
       <img src="./SuperCatAndSteve/assets/pic/animals/fish.png" width="100" alt="Fish"><br><br>
       <strong>Fish</strong><br>
       It is trapped in a net and can be freed with scissors.
+    </td>
+      <td align="center" width="25%">
+      <img src="./SuperCatAndSteve/assets/pic/animals/rabbit.png" width="100" alt="Rabbit"><br><br>
+      <strong>Fish</strong><br>
+      It is trapped in a cage and can be freed by pushing the button.
     </td>
   </tr>
 </table>
