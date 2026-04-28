@@ -101,6 +101,8 @@ const SFX = {
     pour: 200,
     recover: 160,
     trophy: 100,
+    sword: 120,
+    cat: 120,
     click: 120,
     win: 500,
     lost: 500,
@@ -109,6 +111,118 @@ const SFX = {
   },
   lastPlayedAtByKey: Object.create(null)
 };
+
+// ====== 背景音乐（BGM） ======
+const BGM_TRACKS = {
+  menu: "assets/bgm/01-Stardew Valley Overture.wav",
+  forest: "assets/bgm/18-Summer (Nature's Crescendo).wav",
+  water: "assets/bgm/76-Mermaid Song.wav",
+  factory: "assets/bgm/57-Mines (Star Lumpy).wav"
+};
+
+const BGM = {
+  audiosByKey: Object.create(null),
+  currentKey: null,
+  inited: false
+};
+
+function getMusicMasterVolume01() {
+  const v = Number(game?.settings?.musicVolume ?? 80);
+  return constrain(v / 100, 0, 1);
+}
+
+function clampVolume100(v, fallback = 80) {
+  const n = Number(v);
+  if (!Number.isFinite(n)) return fallback;
+  return constrain(Math.round(n), 0, 100);
+}
+
+function setMusicVolume(nextValue) {
+  if (!game?.settings) return;
+  game.settings.musicVolume = clampVolume100(nextValue, game.settings.musicVolume ?? 80);
+}
+
+function setSfxVolume(nextValue) {
+  if (!game?.settings) return;
+  game.settings.sfxVolume = clampVolume100(nextValue, game.settings.sfxVolume ?? 80);
+}
+
+function initBgmIfNeeded() {
+  if (BGM.inited) return;
+  BGM.inited = true;
+  for (const [key, path] of Object.entries(BGM_TRACKS)) {
+    try {
+      const a = new Audio(path);
+      a.preload = "auto";
+      a.loop = true;
+      a.volume = getMusicMasterVolume01();
+      BGM.audiosByKey[key] = a;
+    } catch (e) {
+      console.warn(`[BGM] init failed: ${key} (${path})`, e);
+    }
+  }
+}
+
+function stopAllBgm() {
+  for (const a of Object.values(BGM.audiosByKey)) {
+    if (!a) continue;
+    try {
+      a.pause();
+      a.currentTime = 0;
+    } catch {}
+  }
+  BGM.currentKey = null;
+}
+
+function getDesiredBgmKey() {
+  if (!game) return "menu";
+
+  if (game.state === "start" || game.state === "levelSelect" || game.state === "settings") {
+    return "menu";
+  }
+
+  if (game.state === "playing") {
+    if (game.levelType === "forest") return "forest";
+    if (game.levelType === "water") return "water";
+    if (game.levelType === "factory") return "factory";
+  }
+
+  return null;
+}
+
+function syncBgmPlayback() {
+  initBgmIfNeeded();
+  const desiredKey = getDesiredBgmKey();
+  const targetVolume = getMusicMasterVolume01();
+
+  // 音量始终跟随设置页面 music volume
+  for (const a of Object.values(BGM.audiosByKey)) {
+    if (!a) continue;
+    try { a.volume = targetVolume; } catch {}
+  }
+
+  if (!desiredKey) {
+    if (BGM.currentKey) stopAllBgm();
+    return;
+  }
+
+  if (BGM.currentKey !== desiredKey) {
+    stopAllBgm();
+    BGM.currentKey = desiredKey;
+  }
+
+  const desiredAudio = BGM.audiosByKey[desiredKey];
+  if (!desiredAudio) return;
+  if (!desiredAudio.paused) return;
+
+  try {
+    ensureAudioUnlocked();
+    const p = desiredAudio.play();
+    if (p && typeof p.catch === "function") {
+      p.catch(() => {});
+    }
+  } catch {}
+}
 
 SFX.activeRefCountByKey = Object.create(null);
 
@@ -355,10 +469,8 @@ function getLoadedSoundCount(key) {
 
 function getSfxMasterVolume01() {
   // 统一由设置页的 sfxVolume 控制（0..100）
-  const v = (game?.settings?.sfxVolume ?? 80);
-  const n = Number(v);
-  if (!Number.isFinite(n)) return 0.8;
-  return constrain(n / 100, 0, 1);
+  const sfxV = clampVolume100(game?.settings?.sfxVolume ?? 80, 80);
+  return sfxV / 100;
 }
 
 function tryPlaySfx(key, { volume = 0.35, rate = 1 } = {}) {
@@ -1087,6 +1199,7 @@ class Game {
     this._playedWinSfx = false;
     this._playedLostSfx = false;
     this._spikeSfxActive = false;
+    this._lastTopCenterHintMessage = null;
   }
 
   getTrophySlotLimit() {
@@ -1632,7 +1745,10 @@ drawHealEffect(now) {
     if (!weapon) return;
     const currentTier = WEAPON_TIER[this.player.equippedWeaponType] || 0;
     const newTier = WEAPON_TIER[weapon] || 0;
-    if (newTier > currentTier) this.player.equippedWeaponType = weapon;
+    if (newTier > currentTier) {
+      this.player.equippedWeaponType = weapon;
+      tryPlaySfx('sword', { volume: 0.50, rate: 1 });
+    }
   }
 
   hasTool(toolType) {
@@ -2619,7 +2735,15 @@ drawTopCenterHint() {
     message = this.tutorialHintMessage;
   }
 
-  if (!message) return;
+  if (!message) {
+    this._lastTopCenterHintMessage = null;
+    return;
+  }
+
+  if (this._lastTopCenterHintMessage !== message) {
+    tryPlaySfx('cat', { volume: 0.36, rate: 1 });
+    this._lastTopCenterHintMessage = message;
+  }
   const displayMessage = `: ${message}`;
 
   push();
@@ -7145,6 +7269,8 @@ function preload() {
   queueSfxList('lava', ['assets/sfx/lava.wav']);
   queueSfxList('recover', ['assets/sfx/recover.wav']);
   queueSfxList('trophy', ['assets/sfx/trophy.wav']);
+  queueSfxList('sword', ['assets/sfx/sword.mp3']);
+  queueSfxList('cat', ['assets/sfx/cat.wav']);
   queueSfxList('click', ['assets/sfx/click.mp3']);
   queueSfxList('win', ['assets/sfx/win.mp3']);
   queueSfxList('lost', ['assets/sfx/lost.mp3']);
@@ -7184,6 +7310,8 @@ function setup() {
     queueSfxList('lava', ['assets/sfx/lava.wav']);
     queueSfxList('recover', ['assets/sfx/recover.wav']);
     queueSfxList('trophy', ['assets/sfx/trophy.wav']);
+    queueSfxList('sword', ['assets/sfx/sword.mp3']);
+    queueSfxList('cat', ['assets/sfx/cat.wav']);
     queueSfxList('click', ['assets/sfx/click.mp3']);
     queueSfxList('win', ['assets/sfx/win.mp3']);
     queueSfxList('lost', ['assets/sfx/lost.mp3']);
@@ -7244,6 +7372,7 @@ function setup() {
 
   game = new Game();
   game.setup();
+  initBgmIfNeeded();
 
   // 加载贴图
   const load = (path, key) => loadImage(path, img => window[key] = img, () => console.warn(`${path} 加载失败`));
@@ -7353,6 +7482,7 @@ function setup() {
 function draw() {
 
   applyGameFont();
+  syncBgmPlayback();
   if (drawingContext) {
     drawingContext.fontKerning = 'none';
   }
@@ -7561,25 +7691,25 @@ function mousePressed() {
 
     if (isInside(mouseX, mouseY, ui.musicMinus)) {
       tryPlaySfx('click', { volume: 0.32, rate: 1 });
-      s.musicVolume = max(0, s.musicVolume - 10);
+      setMusicVolume((s.musicVolume ?? 80) - 10);
       return;
     }
 
     if (isInside(mouseX, mouseY, ui.musicPlus)) {
       tryPlaySfx('click', { volume: 0.32, rate: 1 });
-      s.musicVolume = min(100, s.musicVolume + 10);
+      setMusicVolume((s.musicVolume ?? 80) + 10);
       return;
     }
 
     if (isInside(mouseX, mouseY, ui.sfxMinus)) {
       tryPlaySfx('click', { volume: 0.32, rate: 1 });
-      s.sfxVolume = max(0, s.sfxVolume - 10);
+      setSfxVolume((s.sfxVolume ?? 80) - 10);
       return;
     }
 
     if (isInside(mouseX, mouseY, ui.sfxPlus)) {
       tryPlaySfx('click', { volume: 0.32, rate: 1 });
-      s.sfxVolume = min(100, s.sfxVolume + 10);
+      setSfxVolume((s.sfxVolume ?? 80) + 10);
       return;
     }
 
