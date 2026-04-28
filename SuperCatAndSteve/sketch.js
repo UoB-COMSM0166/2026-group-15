@@ -733,6 +733,10 @@ function isPipeTileType(tileType) {
   );
 }
 
+function isAnyPipeTileType(tileType) {
+  return tileType === T.PIPE_NARROW || isPipeTileType(tileType);
+}
+
 function normalizeQuarterTurns(rotation = 0) {
   const quarter = Math.round(rotation / HALF_PI);
   return ((quarter % 4) + 4) % 4;
@@ -1552,6 +1556,7 @@ drawHealEffect(now) {
       if (worldX < p.x || worldX >= p.x + p.w || worldY < p.y || worldY >= p.y + p.h) continue;
       if (!this.isInReachZone(p.x, p.y, p.w, p.h)) continue;
       const tileType = p._tileType;
+      if (isAnyPipeTileType(tileType)) continue;
       this.level.platforms.splice(i, 1);
       this.tryWeaponUpgrade(tileType);
       tryPlaySfx(tileTypeToDigSfxKey(tileType), { volume: 0.30, rate: 1 });
@@ -1788,6 +1793,7 @@ drawHealEffect(now) {
     for (let row = column.length - 1; row >= 0; row--) {
       const tileType = column[row];
       if (tileType === T.NONE || tileType === undefined) continue;
+      if (isAnyPipeTileType(tileType)) continue;
 
       const tx = col * TILE_SIZE;
       const ty = 360 - (row + 1) * TILE_SIZE;
