@@ -423,9 +423,6 @@ Looking back, the requirements stage was not just an early planning task. It pla
 
 ## 5. Design
 
-- 15% ~750 words 
-- System architecture. Class diagrams, behavioural diagrams.
-
 <p align="center">
 - <img width="1590" height="700" alt="3339b730d5d336317972099c83ecc550" src="https://github.com/user-attachments/assets/b58ce78b-cf50-478e-ae06-c9fbae35e6a1" />
 </p>
@@ -651,9 +648,6 @@ flowchart TD
 ```
 
 
-
-
-
 ### 5.3 Design Conclusion
 
 The design stage helped us turn *Super Cat and Steve* from a general environmental platform game idea into a clearer system structure. By creating the class diagram, we identified the main responsibilities of each part of the game, such as `Game`, `Level`, `Player`, `Item`, `Enemy`, and `UIManager`. This made the project easier to divide between team members.
@@ -872,7 +866,6 @@ We also improved feedback in the interface by making hit reactions, health chang
 ***
 
 ### 7.3 Testing
-- Description of how code was tested.
 
 #### 7.3.1 Black-Box Testing
 
