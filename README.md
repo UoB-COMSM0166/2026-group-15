@@ -249,8 +249,8 @@ This changes the purpose of play. Progress is not only about reaching the end of
     </td>
       <td align="center" width="25%">
       <img src="./SuperCatAndSteve/assets/pic/animals/rabbit.png" width="100" alt="Rabbit"><br><br>
-      <strong>Fish</strong><br>
-      It is trapped in a cage and can be freed by pushing the button.
+      <strong>Rabbit</strong><br>
+      It is trapped in a cage and can be freed by jumping on the button.
     </td>
   </tr>
 </table>
