@@ -202,12 +202,22 @@ This changes the purpose of play. Progress is not only about reaching the end of
     <td align="center" width="50%">
       <img src="./SuperCatAndSteve/assets/pic/item/hp/apple.png" width="90" alt="Apple"><br><br>
       <strong>Apple</strong><br>
-      A healing item that Restores health when collected.
+      A healing item that Restores health when collected. Appears in forest level.
     </td>
     <td align="center" width="50%">
       <img src="./SuperCatAndSteve/assets/pic/item/hp/golden_apple.png" width="90" alt="Golden Apple"><br><br>
       <strong>Golden Apple</strong><br>
-      A stronger healing item that restores more health than a normal apple.
+      A stronger healing item that restores more health than a normal apple. Appears in forest level.
+    </td>
+      <td align="center" width="50%">
+      <img src="./SuperCatAndSteve/assets/pic/item/hp/seashell.png" width="90" alt="Sea Shell"><br><br>
+      <strong>Sea Shell</strong><br>
+      A natural healing item that restores health. Appears in ocean level.
+    </td>
+        <td align="center" width="50%">
+      <img src="./SuperCatAndSteve/assets/pic/item/hp/potion_bottle.png" width="90" alt="potion bottle"><br><br>
+      <strong>Potion</strong><br>
+      A magical healing item that restores health. Appears in factory level.
     </td>
   </tr>
 </table>
