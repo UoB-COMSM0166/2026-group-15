@@ -906,8 +906,9 @@ We used black-box testing to evaluate whether the main gameplay features behaved
 
 
 #### 7.3.2 White-Box Testing
+In this project, we used white-box testing to test internal game logic. To make this easier to use, we built a browser-based test runner page to show the test result more directly. You can view the full documentation here: [White-Box Test Results](./docs/images/White-Box%20Test%20Results.pdf).
 
-In this project, we used white-box testing to test internal game logic.To make this easier to use, we built a browser-based test runner page to show the test result more directly. Our white-box tests focus on stable internal logic, such as collision checks, player state updates, inventory limits, camera boundaries, hint-cat follow logic, and simple collision state changes.  
+Our white-box tests focus on stable internal logic, such as collision checks, player state updates, inventory limits, camera boundaries, hint-cat follow logic, and simple collision state changes.  
 
 | Test ID | Function / Area | Internal Logic Tested | Expected Result | Result |
 |---|---|---|---|---|
