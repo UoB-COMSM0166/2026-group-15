@@ -92,7 +92,7 @@
 
 **Super Cat and Steve** is an environmental-themed platform adventure built around three different worlds: forest, ocean, and factory.
 
-Each level shares the same core. Move forward, jump across platforms, avoid danger, and stay alive. But the goal is not just to reach the end. Players also collect pollutants, use tools, rescue trapped animals, and deal with enemies such as zombies along the way.
+Each level shares the same core. Move forward, jump across platforms, avoid danger, and stay alive. But the goal is not just to reach the end. Players use tools, rescue trapped animals, and deal with enemies such as zombies along the way.
 
 ### 3.1 What Makes It Original
 
