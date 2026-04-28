@@ -8,6 +8,7 @@
   const INVENTORY_SLOTS = 10;
   const HINT_CAT_GAP = 8;
   const ENEMY_CONTACT_DAMAGE_PER_SEC = 1;
+  const ENEMY_MELEE_ATTACK_RANGE = 18;
 
   function rectCollision(ax, ay, aw, ah, bx, by, bw, bh) {
     return ax < bx + bw && ax + aw > bx && ay < by + bh && ay + ah > by;
@@ -103,7 +104,7 @@
       for (const enemy of this.level.enemies) {
         if (enemy.isDead) continue;
         if (typeof enemy.canDamagePlayer === "function" && !enemy.canDamagePlayer()) continue;
-        const inAttackRange = this.distanceToEnemyBoxGap(enemy) < 24;
+        const inAttackRange = this.distanceToEnemyBoxGap(enemy) < ENEMY_MELEE_ATTACK_RANGE;
         if (inAttackRange) touchingDamagingEnemy = true;
       }
 

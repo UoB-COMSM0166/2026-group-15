@@ -9,11 +9,11 @@ const MINE_PRESS_MS = 500;  // 长按多久后破坏方块
 const WIN_SCORE = 12;
 const VICTORY_DELAY_MS = 1500;
 const ATTACK_COOLDOWN_MS = 400;  // 攻击冷却
-const MUTUAL_ATTACK_RANGE = 24;  // 敌人和玩家相互攻击的距离（碰撞箱最短距离 < 24px）
+const PLAYER_MELEE_ATTACK_RANGE = 24; // 玩家 F：与敌人碰撞箱空隙距离 <= 24px 可命中
+const ENEMY_MELEE_ATTACK_RANGE = 18; // 敌人接触伤害：与玩家碰撞箱空隙距离 < 18px 开始结算
 const ENEMY_CONTACT_DAMAGE_PER_SEC = 1;
 const SPIKE_CONTACT_DAMAGE_PER_SEC = 3;
 const ENEMY_ATTACK_START_DELAY_MS = 1000;  // 敌人进入攻击范围后延迟才开始造成伤害（毫秒）
-const PLAYER_ATTACK_RANGE = 2.2 * TILE_SIZE; // 玩家挥剑攻击范围：70.4 px
 const PLAYER_FOLLOW_CAT_DELAY_MS = 500;
 const PLAYER_FOLLOW_CAT_TRACE_WINDOW_MS = 2000;
 const PLAYER_FOLLOW_CAT_W = 36;
@@ -1085,7 +1085,7 @@ class Game {
 
     let closest = null;
     
-    let scanRange = MUTUAL_ATTACK_RANGE;
+    let scanRange = PLAYER_MELEE_ATTACK_RANGE;
     let closestDist = scanRange + 1;
 
     // 4. 遍历并寻找最近的敌人
@@ -1110,9 +1110,9 @@ class Game {
       }
     }
 
-    // 5. 应用伤害
+    // 5. 应用伤害（传入玩家用于击退方向）
     if (closest) {
-      closest.takeDamage(dmg, this.level);
+      closest.takeDamage(dmg, this.level, this.player);
       this.lastAttackTime = now;
       tryPlaySfx('hit', { volume: 0.35, rate: 1 });
       console.log("💥 击中目标！伤害:", dmg, "距离:", closestDist.toFixed(1));
@@ -2201,13 +2201,13 @@ updateDolphinMagnet() {
   const deltaSec = max(0, (now - this.enemyContactLastTick) / 1000);
   this.enemyContactLastTick = now;
   let touchingDamagingEnemy = false;
-  // 敌人伤害判定：与玩家碰撞箱最短距离 < 24px 时可攻击
+  // 敌人伤害判定：与玩家碰撞箱最短距离 < ENEMY_MELEE_ATTACK_RANGE 时结算接触伤害
   for (const enemy of this.level.enemies) {
     if (enemy.isDead) continue;
     if (typeof enemy.canDamagePlayer === "function" && !enemy.canDamagePlayer()) continue;
     
     const distToEnemy = this.distanceToEnemyBoxGap(enemy);
-    const inAttackRange = distToEnemy < MUTUAL_ATTACK_RANGE;
+    const inAttackRange = distToEnemy < ENEMY_MELEE_ATTACK_RANGE;
     
     if (inAttackRange) touchingDamagingEnemy = true;
   }
@@ -3877,7 +3877,7 @@ class WaterLevel extends Level {
       [15,12,[V,V,SA,SA,'fire_coral_fan',W,W,W,SA,W,W,W]],
       [16,12,[V,V,SA,SA,W,W,W,W,SA,'horn_coral_fan',W,W]],
       [17,12,[V,V,SA,SA,W,W,W,W,SA,W,W,W]],
-      [18,12,[V,T.IRON,SA,W,W,W,W,SA,SA,W,W,W]],
+      [18,12,[V,V,T.IRON,W,W,W,W,SA,SA,W,W,W]],
       [19,12,[V,V,SA,W,W,W,W,SA,SA,'tall_seagrass_1','tall_seagrass_2',W]],
       // 第2屏
       [20,12,[V,V,SA,'bubble_coral',W,W,W,SA,'bubble_coral_fan',W,W,N]],
@@ -4943,12 +4943,18 @@ const ENEMY_DETECT_RANGE = 4 * TILE_SIZE; // 4格检测范围
 const ENEMY_SPEED = 1; // 敌人移动速度
 const ENEMY_WATER_CHASE_SPEED_SCALE = 0.75; // 敌人在水中追踪时再降一档
 const ENEMY_LOSE_TARGET_RANGE = ENEMY_DETECT_RANGE * 1.6; // 超出该范围后丢失目标
+const ENEMY_HIT_KNOCKBACK_SPEED = 10; // 受玩家有效攻击时水平击退初速度（与追踪速度叠加，每帧衰减）
+const ENEMY_HIT_KNOCKBACK_DECAY = 0.86; // 击退水平分量衰减（越大滑得越久）
+const ENEMY_HIT_KNOCKBACK_UP = 5; // 受击时短暂上抛（加到 vy）
+const ENEMY_HIT_KNOCKBACK_NUDGE_MAX = 12; // 受击时沿击退方向位移（像素），避开墙体时仍可见水平击退
 
 class Enemy extends Entity {
   constructor(x, y, w, h, health = ENEMY_DEFAULT_HEALTH) {
     super(x, y, w, h);
     Object.assign(this, { health, maxHealth: health });
     this.activated = false; // 是否已被激活（玩家进入检测范围）
+    this.hitKnockbackVx = 0; // 受击击退水平分量（每帧衰减，与 AI 目标速度相加）
+    this.vyImpulsePending = 0; // 受击上抛（在下一帧 update 内合并进 vy，避免被飞行类覆盖）
     this.vx = 0; // 水平速度
     this.vy = 0; // 垂直速度
     this.gravity = 0.5; // 重力
@@ -4963,8 +4969,52 @@ class Enemy extends Entity {
     this.collisionOffsetY = this.h - this.collisionH;  // 底部对齐
   }
   
-  takeDamage(amount) {
+  decayHitKnockback() {
+    this.hitKnockbackVx *= ENEMY_HIT_KNOCKBACK_DECAY;
+    if (Math.abs(this.hitKnockbackVx) < 0.06) this.hitKnockbackVx = 0;
+  }
+
+  /** 受击时与地形碰撞箱是否重叠（用于位移击退） */
+  _enemyBoxOverlapsPlatforms(platforms) {
+    if (!platforms) return false;
+    const box = this.getCollisionBox();
+    for (const p of platforms) {
+      const rects = getCollisionRectsForCollider(p);
+      for (const r of rects) {
+        if (rectCollision(box.x, box.y, box.w, box.h, r.x, r.y, r.w, r.h)) return true;
+      }
+    }
+    return false;
+  }
+
+  /** 沿击退方向平移，直到碰到地形或达到上限（贴墙/夹缝时仍保留速度击退尝试） */
+  nudgeKnockbackPositionFromPlayer(player, platforms) {
+    if (!player || !platforms || !Array.isArray(platforms)) return;
+    const dir = player.facingRight ? 1 : -1;
+    for (let s = 0; s < ENEMY_HIT_KNOCKBACK_NUDGE_MAX; s++) {
+      this.x += dir;
+      if (this._enemyBoxOverlapsPlatforms(platforms)) {
+        this.x -= dir;
+        break;
+      }
+    }
+  }
+
+  /** 玩家面朝方向为击退方向；由 takeDamage 在有效扣血后调用 */
+  applyPlayerHitKnockback(player, level = null) {
+    if (!player || this.isDead) return;
+    const dir = player.facingRight ? 1 : -1;
+    this.hitKnockbackVx += dir * ENEMY_HIT_KNOCKBACK_SPEED;
+    this.hitKnockbackVx = constrain(this.hitKnockbackVx, -11, 11);
+    this.vyImpulsePending += ENEMY_HIT_KNOCKBACK_UP;
+    const platforms = level && Array.isArray(level.platforms) ? level.platforms : null;
+    if (platforms) this.nudgeKnockbackPositionFromPlayer(player, platforms);
+  }
+
+  takeDamage(amount, level = null, attacker = null) {
+    if (this.isDead) return;
     this.health = max(0, this.health - amount);
+    if (attacker && amount > 0) this.applyPlayerHitKnockback(attacker, level);
   }
 
   canDamagePlayer() {
@@ -4993,6 +5043,8 @@ class Enemy extends Entity {
   // 更新敌人状态（追踪玩家）
   update(player, platforms, level = null) {
     if (this.isDead) return;
+
+    this.decayHitKnockback();
     
     const px = player.x + player.w / 2;
     const py = player.y + player.h / 2;
@@ -5006,15 +5058,17 @@ class Enemy extends Entity {
     // 激活后持续追踪玩家
     if (this.activated) {
       // 水平移动：朝向玩家
+      let targetVx = 0;
       if (px < ex - 5) {
-        this.vx = -chaseSpeed;
+        targetVx = -chaseSpeed;
         this.facingRight = false; // 向左移动
       } else if (px > ex + 5) {
-        this.vx = chaseSpeed;
+        targetVx = chaseSpeed;
         this.facingRight = true; // 向右移动
       } else {
-        this.vx = 0;
+        targetVx = 0;
       }
+      this.vx = targetVx + this.hitKnockbackVx;
 
       if (inWater) {
         this.vy += WATER_GRAVITY - WATER_BUOYANCY;
@@ -5024,12 +5078,35 @@ class Enemy extends Entity {
         // 应用重力
         this.vy += this.gravity;
       }
-      
+      if (this.vyImpulsePending) {
+        this.vy -= this.vyImpulsePending;
+        this.vyImpulsePending = 0;
+      }
+
       // 水平移动
       this.x += this.vx;
       this.resolveCollision(platforms, true);
       
       // 垂直移动
+      this.y += this.vy;
+      this.onGround = false;
+      this.resolveCollision(platforms, false);
+    } else {
+      // 未激活时仍可被击退滑动
+      this.vx = this.hitKnockbackVx;
+      if (inWater) {
+        this.vy += WATER_GRAVITY - WATER_BUOYANCY;
+        this.vx *= WATER_DRAG;
+        this.vy *= WATER_DRAG;
+      } else {
+        this.vy += this.gravity;
+      }
+      if (this.vyImpulsePending) {
+        this.vy -= this.vyImpulsePending;
+        this.vyImpulsePending = 0;
+      }
+      this.x += this.vx;
+      this.resolveCollision(platforms, true);
       this.y += this.vy;
       this.onGround = false;
       this.resolveCollision(platforms, false);
@@ -5052,9 +5129,15 @@ class Enemy extends Entity {
       for (const r of rects) {
         if (!rectCollision(box.x, box.y, box.w, box.h, r.x, r.y, r.w, r.h)) continue;
         if (horizontal) {
-          if (this.vx > 0) this.x = r.x - box.w - this.collisionOffsetX;
-          else this.x = r.x + r.w - this.collisionOffsetX;
+          if (this.vx > 0) {
+            this.x = r.x - box.w - this.collisionOffsetX;
+          } else if (this.vx < 0) {
+            this.x = r.x + r.w - this.collisionOffsetX;
+          } else {
+            continue;
+          }
           this.vx = 0;
+          this.hitKnockbackVx = 0;
         } else {
           if (this.vy > 0) {
             this.y = r.y - this.h;
@@ -5082,7 +5165,7 @@ class Vex extends Enemy {
     this.patrolOriginX = x;
     this.patrolRange = 4 * TILE_SIZE; // 出生点左右各 2*TILE_SIZE
     this.patrolDir = -1;
-    this.collisionW = 8;
+    this.collisionW = 40;
     this.collisionH = 22;
     this.collisionOffsetX = (this.w - this.collisionW) / 2;
     this.collisionOffsetY = (this.h - this.collisionH) / 2;
@@ -5091,6 +5174,8 @@ class Vex extends Enemy {
   update(player, platforms, level = null) {
     if (this.isDead) return;
 
+    this.decayHitKnockback();
+
     const px = player.x + player.w / 2;
     const ex = this.x + this.w / 2;
     const ey = this.y + this.h / 2;
@@ -5098,30 +5183,32 @@ class Vex extends Enemy {
     const distance = Math.hypot(px - ex, py - ey);
     this.updateActivation(distance);
 
+    let targetVx;
+    let targetVy;
     if (this.activated) {
       if (px < ex - 5) {
-        this.vx = -ENEMY_SPEED;
+        targetVx = -ENEMY_SPEED;
         this.facingRight = false;
       } else if (px > ex + 5) {
-        this.vx = ENEMY_SPEED;
+        targetVx = ENEMY_SPEED;
         this.facingRight = true;
       } else {
-        this.vx = 0;
+        targetVx = 0;
       }
 
       const flySpeedY = ENEMY_SPEED * 0.85;
       if (py < ey - 4) {
-        this.vy = -flySpeedY;
+        targetVy = -flySpeedY;
       } else if (py > ey + 4) {
-        this.vy = flySpeedY;
+        targetVy = flySpeedY;
       } else {
-        this.vy = 0;
+        targetVy = 0;
       }
     } else {
       const minX = this.patrolOriginX - 2 * TILE_SIZE;
       const maxX = this.patrolOriginX + 2 * TILE_SIZE;
       const patrolSpeed = ENEMY_SPEED * 0.85;
-      this.vx = patrolSpeed * this.patrolDir;
+      targetVx = patrolSpeed * this.patrolDir;
 
       if (this.x <= minX) {
         this.x = minX;
@@ -5131,8 +5218,13 @@ class Vex extends Enemy {
         this.patrolDir = -1;
       }
       this.facingRight = this.patrolDir > 0;
-      this.vy = 0;
+      targetVy = 0;
     }
+
+    const vyKnock = this.vyImpulsePending;
+    this.vyImpulsePending = 0;
+    this.vx = targetVx + this.hitKnockbackVx;
+    this.vy = targetVy - vyKnock;
 
     // Vex 可飞行：不受重力影响（vy 由飞行追踪逻辑决定）
     this.x += this.vx;
@@ -5195,6 +5287,8 @@ class Drowned extends Enemy {
   update(player, platforms, level = null) {
     if (this.isDead) return;
 
+    this.decayHitKnockback();
+
     const px = player.x + player.w / 2;
     const py = player.y + player.h / 2;
     const ex = this.x + this.w / 2;
@@ -5204,19 +5298,22 @@ class Drowned extends Enemy {
     const chaseSpeed = ENEMY_SPEED * (inWater ? ENEMY_WATER_CHASE_SPEED_SCALE : 1);
     this.updateActivation(distance);
 
+    let targetVx;
     if (this.activated) {
       if (px < ex - 5) {
-        this.vx = -chaseSpeed;
+        targetVx = -chaseSpeed;
         this.facingRight = false;
       } else if (px > ex + 5) {
-        this.vx = chaseSpeed;
+        targetVx = chaseSpeed;
         this.facingRight = true;
       } else {
-        this.vx = 0;
+        targetVx = 0;
       }
     } else {
-      this.vx *= 0.92;
+      const kbPrev = this.hitKnockbackVx / ENEMY_HIT_KNOCKBACK_DECAY;
+      targetVx = (this.vx - kbPrev) * 0.92;
     }
+    this.vx = targetVx + this.hitKnockbackVx;
 
     if (inWater) {
       // 统一水中物理：重力 + 浮力 + 阻力
@@ -5238,6 +5335,10 @@ class Drowned extends Enemy {
       this.vy = constrain(this.vy, -1.2, 1.2);
     } else {
       this.vy += this.gravity;
+    }
+    if (this.vyImpulsePending) {
+      this.vy -= this.vyImpulsePending;
+      this.vyImpulsePending = 0;
     }
 
     this.x += this.vx;
@@ -5303,6 +5404,8 @@ class Shark extends Enemy {
   update(player, platforms, level = null) {
     if (this.isDead) return;
 
+    this.decayHitKnockback();
+
     const px = player.x + player.w / 2;
     const py = player.y + player.h / 2;
     const ex = this.x + this.w / 2;
@@ -5312,23 +5415,22 @@ class Shark extends Enemy {
     const chaseSpeed = ENEMY_SPEED * (inWater ? ENEMY_WATER_CHASE_SPEED_SCALE : 1);
     this.updateActivation(distance);
 
+    let targetVx;
     if (this.activated) {
-      // 检测到玩家后，行为与 drowned 一致：朝玩家追踪
       if (px < ex - 5) {
-        this.vx = -chaseSpeed;
+        targetVx = -chaseSpeed;
         this.facingRight = false;
       } else if (px > ex + 5) {
-        this.vx = chaseSpeed;
+        targetVx = chaseSpeed;
         this.facingRight = true;
       } else {
-        this.vx = 0;
+        targetVx = 0;
       }
     } else {
-      // 未激活时在固定范围内水平往返巡逻
       const minX = this.patrolOriginX - this.patrolRange / 2;
       const maxX = this.patrolOriginX + this.patrolRange / 2;
       const patrolSpeed = ENEMY_SPEED * 0.85;
-      this.vx = patrolSpeed * this.patrolDir;
+      targetVx = patrolSpeed * this.patrolDir;
 
       if (this.x <= minX) {
         this.x = minX;
@@ -5339,6 +5441,7 @@ class Shark extends Enemy {
       }
       this.facingRight = this.patrolDir > 0;
     }
+    this.vx = targetVx + this.hitKnockbackVx;
     this.refreshCollisionAnchor();
 
     if (inWater) {
@@ -5356,6 +5459,10 @@ class Shark extends Enemy {
       this.vy = constrain(this.vy, -1.2, 1.2);
     } else {
       this.vy += this.gravity;
+    }
+    if (this.vyImpulsePending) {
+      this.vy -= this.vyImpulsePending;
+      this.vyImpulsePending = 0;
     }
 
     this.x += this.vx;
@@ -5414,6 +5521,7 @@ class Slime extends Enemy {
     this.gravity = 0.45;
     this.splitSpeedBase = max(2.2, this.w / 26);
     this.vx = random(-0.8, 0.8); // 出生时轻微漂移，降低完全重叠感
+    this.slimeDriveVx = this.vx; // AI 水平分量，与受击击退分开便于摩擦/跳跃逻辑
     this.vy = 0;
     this.collisionW = this.w;
     this.collisionH = this.h;
@@ -5448,6 +5556,8 @@ class Slime extends Enemy {
   update(player, platforms, level = null) {
     if (this.isDead) return;
 
+    this.decayHitKnockback();
+
     const now = millis();
     const delayedTarget = this.getDelayedTarget(now, player);
     const ex = this.x + this.w / 2;
@@ -5464,16 +5574,18 @@ class Slime extends Enemy {
 
       if (this.onGround && now >= this.jumpCooldownUntil) {
         // 史莱姆通过周期跳跃追踪目标
-        this.vx = dirX * this.jumpSpeedX;
+        this.slimeDriveVx = dirX * this.jumpSpeedX;
         this.vy = -this.jumpSpeedY;
         this.onGround = false;
         this.jumpCooldownUntil = now + this.jumpIntervalMs + random(-140, 160);
       } else if (this.onGround) {
-        this.vx *= 0.82;
+        this.slimeDriveVx *= 0.82;
       }
     } else if (this.onGround) {
-      this.vx *= 0.88;
+      this.slimeDriveVx *= 0.88;
     }
+
+    this.vx = this.slimeDriveVx + this.hitKnockbackVx;
 
     if (inWater) {
       this.vy += WATER_GRAVITY - WATER_BUOYANCY;
@@ -5482,14 +5594,19 @@ class Slime extends Enemy {
     } else {
       this.vy += this.gravity;
     }
+    if (this.vyImpulsePending) {
+      this.vy -= this.vyImpulsePending;
+      this.vyImpulsePending = 0;
+    }
     this.x += this.vx;
     this.resolveCollision(platforms, true);
+    this.slimeDriveVx = this.vx - this.hitKnockbackVx;
     this.y += this.vy;
     this.onGround = false;
     this.resolveCollision(platforms, false);
   }
 
-  split(level) {
+  split(level, knockDir = 0) {
     if (!level || !Array.isArray(level.enemies)) return;
     const nextW = Math.floor(this.w / 2);
     const nextH = Math.floor(this.h / 2);
@@ -5513,21 +5630,25 @@ class Slime extends Enemy {
       child.jumpCooldownUntil = millis() + random(120, 420);
       child.x += s.x * max(4, nextW * 0.12);
       child.y += s.y * max(2, nextH * 0.08);
-      // 四散飞溅：给初速度
-      child.vx = s.x * splash * random(0.8, 1.15);
+      // 四散飞溅：给初速度（可选叠加玩家攻击方向的击退）
+      const kbBoost = knockDir * ENEMY_HIT_KNOCKBACK_SPEED * 0.5;
+      child.vx = s.x * splash * random(0.8, 1.15) + kbBoost;
+      child.slimeDriveVx = child.vx;
       child.vy = s.y * splash * random(0.95, 1.25);
       child.onGround = false;
       level.enemies.push(child);
     }
   }
 
-  takeDamage(amount, level = null) {
+  takeDamage(amount, level = null, attacker = null) {
     if (this.isDead) return;
+    if (attacker && amount > 0) this.applyPlayerHitKnockback(attacker, level);
+    const knockDir = attacker && amount > 0 ? (attacker.facingRight ? 1 : -1) : 0;
     if (this.w <= 16 || this.h <= 16) {
       this.health = 0;
       return;
     }
-    this.split(level);
+    this.split(level, knockDir);
     this.health = 0;
   }
 
