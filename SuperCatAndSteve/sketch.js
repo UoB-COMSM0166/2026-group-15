@@ -1736,8 +1736,14 @@ drawHealEffect(now) {
     const allowedOverlap = 8;
     for (const enemy of this.level.enemies) {
       if (enemy.isDead) continue;
-      const useZombieStylePush = enemy instanceof Zombie || enemy instanceof Drowned || enemy instanceof Shark;
-      if (!useZombieStylePush) continue;
+      // 通用玩家-敌人分离：避免敌人贴进玩家碰撞箱导致视觉重叠/卡位
+      // 目前仅对需要“实体感”的敌人启用（包含飞行 Vex）
+      const shouldSeparate =
+        enemy instanceof Zombie ||
+        enemy instanceof Drowned ||
+        enemy instanceof Shark ||
+        enemy instanceof Vex;
+      if (!shouldSeparate) continue;
       const box = enemy.getCollisionBox();
       const overlapX = Math.min(playerBox.x + playerBox.w, box.x + box.w) - Math.max(playerBox.x, box.x);
       const overlapY = Math.min(playerBox.y + playerBox.h, box.y + box.h) - Math.max(playerBox.y, box.y);
@@ -1752,13 +1758,10 @@ drawHealEffect(now) {
       const enemyCx = box.x + box.w / 2;
       const enemyCy = box.y + box.h / 2;
 
-      const forceHorizontalSeparation = useZombieStylePush;
-      if (forceHorizontalSeparation || excessY <= 0 || (excessX > 0 && excessX <= excessY)) {
+      // 分离策略：允许轻微穿透（allowedOverlap），超过后始终沿水平轴把敌人推出去
+      if (excessX > 0) {
         const dirX = enemyCx >= playerCx ? 1 : -1;
         enemy.x += dirX * excessX;
-      } else {
-        const dirY = enemyCy >= playerCy ? 1 : -1;
-        enemy.y += dirY * excessY;
       }
     }
   }
@@ -5165,7 +5168,7 @@ class Vex extends Enemy {
     this.patrolOriginX = x;
     this.patrolRange = 4 * TILE_SIZE; // 出生点左右各 2*TILE_SIZE
     this.patrolDir = -1;
-    this.collisionW = 40;
+    this.collisionW = 30;
     this.collisionH = 22;
     this.collisionOffsetX = (this.w - this.collisionW) / 2;
     this.collisionOffsetY = (this.h - this.collisionH) / 2;
