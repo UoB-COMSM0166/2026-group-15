@@ -4518,6 +4518,8 @@ class Player extends Entity {
   update(platforms, level) {
     const prevOnGround = this.onGround;
     const prevVy = this.vy;
+    const restrictTopByCollisionBox = (level instanceof WaterLevel) || (level instanceof FactoryLevel);
+    const minPlayerY = -this.collisionOffsetY;
 
     // WASD：水平 A/D、垂直 W/S 均读物理键（Key*），与 keys[] / 事件顺序解耦
     const vert = readVerticalMoveIntent();
@@ -4617,6 +4619,10 @@ class Player extends Entity {
       }
 
       this.x = constrain(this.x, 0, WORLD_WIDTH - this.w);
+      if (restrictTopByCollisionBox && this.y < minPlayerY) {
+        this.y = minPlayerY;
+        if (this.vy < 0) this.vy = 0;
+      }
 
       return;
     }
@@ -4664,9 +4670,9 @@ class Player extends Entity {
       this.jumpsRemaining = this.maxJumps;
     }
 
-    // 第二关（水关）：活动范围不超出屏幕上缘（贴图顶 y >= 0）
-    if (isWaterStage && this.y < 0) {
-      this.y = 0;
+    // 第二/三关：碰撞箱顶部不超出屏幕上缘
+    if (restrictTopByCollisionBox && this.y < minPlayerY) {
+      this.y = minPlayerY;
       if (this.vy < 0) this.vy = 0;
     }
 
