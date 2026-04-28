@@ -304,6 +304,11 @@ This changes the purpose of play. Progress is not only about reaching the end of
       <strong>TNT</strong><br>
       A dangerous object that the player should avoid. Will not explode instantly.
     </td>
+    <td align="center" width="12.5%">
+      <img src="./SuperCatAndSteve/assets/pic/ground/spike.png" width="80" alt="Spike"><br><br>
+      <strong>Spike</strong><br>
+      A periodically appearing spike in the Factory level that damages the player on contact.
+    </td>
   </tr>
 </table>
 
