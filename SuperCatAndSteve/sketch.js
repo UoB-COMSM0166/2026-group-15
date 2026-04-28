@@ -43,12 +43,19 @@ const WATER_GRAVITY = 0.1;   // 基础重力
 const WATER_BUOYANCY = 0.08; // 浮力（抵消部分重力）
 const WATER_DRAG = 0.8;     // 水中阻力系数
 // 海豚道具强化效果：磁铁功能 
-const DOLPHIN_START_COL = 40;
+const DOLPHIN_START_COL = 0;
 const DOLPHIN_END_COL = 70;
 const DOLPHIN_W = 96;
 const DOLPHIN_H = 32;
 const DOLPHIN_MAGNET_RADIUS = 150;
 const DOLPHIN_MAGNET_STRENGTH = 0.14;
+// 玩家 mount 海豚后，在玩家贴图上挖一个透明矩形
+// 调参入口：宽高 + 相对玩家贴图中心的偏移
+const PLAYER_MOUNT_CUTOUT_ENABLED = true;
+const PLAYER_MOUNT_CUTOUT_W = 6;
+const PLAYER_MOUNT_CUTOUT_H = 18;
+const PLAYER_MOUNT_CUTOUT_OFFSET_X = 3;
+const PLAYER_MOUNT_CUTOUT_OFFSET_Y = 23;
 
 // 两张海豚图切换速度：数值越小越快
 const DOLPHIN_ANIM_FRAME_MS = 90;
@@ -4216,7 +4223,7 @@ class WaterLevel extends Level {
     this.items.push(new Hp(90 * TILE_SIZE + 4, solidSurfaceY(90) - 24, 24, 24, 'seashell'));
 
     //海豚生成
-    this.items.push(new Dolphin(40 * TILE_SIZE, 120));
+    this.items.push(new Dolphin(39 * TILE_SIZE, 80));
 
     // ===== 结束：敌人和物品生成 =====
   }
@@ -4505,6 +4512,7 @@ class Player extends Entity {
     this.hasDolphinMagnet = false;
     this.activeDolphin = null;
     this.dolphinUsed = false;
+    this.mountCutoutLayer = null;
 
     // 碰撞箱尺寸（独立于贴图尺寸）
     this.collisionW = 16;
@@ -4983,7 +4991,32 @@ class Player extends Entity {
       imageMode(CENTER);
       translate(drawCenterX, drawY + drawH / 2);
       scale(this.facingRight ? 1 : -1, 1);
-      image(img, 0, 0, drawW, drawH);
+      const needsCutout =
+        PLAYER_MOUNT_CUTOUT_ENABLED &&
+        this.hasDolphinMagnet &&
+        this.activeDolphin &&
+        this.activeDolphin.mounted;
+      if (needsCutout) {
+        if (!this.mountCutoutLayer || this.mountCutoutLayer.width !== drawW || this.mountCutoutLayer.height !== drawH) {
+          this.mountCutoutLayer = createGraphics(drawW, drawH);
+        }
+        const layer = this.mountCutoutLayer;
+        layer.clear();
+        layer.imageMode(CENTER);
+        layer.image(img, drawW / 2, drawH / 2, drawW, drawH);
+        layer.erase();
+        layer.rectMode(CENTER);
+        layer.rect(
+          drawW / 2 + PLAYER_MOUNT_CUTOUT_OFFSET_X,
+          drawH / 2 + PLAYER_MOUNT_CUTOUT_OFFSET_Y,
+          max(1, PLAYER_MOUNT_CUTOUT_W),
+          max(1, PLAYER_MOUNT_CUTOUT_H)
+        );
+        layer.noErase();
+        image(layer, 0, 0, drawW, drawH);
+      } else {
+        image(img, 0, 0, drawW, drawH);
+      }
       pop();
     } else {
       fill(50, 100, 255);
@@ -6525,6 +6558,10 @@ class Dolphin extends Entity {
   constructor(x, y, w = DOLPHIN_W, h = DOLPHIN_H) {
     super(x, y, w, h);
     this.baseY = y;
+    this.patrolOriginX = x;
+    this.patrolRange = 12 * TILE_SIZE; // 出生点左右各 6*TILE_SIZE
+    this.patrolDir = 1;
+    this.patrolSpeed = ENEMY_SPEED * 0.85;
     this.mounted = false;
     this.used = false;
     this.swimAway = false;
@@ -6576,7 +6613,18 @@ class Dolphin extends Entity {
       return;
     }
 
-    // 未被碰到前原地轻微上下浮动
+    // 未被碰到前：像 shark 一样左右巡游，并带轻微上下浮动
+    const minX = this.patrolOriginX - this.patrolRange / 2;
+    const maxX = this.patrolOriginX + this.patrolRange / 2;
+    this.x += this.patrolSpeed * this.patrolDir;
+    if (this.x <= minX) {
+      this.x = minX;
+      this.patrolDir = 1;
+    } else if (this.x >= maxX) {
+      this.x = maxX;
+      this.patrolDir = -1;
+    }
+    this.facingRight = this.patrolDir > 0;
     this.y = this.baseY + sin(millis() / 360) * 5;
   }
 
@@ -6587,7 +6635,6 @@ class Dolphin extends Entity {
     imageMode(CENTER);
     translate(this.x + this.w / 2, this.y + this.h / 2);
     scale(this.facingRight ? -1 : 1, 1);
-
     if (img && img.width > 0) {
       image(img, 0, 0, this.w, this.h);
     } else {
