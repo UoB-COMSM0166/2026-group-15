@@ -1235,11 +1235,16 @@ drawBucketPourAnim(now) {
 
   if (progress >= 1) {
     if (!a.converted && Array.isArray(a.lavaTilesToConvert)) {
+      let convertedCount = 0;
       for (const tile of a.lavaTilesToConvert) {
         const column = this.level.tileMap[tile.col];
         if (column && column[tile.row] === T.LAVA) {
           column[tile.row] = T.STONE;
+          convertedCount++;
         }
+      }
+      if (convertedCount > 0) {
+        tryPlaySfx('lava', { volume: 0.30, rate: 1 });
       }
       a.converted = true;
     }
