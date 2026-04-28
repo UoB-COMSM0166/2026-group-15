@@ -119,6 +119,7 @@ const BGM_TRACKS = {
   water: "assets/bgm/76-Mermaid Song.wav",
   factory: "assets/bgm/57-Mines (Star Lumpy).wav"
 };
+const BGM_BASE_GAIN = 0.6;
 
 const BGM = {
   audiosByKey: Object.create(null),
@@ -126,9 +127,45 @@ const BGM = {
   inited: false
 };
 
+// ====== 启动加载（开始界面资源） ======
+const BOOT_REQUIRED_ASSET_KEYS = ['startBg'];
+const bootLoadState = {
+  readyKeys: new Set(),
+  failedKeys: new Set()
+};
+
+function markBootAssetReady(key, img) {
+  if (img && img.width > 0 && img.height > 0) {
+    window[key] = img;
+    bootLoadState.readyKeys.add(key);
+    return true;
+  }
+  return false;
+}
+
+function markBootAssetFailed(key) {
+  bootLoadState.failedKeys.add(key);
+}
+
+function getBootLoadProgress01() {
+  const total = BOOT_REQUIRED_ASSET_KEYS.length || 1;
+  let loaded = 0;
+  for (const key of BOOT_REQUIRED_ASSET_KEYS) {
+    const img = window[key];
+    if ((img && img.width > 0 && img.height > 0) || bootLoadState.readyKeys.has(key)) {
+      loaded++;
+    }
+  }
+  return constrain(loaded / total, 0, 1);
+}
+
+function isBootAssetsReady() {
+  return getBootLoadProgress01() >= 1;
+}
+
 function getMusicMasterVolume01() {
   const v = Number(game?.settings?.musicVolume ?? 80);
-  return constrain(v / 100, 0, 1);
+  return constrain((v / 100) * BGM_BASE_GAIN, 0, 1);
 }
 
 function clampVolume100(v, fallback = 80) {
@@ -7285,6 +7322,16 @@ function preload() {
   queueSfxList('spike', ['assets/sfx/spike.mp3']);
   queueSfxList('tnt_fuse', ['assets/sfx/tnt/fuse.wav']);
   queueSfxList('tnt_explode', ['assets/sfx/tnt/explode.wav']);
+
+  // 开始界面背景：在 preload 中优先加载，避免首帧闪回退色
+  loadImage(
+    'assets/pic/bg/startscreen.png',
+    (img) => { markBootAssetReady('startBg', img); },
+    () => {
+      markBootAssetFailed('startBg');
+      console.warn('assets/pic/bg/startscreen.png preload 加载失败');
+    }
+  );
 }
 
 function setup() {
@@ -7373,6 +7420,18 @@ function setup() {
   game = new Game();
   game.setup();
   initBgmIfNeeded();
+
+  // 兜底：若 preload 阶段未拿到开始背景，这里再异步重试一次
+  if (!window.startBg) {
+    loadImage(
+      'assets/pic/bg/startscreen.png',
+      (img) => { markBootAssetReady('startBg', img); },
+      () => {
+        markBootAssetFailed('startBg');
+        console.warn('assets/pic/bg/startscreen.png setup 重试加载失败');
+      }
+    );
+  }
 
   // 加载贴图
   const load = (path, key) => loadImage(path, img => window[key] = img, () => console.warn(`${path} 加载失败`));
@@ -7470,8 +7529,6 @@ function setup() {
   groundTiles.forEach(name => loadImage(`assets/pic/ground/${name}.png`, img => window[`tile_${name.replace(/-/g, '_')}`] = img, () => console.warn(`pic/ground/${name}.png 加载失败`)));
   const surroundingTiles = ['dandelion', 'orange_tulip', 'pink_tulip', 'poppy', 'red_mushroom', 'red_tulip', 'brown_mushroom'];
   surroundingTiles.forEach(name => load(`assets/pic/surrounding/${name}.png`, `tile_${name}`));
-  //加载游戏开始界面
-  loadImage('assets/pic/bg/startscreen.png', img => window.startBg = img, () => console.warn('加载失败'));
 
 
 
@@ -7486,6 +7543,12 @@ function draw() {
   if (drawingContext) {
     drawingContext.fontKerning = 'none';
   }
+
+  if (!isBootAssetsReady()) {
+    drawBootLoadingScreen();
+    return;
+  }
+
   if (game.state === "start") {
     drawStartScreen();
   }
@@ -7507,6 +7570,17 @@ function draw() {
     game.draw();
     drawVictoryScreen();
   }
+}
+
+function drawBootLoadingScreen() {
+  background(0, 0, 0);
+
+  const progress = getBootLoadProgress01();
+
+  textAlign(CENTER, CENTER);
+  textSize(24);
+  fill(230);
+  text(`${Math.round(progress * 100)}%`, width / 2, height / 2);
 }
 
 function keyPressed() {
