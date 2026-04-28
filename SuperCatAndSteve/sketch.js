@@ -681,6 +681,42 @@ function getCollisionRectsForCollider(collider) {
   return [{ x: collider.x, y: collider.y, w: collider.w, h: collider.h }];
 }
 
+function pointInRect(px, py, r) {
+  return px >= r.x && px <= r.x + r.w && py >= r.y && py <= r.y + r.h;
+}
+
+function cross2D(ax, ay, bx, by) {
+  return ax * by - ay * bx;
+}
+
+function segmentsIntersect(a, b, c, d) {
+  const rX = b.x - a.x;
+  const rY = b.y - a.y;
+  const sX = d.x - c.x;
+  const sY = d.y - c.y;
+  const denom = cross2D(rX, rY, sX, sY);
+  if (Math.abs(denom) < 1e-9) return false;
+  const cax = c.x - a.x;
+  const cay = c.y - a.y;
+  const t = cross2D(cax, cay, sX, sY) / denom;
+  const u = cross2D(cax, cay, rX, rY) / denom;
+  return t >= 0 && t <= 1 && u >= 0 && u <= 1;
+}
+
+function segmentIntersectsRect(a, b, r) {
+  if (pointInRect(a.x, a.y, r) || pointInRect(b.x, b.y, r)) return true;
+  const tl = { x: r.x, y: r.y };
+  const tr = { x: r.x + r.w, y: r.y };
+  const br = { x: r.x + r.w, y: r.y + r.h };
+  const bl = { x: r.x, y: r.y + r.h };
+  return (
+    segmentsIntersect(a, b, tl, tr) ||
+    segmentsIntersect(a, b, tr, br) ||
+    segmentsIntersect(a, b, br, bl) ||
+    segmentsIntersect(a, b, bl, tl)
+  );
+}
+
 function isEntityInWater(entity, level) {
   if (!entity || !level || typeof level.isWaterAtWorld !== 'function') return false;
   const getBox = typeof entity.getCollisionBox === 'function'
@@ -5054,6 +5090,26 @@ class Enemy extends Entity {
     }
     return this.activated;
   }
+
+  hasLineOfSightToPlayer(player, platforms) {
+    if (!player || !Array.isArray(platforms)) return true;
+    const a = { x: this.x + this.w / 2, y: this.y + this.h / 2 };
+    const b = { x: player.x + player.w / 2, y: player.y + player.h / 2 };
+    const minX = Math.min(a.x, b.x);
+    const maxX = Math.max(a.x, b.x);
+    const minY = Math.min(a.y, b.y);
+    const maxY = Math.max(a.y, b.y);
+    for (const p of platforms) {
+      const rects = getCollisionRectsForCollider(p);
+      for (const r of rects) {
+        // 忽略液体底边这类极薄碰撞片段，避免误判遮挡视线
+        if (r.w <= 2 || r.h <= 2) continue;
+        if (r.x > maxX || r.x + r.w < minX || r.y > maxY || r.y + r.h < minY) continue;
+        if (segmentIntersectsRect(a, b, r)) return false;
+      }
+    }
+    return true;
+  }
   
   // 更新敌人状态（追踪玩家）
   update(player, platforms, level = null) {
@@ -5068,7 +5124,8 @@ class Enemy extends Entity {
     const distance = Math.hypot(px - ex, py - ey);
     const inWater = this.isInWater(level);
     const chaseSpeed = ENEMY_SPEED * (inWater ? ENEMY_WATER_CHASE_SPEED_SCALE : 1);
-    this.updateActivation(distance);
+    const canTrackPlayer = this.hasLineOfSightToPlayer(player, platforms);
+    this.updateActivation(canTrackPlayer ? distance : Number.POSITIVE_INFINITY);
     
     // 激活后持续追踪玩家
     if (this.activated) {
@@ -5196,7 +5253,8 @@ class Vex extends Enemy {
     const ey = this.y + this.h / 2;
     const py = player.y + player.h / 2;
     const distance = Math.hypot(px - ex, py - ey);
-    this.updateActivation(distance);
+    const canTrackPlayer = this.hasLineOfSightToPlayer(player, platforms);
+    this.updateActivation(canTrackPlayer ? distance : Number.POSITIVE_INFINITY);
 
     let targetVx;
     let targetVy;
@@ -5311,7 +5369,8 @@ class Drowned extends Enemy {
     const distance = Math.hypot(px - ex, py - ey);
     const inWater = this.isInWater(level);
     const chaseSpeed = ENEMY_SPEED * (inWater ? ENEMY_WATER_CHASE_SPEED_SCALE : 1);
-    this.updateActivation(distance);
+    const canTrackPlayer = this.hasLineOfSightToPlayer(player, platforms);
+    this.updateActivation(canTrackPlayer ? distance : Number.POSITIVE_INFINITY);
 
     let targetVx;
     if (this.activated) {
@@ -5428,7 +5487,8 @@ class Shark extends Enemy {
     const distance = Math.hypot(px - ex, py - ey);
     const inWater = this.isInWater(level);
     const chaseSpeed = ENEMY_SPEED * (inWater ? ENEMY_WATER_CHASE_SPEED_SCALE : 1);
-    this.updateActivation(distance);
+    const canTrackPlayer = this.hasLineOfSightToPlayer(player, platforms);
+    this.updateActivation(canTrackPlayer ? distance : Number.POSITIVE_INFINITY);
 
     let targetVx;
     if (this.activated) {
@@ -5581,7 +5641,11 @@ class Slime extends Enemy {
     const dy = delayedTarget.y - ey;
     const distance = Math.hypot(dx, dy);
     const inWater = this.isInWater(level);
-    this.updateActivation(distance, ENEMY_DETECT_RANGE * 1.25);
+    const canTrackPlayer = this.hasLineOfSightToPlayer(player, platforms);
+    this.updateActivation(
+      canTrackPlayer ? distance : Number.POSITIVE_INFINITY,
+      ENEMY_DETECT_RANGE * 1.25
+    );
 
     if (this.activated) {
       const dirX = dx >= 0 ? 1 : -1;
