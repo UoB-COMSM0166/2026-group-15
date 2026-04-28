@@ -6481,6 +6481,13 @@ class Rabbit extends Animal {
     this.scriptTargetX = Number.isFinite(opts.targetX) ? opts.targetX : x;
     this.scriptTargetY = Number.isFinite(opts.targetY) ? opts.targetY : y;
     this.scriptArcHeight = 2 * TILE_SIZE;
+    this.scriptIdleHopEnabled = false;
+    this.scriptIdleHopAt = 0;
+    this.scriptIdleHopDurationMs = 560;
+    this.scriptIdleHopArcHeight = 2 * TILE_SIZE;
+    this.scriptIdleHopMaxArcHeight = 5 * TILE_SIZE;
+    this.scriptIdleHopPauseMs = 0;
+    this.scriptIdleHopPausedUntil = 0;
   }
 
   update(platforms, level = null) {
@@ -6514,10 +6521,44 @@ class Rabbit extends Animal {
         this.onGround = true;
         this.scriptJumping = false;
         this.scriptTriggered = true;
+        this.scriptIdleHopEnabled = true;
+        this.scriptIdleHopAt = now;
+        this.scriptIdleHopDurationMs = 560;
+        this.scriptIdleHopPauseMs = random(780, 1300);
+        this.scriptIdleHopPausedUntil = 0;
+        this.scriptIdleHopArcHeight = random(TILE_SIZE, this.scriptIdleHopMaxArcHeight);
         if (!this.scriptAwarded && typeof game?.addScore === 'function') {
           game.addScore(1);
           this.scriptAwarded = true;
         }
+      }
+      return;
+    }
+
+    if (this.scriptEnabled && this.scriptTriggered && this.scriptIdleHopEnabled) {
+      if (now < this.scriptIdleHopPausedUntil) {
+        this.x = this.scriptTargetX;
+        this.y = this.scriptTargetY;
+        this.vx = 0;
+        this.vy = 0;
+        this.onGround = true;
+        return;
+      }
+
+      const t = constrain((now - this.scriptIdleHopAt) / this.scriptIdleHopDurationMs, 0, 1);
+      const arc = -4 * this.scriptIdleHopArcHeight * t * (1 - t);
+      this.x = this.scriptTargetX;
+      this.y = this.scriptTargetY + arc;
+      this.vx = 0;
+      this.vy = 0;
+      this.onGround = t >= 1;
+
+      if (t >= 1) {
+        this.scriptIdleHopAt = now;
+        this.scriptIdleHopDurationMs = 560;
+        this.scriptIdleHopPauseMs = random(780, 1300);
+        this.scriptIdleHopPausedUntil = now + this.scriptIdleHopPauseMs;
+        this.scriptIdleHopArcHeight = random(TILE_SIZE, this.scriptIdleHopMaxArcHeight);
       }
       return;
     }
