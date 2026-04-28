@@ -710,7 +710,7 @@ Water exposed problems immediately. Simply lowering gravity slowed the drop but 
 >**Underwater movement – buoyancy and drift :**
 >The player moving underwater, gently rising or sinking when no input is given, illustrating the balance between gravity, buoyancy and drag.
 
-Pipes were different again: the player is mostly carried by a flow force, with friction to prevent endless acceleration. Getting the balance right took several rounds of playtesting: if the flow was too weak it had almost no impact, and if it was too strong it became very hard to control. The final version still felt powerful, but gave players enough time to react to hazards.
+Pipes were different again: the player is mostly carried by a constant flow force that directly offsets their velocity when they pass through the blue pipe zones. Getting the balance right took several rounds of playtesting: if the flow was too weak it had almost no impact, and if it was too strong it became very hard to control. The final version still felt powerful, but gave players enough time to react to hazards.
 
 <p align="center">
   <img src="docs/images/pipes-flow.gif" alt="Pipes – flow‑driven movement">
