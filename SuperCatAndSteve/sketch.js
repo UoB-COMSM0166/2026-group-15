@@ -9,18 +9,18 @@ const MINE_PRESS_MS = 500;  // 长按多久后破坏方块
 const WIN_SCORE = 12;
 const VICTORY_DELAY_MS = 1500;
 const ATTACK_COOLDOWN_MS = 400;  // 攻击冷却
-const MUTUAL_ATTACK_RANGE = 24;  // 敌人和玩家相互攻击的距离（碰撞箱最短距离 < 24px）
+const PLAYER_MELEE_ATTACK_RANGE = 24; // 玩家 F：与敌人碰撞箱空隙距离 <= 24px 可命中
+const ENEMY_MELEE_ATTACK_RANGE = 18; // 敌人接触伤害：与玩家碰撞箱空隙距离 < 18px 开始结算
 const ENEMY_CONTACT_DAMAGE_PER_SEC = 1;
 const SPIKE_CONTACT_DAMAGE_PER_SEC = 3;
 const ENEMY_ATTACK_START_DELAY_MS = 1000;  // 敌人进入攻击范围后延迟才开始造成伤害（毫秒）
-const PLAYER_ATTACK_RANGE = 2.2 * TILE_SIZE; // 玩家挥剑攻击范围：70.4 px
 const PLAYER_FOLLOW_CAT_DELAY_MS = 500;
 const PLAYER_FOLLOW_CAT_TRACE_WINDOW_MS = 2000;
 const PLAYER_FOLLOW_CAT_W = 36;
 const PLAYER_FOLLOW_CAT_H = 16;
 
 // ========== TEMP 调试：每列地形底部列序号（删改时整段移除 + Game.draw 内对应一行）==========
-const DEBUG_DRAW_TERRAIN_COLUMN_INDEX = true;
+const DEBUG_DRAW_TERRAIN_COLUMN_INDEX = false;
 
 function drawDebugTerrainColumnIndexLabels() {
   if (!DEBUG_DRAW_TERRAIN_COLUMN_INDEX) return;
@@ -43,12 +43,19 @@ const WATER_GRAVITY = 0.1;   // 基础重力
 const WATER_BUOYANCY = 0.08; // 浮力（抵消部分重力）
 const WATER_DRAG = 0.8;     // 水中阻力系数
 // 海豚道具强化效果：磁铁功能 
-const DOLPHIN_START_COL = 40;
+const DOLPHIN_START_COL = 0;
 const DOLPHIN_END_COL = 70;
 const DOLPHIN_W = 96;
 const DOLPHIN_H = 32;
 const DOLPHIN_MAGNET_RADIUS = 150;
 const DOLPHIN_MAGNET_STRENGTH = 0.14;
+// 玩家 mount 海豚后，在玩家贴图上挖一个透明矩形
+// 调参入口：宽高 + 相对玩家贴图中心的偏移
+const PLAYER_MOUNT_CUTOUT_ENABLED = true;
+const PLAYER_MOUNT_CUTOUT_W = 6;
+const PLAYER_MOUNT_CUTOUT_H = 18;
+const PLAYER_MOUNT_CUTOUT_OFFSET_X = 3;
+const PLAYER_MOUNT_CUTOUT_OFFSET_Y = 23;
 
 // 两张海豚图切换速度：数值越小越快
 const DOLPHIN_ANIM_FRAME_MS = 90;
@@ -94,6 +101,8 @@ const SFX = {
     pour: 200,
     recover: 160,
     trophy: 100,
+    sword: 120,
+    cat: 120,
     click: 120,
     win: 500,
     lost: 500,
@@ -102,6 +111,155 @@ const SFX = {
   },
   lastPlayedAtByKey: Object.create(null)
 };
+
+// ====== 背景音乐（BGM） ======
+const BGM_TRACKS = {
+  menu: "assets/bgm/01-Stardew Valley Overture.wav",
+  forest: "assets/bgm/18-Summer (Nature's Crescendo).wav",
+  water: "assets/bgm/76-Mermaid Song.wav",
+  factory: "assets/bgm/57-Mines (Star Lumpy).wav"
+};
+const BGM_BASE_GAIN = 0.6;
+
+const BGM = {
+  audiosByKey: Object.create(null),
+  currentKey: null,
+  inited: false
+};
+
+// ====== 启动加载（开始界面资源） ======
+const BOOT_REQUIRED_ASSET_KEYS = ['startBg'];
+const bootLoadState = {
+  readyKeys: new Set(),
+  failedKeys: new Set()
+};
+
+function markBootAssetReady(key, img) {
+  if (img && img.width > 0 && img.height > 0) {
+    window[key] = img;
+    bootLoadState.readyKeys.add(key);
+    return true;
+  }
+  return false;
+}
+
+function markBootAssetFailed(key) {
+  bootLoadState.failedKeys.add(key);
+}
+
+function getBootLoadProgress01() {
+  const total = BOOT_REQUIRED_ASSET_KEYS.length || 1;
+  let loaded = 0;
+  for (const key of BOOT_REQUIRED_ASSET_KEYS) {
+    const img = window[key];
+    if ((img && img.width > 0 && img.height > 0) || bootLoadState.readyKeys.has(key)) {
+      loaded++;
+    }
+  }
+  return constrain(loaded / total, 0, 1);
+}
+
+function isBootAssetsReady() {
+  return getBootLoadProgress01() >= 1;
+}
+
+function getMusicMasterVolume01() {
+  const v = Number(game?.settings?.musicVolume ?? 80);
+  return constrain((v / 100) * BGM_BASE_GAIN, 0, 1);
+}
+
+function clampVolume100(v, fallback = 80) {
+  const n = Number(v);
+  if (!Number.isFinite(n)) return fallback;
+  return constrain(Math.round(n), 0, 100);
+}
+
+function setMusicVolume(nextValue) {
+  if (!game?.settings) return;
+  game.settings.musicVolume = clampVolume100(nextValue, game.settings.musicVolume ?? 80);
+}
+
+function setSfxVolume(nextValue) {
+  if (!game?.settings) return;
+  game.settings.sfxVolume = clampVolume100(nextValue, game.settings.sfxVolume ?? 80);
+}
+
+function initBgmIfNeeded() {
+  if (BGM.inited) return;
+  BGM.inited = true;
+  for (const [key, path] of Object.entries(BGM_TRACKS)) {
+    try {
+      const a = new Audio(path);
+      a.preload = "auto";
+      a.loop = true;
+      a.volume = getMusicMasterVolume01();
+      BGM.audiosByKey[key] = a;
+    } catch (e) {
+      console.warn(`[BGM] init failed: ${key} (${path})`, e);
+    }
+  }
+}
+
+function stopAllBgm() {
+  for (const a of Object.values(BGM.audiosByKey)) {
+    if (!a) continue;
+    try {
+      a.pause();
+      a.currentTime = 0;
+    } catch {}
+  }
+  BGM.currentKey = null;
+}
+
+function getDesiredBgmKey() {
+  if (!game) return "menu";
+
+  if (game.state === "start" || game.state === "levelSelect" || game.state === "settings") {
+    return "menu";
+  }
+
+  if (game.state === "playing") {
+    if (game.levelType === "forest") return "forest";
+    if (game.levelType === "water") return "water";
+    if (game.levelType === "factory") return "factory";
+  }
+
+  return null;
+}
+
+function syncBgmPlayback() {
+  initBgmIfNeeded();
+  const desiredKey = getDesiredBgmKey();
+  const targetVolume = getMusicMasterVolume01();
+
+  // 音量始终跟随设置页面 music volume
+  for (const a of Object.values(BGM.audiosByKey)) {
+    if (!a) continue;
+    try { a.volume = targetVolume; } catch {}
+  }
+
+  if (!desiredKey) {
+    if (BGM.currentKey) stopAllBgm();
+    return;
+  }
+
+  if (BGM.currentKey !== desiredKey) {
+    stopAllBgm();
+    BGM.currentKey = desiredKey;
+  }
+
+  const desiredAudio = BGM.audiosByKey[desiredKey];
+  if (!desiredAudio) return;
+  if (!desiredAudio.paused) return;
+
+  try {
+    ensureAudioUnlocked();
+    const p = desiredAudio.play();
+    if (p && typeof p.catch === "function") {
+      p.catch(() => {});
+    }
+  } catch {}
+}
 
 SFX.activeRefCountByKey = Object.create(null);
 
@@ -348,10 +506,8 @@ function getLoadedSoundCount(key) {
 
 function getSfxMasterVolume01() {
   // 统一由设置页的 sfxVolume 控制（0..100）
-  const v = (game?.settings?.sfxVolume ?? 80);
-  const n = Number(v);
-  if (!Number.isFinite(n)) return 0.8;
-  return constrain(n / 100, 0, 1);
+  const sfxV = clampVolume100(game?.settings?.sfxVolume ?? 80, 80);
+  return sfxV / 100;
 }
 
 function tryPlaySfx(key, { volume = 0.35, rate = 1 } = {}) {
@@ -681,6 +837,42 @@ function getCollisionRectsForCollider(collider) {
   return [{ x: collider.x, y: collider.y, w: collider.w, h: collider.h }];
 }
 
+function pointInRect(px, py, r) {
+  return px >= r.x && px <= r.x + r.w && py >= r.y && py <= r.y + r.h;
+}
+
+function cross2D(ax, ay, bx, by) {
+  return ax * by - ay * bx;
+}
+
+function segmentsIntersect(a, b, c, d) {
+  const rX = b.x - a.x;
+  const rY = b.y - a.y;
+  const sX = d.x - c.x;
+  const sY = d.y - c.y;
+  const denom = cross2D(rX, rY, sX, sY);
+  if (Math.abs(denom) < 1e-9) return false;
+  const cax = c.x - a.x;
+  const cay = c.y - a.y;
+  const t = cross2D(cax, cay, sX, sY) / denom;
+  const u = cross2D(cax, cay, rX, rY) / denom;
+  return t >= 0 && t <= 1 && u >= 0 && u <= 1;
+}
+
+function segmentIntersectsRect(a, b, r) {
+  if (pointInRect(a.x, a.y, r) || pointInRect(b.x, b.y, r)) return true;
+  const tl = { x: r.x, y: r.y };
+  const tr = { x: r.x + r.w, y: r.y };
+  const br = { x: r.x + r.w, y: r.y + r.h };
+  const bl = { x: r.x, y: r.y + r.h };
+  return (
+    segmentsIntersect(a, b, tl, tr) ||
+    segmentsIntersect(a, b, tr, br) ||
+    segmentsIntersect(a, b, br, bl) ||
+    segmentsIntersect(a, b, bl, tl)
+  );
+}
+
 function isEntityInWater(entity, level) {
   if (!entity || !level || typeof level.isWaterAtWorld !== 'function') return false;
   const getBox = typeof entity.getCollisionBox === 'function'
@@ -731,6 +923,10 @@ function isPipeTileType(tileType) {
     typeof tileType.textureKey === 'string' &&
     tileType.textureKey.startsWith('tile_pipe_')
   );
+}
+
+function isAnyPipeTileType(tileType) {
+  return tileType === T.PIPE_NARROW || isPipeTileType(tileType);
 }
 
 function normalizeQuarterTurns(rotation = 0) {
@@ -1040,6 +1236,7 @@ class Game {
     this._playedWinSfx = false;
     this._playedLostSfx = false;
     this._spikeSfxActive = false;
+    this._lastTopCenterHintMessage = null;
   }
 
   getTrophySlotLimit() {
@@ -1085,7 +1282,7 @@ class Game {
 
     let closest = null;
     
-    let scanRange = MUTUAL_ATTACK_RANGE;
+    let scanRange = PLAYER_MELEE_ATTACK_RANGE;
     let closestDist = scanRange + 1;
 
     // 4. 遍历并寻找最近的敌人
@@ -1110,9 +1307,9 @@ class Game {
       }
     }
 
-    // 5. 应用伤害
+    // 5. 应用伤害（传入玩家用于击退方向）
     if (closest) {
-      closest.takeDamage(dmg, this.level);
+      closest.takeDamage(dmg, this.level, this.player);
       this.lastAttackTime = now;
       tryPlaySfx('hit', { volume: 0.35, rate: 1 });
       console.log("💥 击中目标！伤害:", dmg, "距离:", closestDist.toFixed(1));
@@ -1195,11 +1392,16 @@ drawBucketPourAnim(now) {
 
   if (progress >= 1) {
     if (!a.converted && Array.isArray(a.lavaTilesToConvert)) {
+      let convertedCount = 0;
       for (const tile of a.lavaTilesToConvert) {
         const column = this.level.tileMap[tile.col];
         if (column && column[tile.row] === T.LAVA) {
           column[tile.row] = T.STONE;
+          convertedCount++;
         }
+      }
+      if (convertedCount > 0) {
+        tryPlaySfx('lava', { volume: 0.30, rate: 1 });
       }
       a.converted = true;
     }
@@ -1552,6 +1754,7 @@ drawHealEffect(now) {
       if (worldX < p.x || worldX >= p.x + p.w || worldY < p.y || worldY >= p.y + p.h) continue;
       if (!this.isInReachZone(p.x, p.y, p.w, p.h)) continue;
       const tileType = p._tileType;
+      if (isAnyPipeTileType(tileType)) continue;
       this.level.platforms.splice(i, 1);
       this.tryWeaponUpgrade(tileType);
       tryPlaySfx(tileTypeToDigSfxKey(tileType), { volume: 0.30, rate: 1 });
@@ -1579,7 +1782,10 @@ drawHealEffect(now) {
     if (!weapon) return;
     const currentTier = WEAPON_TIER[this.player.equippedWeaponType] || 0;
     const newTier = WEAPON_TIER[weapon] || 0;
-    if (newTier > currentTier) this.player.equippedWeaponType = weapon;
+    if (newTier > currentTier) {
+      this.player.equippedWeaponType = weapon;
+      tryPlaySfx('sword', { volume: 0.50, rate: 1 });
+    }
   }
 
   hasTool(toolType) {
@@ -1736,8 +1942,14 @@ drawHealEffect(now) {
     const allowedOverlap = 8;
     for (const enemy of this.level.enemies) {
       if (enemy.isDead) continue;
-      const useZombieStylePush = enemy instanceof Zombie || enemy instanceof Drowned || enemy instanceof Shark;
-      if (!useZombieStylePush) continue;
+      // 通用玩家-敌人分离：避免敌人贴进玩家碰撞箱导致视觉重叠/卡位
+      // 目前仅对需要“实体感”的敌人启用（包含飞行 Vex）
+      const shouldSeparate =
+        enemy instanceof Zombie ||
+        enemy instanceof Drowned ||
+        enemy instanceof Shark ||
+        enemy instanceof Vex;
+      if (!shouldSeparate) continue;
       const box = enemy.getCollisionBox();
       const overlapX = Math.min(playerBox.x + playerBox.w, box.x + box.w) - Math.max(playerBox.x, box.x);
       const overlapY = Math.min(playerBox.y + playerBox.h, box.y + box.h) - Math.max(playerBox.y, box.y);
@@ -1752,13 +1964,10 @@ drawHealEffect(now) {
       const enemyCx = box.x + box.w / 2;
       const enemyCy = box.y + box.h / 2;
 
-      const forceHorizontalSeparation = useZombieStylePush;
-      if (forceHorizontalSeparation || excessY <= 0 || (excessX > 0 && excessX <= excessY)) {
+      // 分离策略：允许轻微穿透（allowedOverlap），超过后始终沿水平轴把敌人推出去
+      if (excessX > 0) {
         const dirX = enemyCx >= playerCx ? 1 : -1;
         enemy.x += dirX * excessX;
-      } else {
-        const dirY = enemyCy >= playerCy ? 1 : -1;
-        enemy.y += dirY * excessY;
       }
     }
   }
@@ -1785,6 +1994,7 @@ drawHealEffect(now) {
     for (let row = column.length - 1; row >= 0; row--) {
       const tileType = column[row];
       if (tileType === T.NONE || tileType === undefined) continue;
+      if (isAnyPipeTileType(tileType)) continue;
 
       const tx = col * TILE_SIZE;
       const ty = 360 - (row + 1) * TILE_SIZE;
@@ -2201,13 +2411,13 @@ updateDolphinMagnet() {
   const deltaSec = max(0, (now - this.enemyContactLastTick) / 1000);
   this.enemyContactLastTick = now;
   let touchingDamagingEnemy = false;
-  // 敌人伤害判定：与玩家碰撞箱最短距离 < 24px 时可攻击
+  // 敌人伤害判定：与玩家碰撞箱最短距离 < ENEMY_MELEE_ATTACK_RANGE 时结算接触伤害
   for (const enemy of this.level.enemies) {
     if (enemy.isDead) continue;
     if (typeof enemy.canDamagePlayer === "function" && !enemy.canDamagePlayer()) continue;
     
     const distToEnemy = this.distanceToEnemyBoxGap(enemy);
-    const inAttackRange = distToEnemy < MUTUAL_ATTACK_RANGE;
+    const inAttackRange = distToEnemy < ENEMY_MELEE_ATTACK_RANGE;
     
     if (inAttackRange) touchingDamagingEnemy = true;
   }
@@ -2562,7 +2772,15 @@ drawTopCenterHint() {
     message = this.tutorialHintMessage;
   }
 
-  if (!message) return;
+  if (!message) {
+    this._lastTopCenterHintMessage = null;
+    return;
+  }
+
+  if (this._lastTopCenterHintMessage !== message) {
+    tryPlaySfx('cat', { volume: 0.36, rate: 1 });
+    this._lastTopCenterHintMessage = message;
+  }
   const displayMessage = `: ${message}`;
 
   push();
@@ -3877,7 +4095,7 @@ class WaterLevel extends Level {
       [15,12,[V,V,SA,SA,'fire_coral_fan',W,W,W,SA,W,W,W]],
       [16,12,[V,V,SA,SA,W,W,W,W,SA,'horn_coral_fan',W,W]],
       [17,12,[V,V,SA,SA,W,W,W,W,SA,W,W,W]],
-      [18,12,[V,T.IRON,SA,W,W,W,W,SA,SA,W,W,W]],
+      [18,12,[V,V,T.IRON,W,W,W,W,SA,SA,W,W,W]],
       [19,12,[V,V,SA,W,W,W,W,SA,SA,'tall_seagrass_1','tall_seagrass_2',W]],
       // 第2屏
       [20,12,[V,V,SA,'bubble_coral',W,W,W,SA,'bubble_coral_fan',W,W,N]],
@@ -4017,7 +4235,6 @@ class WaterLevel extends Level {
 
     // ===== 敌人和物品生成（基于当前地形）=====
     this.enemies.push(new Drowned(6 * TILE_SIZE - 16, 96, 64, 64));
-    this.enemies.push(new Drowned(17 * TILE_SIZE - 16, 32, 64, 64));
     this.enemies.push(new Drowned(39 * TILE_SIZE - 16, 96, 64, 64));
     this.enemies.push(new Drowned(52 * TILE_SIZE - 16, 232, 64, 64));
     this.enemies.push(new Shark(15 * TILE_SIZE, 150, 84, 68));
@@ -4166,7 +4383,7 @@ class WaterLevel extends Level {
     this.items.push(new Hp(90 * TILE_SIZE + 4, solidSurfaceY(90) - 24, 24, 24, 'seashell'));
 
     //海豚生成
-    this.items.push(new Dolphin(40 * TILE_SIZE, 120));
+    this.items.push(new Dolphin(39 * TILE_SIZE, 80));
 
     // ===== 结束：敌人和物品生成 =====
   }
@@ -4179,6 +4396,15 @@ class WaterLevel extends Level {
   drawTrees() {
     // 水关：treeColumns 既包含树木，也包含水下植物/珊瑚，只做装饰，不参与碰撞
     if (!this.treeColumns) return;
+    const oceanDecorKinds = new Set([
+      'seagrass', 'tall_seagrass_1', 'tall_seagrass_2',
+      'tube_coral', 'tube_coral_fan',
+      'horn_coral', 'horn_coral_fan',
+      'fire_coral', 'fire_coral_fan',
+      'bubble_coral', 'bubble_coral_fan',
+      'brain_coral', 'brain_coral_fan',
+      'kelp_1', 'kelp_2', 'kelp_3', 'kelp_4', 'kelp_5'
+    ]);
 
     const spriteMap = {
       log: window.tile_oak_log,
@@ -4212,6 +4438,7 @@ class WaterLevel extends Level {
 
     push();
     imageMode(CORNER);
+    const t = millis() * 0.001;
 
     for (let col = 0; col < this.treeColumns.length; col++) {
       const column = this.treeColumns[col] || [];
@@ -4219,8 +4446,16 @@ class WaterLevel extends Level {
         const kind = column[i];
         if (!kind || kind === T.NONE) continue;
 
-        const x = col * TILE_SIZE;
-        const y = 360 - (i + 1) * TILE_SIZE;
+        const baseX = col * TILE_SIZE;
+        const baseY = 360 - (i + 1) * TILE_SIZE;
+        let x = baseX;
+        let y = baseY;
+        if (oceanDecorKinds.has(kind)) {
+          const phase = col * 0.83 + i * 0.47;
+          // 轻微左右漂移 + 轻微下沉后回位（不改碰撞，仅视觉）
+          x += Math.sin(t * 1.05 + phase) * 1.8;
+          y += ((Math.sin(t * 0.78 + phase * 1.31) + 1) * 0.5) * 1.6;
+        }
 
         const img = spriteMap[kind];
         if (img && img.width > 0) {
@@ -4362,6 +4597,9 @@ class WaterLevel extends Level {
       rect(0, 0, WORLD_WIDTH, CANVAS_H);
     }
 
+    // 背景装饰：先于地形绘制，确保装饰层位于实体地形下方
+    this.drawTrees();
+
     // ===== 上层：正常地形（沙子/石头/水池等），逻辑与判定保持不变 =====
     for (let col = 0; col < TERRAIN_COLS; col++) {
       for (let row = 0; row < (this.tileMap[col]?.length || 0); row++) {
@@ -4371,9 +4609,6 @@ class WaterLevel extends Level {
         drawTile(type, col * TILE_SIZE, y);
       }
     }
-
-    // 背景树：画在地形之后、实体之前（纯背景，无碰撞/交互）
-    this.drawTrees();
 
     // 绘制浮空平台、敌人、物品（生命值≤0 的敌人不绘制，已在 checkCollisions 中从列表移除）
     this.platforms.filter(p => !p.isTerrain).forEach(p => p.draw());
@@ -4455,6 +4690,7 @@ class Player extends Entity {
     this.hasDolphinMagnet = false;
     this.activeDolphin = null;
     this.dolphinUsed = false;
+    this.mountCutoutLayer = null;
 
     // 碰撞箱尺寸（独立于贴图尺寸）
     this.collisionW = 16;
@@ -4515,6 +4751,8 @@ class Player extends Entity {
   update(platforms, level) {
     const prevOnGround = this.onGround;
     const prevVy = this.vy;
+    const restrictTopByCollisionBox = (level instanceof WaterLevel) || (level instanceof FactoryLevel);
+    const minPlayerY = -this.collisionOffsetY;
 
     // WASD：水平 A/D、垂直 W/S 均读物理键（Key*），与 keys[] / 事件顺序解耦
     const vert = readVerticalMoveIntent();
@@ -4614,6 +4852,10 @@ class Player extends Entity {
       }
 
       this.x = constrain(this.x, 0, WORLD_WIDTH - this.w);
+      if (restrictTopByCollisionBox && this.y < minPlayerY) {
+        this.y = minPlayerY;
+        if (this.vy < 0) this.vy = 0;
+      }
 
       return;
     }
@@ -4661,9 +4903,9 @@ class Player extends Entity {
       this.jumpsRemaining = this.maxJumps;
     }
 
-    // 第二关（水关）：活动范围不超出屏幕上缘（贴图顶 y >= 0）
-    if (isWaterStage && this.y < 0) {
-      this.y = 0;
+    // 第二/三关：碰撞箱顶部不超出屏幕上缘
+    if (restrictTopByCollisionBox && this.y < minPlayerY) {
+      this.y = minPlayerY;
       if (this.vy < 0) this.vy = 0;
     }
 
@@ -4927,7 +5169,32 @@ class Player extends Entity {
       imageMode(CENTER);
       translate(drawCenterX, drawY + drawH / 2);
       scale(this.facingRight ? 1 : -1, 1);
-      image(img, 0, 0, drawW, drawH);
+      const needsCutout =
+        PLAYER_MOUNT_CUTOUT_ENABLED &&
+        this.hasDolphinMagnet &&
+        this.activeDolphin &&
+        this.activeDolphin.mounted;
+      if (needsCutout) {
+        if (!this.mountCutoutLayer || this.mountCutoutLayer.width !== drawW || this.mountCutoutLayer.height !== drawH) {
+          this.mountCutoutLayer = createGraphics(drawW, drawH);
+        }
+        const layer = this.mountCutoutLayer;
+        layer.clear();
+        layer.imageMode(CENTER);
+        layer.image(img, drawW / 2, drawH / 2, drawW, drawH);
+        layer.erase();
+        layer.rectMode(CENTER);
+        layer.rect(
+          drawW / 2 + PLAYER_MOUNT_CUTOUT_OFFSET_X,
+          drawH / 2 + PLAYER_MOUNT_CUTOUT_OFFSET_Y,
+          max(1, PLAYER_MOUNT_CUTOUT_W),
+          max(1, PLAYER_MOUNT_CUTOUT_H)
+        );
+        layer.noErase();
+        image(layer, 0, 0, drawW, drawH);
+      } else {
+        image(img, 0, 0, drawW, drawH);
+      }
       pop();
     } else {
       fill(50, 100, 255);
@@ -4943,12 +5210,18 @@ const ENEMY_DETECT_RANGE = 4 * TILE_SIZE; // 4格检测范围
 const ENEMY_SPEED = 1; // 敌人移动速度
 const ENEMY_WATER_CHASE_SPEED_SCALE = 0.75; // 敌人在水中追踪时再降一档
 const ENEMY_LOSE_TARGET_RANGE = ENEMY_DETECT_RANGE * 1.6; // 超出该范围后丢失目标
+const ENEMY_HIT_KNOCKBACK_SPEED = 10; // 受玩家有效攻击时水平击退初速度（与追踪速度叠加，每帧衰减）
+const ENEMY_HIT_KNOCKBACK_DECAY = 0.86; // 击退水平分量衰减（越大滑得越久）
+const ENEMY_HIT_KNOCKBACK_UP = 5; // 受击时短暂上抛（加到 vy）
+const ENEMY_HIT_KNOCKBACK_NUDGE_MAX = 12; // 受击时沿击退方向位移（像素），避开墙体时仍可见水平击退
 
 class Enemy extends Entity {
   constructor(x, y, w, h, health = ENEMY_DEFAULT_HEALTH) {
     super(x, y, w, h);
     Object.assign(this, { health, maxHealth: health });
     this.activated = false; // 是否已被激活（玩家进入检测范围）
+    this.hitKnockbackVx = 0; // 受击击退水平分量（每帧衰减，与 AI 目标速度相加）
+    this.vyImpulsePending = 0; // 受击上抛（在下一帧 update 内合并进 vy，避免被飞行类覆盖）
     this.vx = 0; // 水平速度
     this.vy = 0; // 垂直速度
     this.gravity = 0.5; // 重力
@@ -4963,8 +5236,52 @@ class Enemy extends Entity {
     this.collisionOffsetY = this.h - this.collisionH;  // 底部对齐
   }
   
-  takeDamage(amount) {
+  decayHitKnockback() {
+    this.hitKnockbackVx *= ENEMY_HIT_KNOCKBACK_DECAY;
+    if (Math.abs(this.hitKnockbackVx) < 0.06) this.hitKnockbackVx = 0;
+  }
+
+  /** 受击时与地形碰撞箱是否重叠（用于位移击退） */
+  _enemyBoxOverlapsPlatforms(platforms) {
+    if (!platforms) return false;
+    const box = this.getCollisionBox();
+    for (const p of platforms) {
+      const rects = getCollisionRectsForCollider(p);
+      for (const r of rects) {
+        if (rectCollision(box.x, box.y, box.w, box.h, r.x, r.y, r.w, r.h)) return true;
+      }
+    }
+    return false;
+  }
+
+  /** 沿击退方向平移，直到碰到地形或达到上限（贴墙/夹缝时仍保留速度击退尝试） */
+  nudgeKnockbackPositionFromPlayer(player, platforms) {
+    if (!player || !platforms || !Array.isArray(platforms)) return;
+    const dir = player.facingRight ? 1 : -1;
+    for (let s = 0; s < ENEMY_HIT_KNOCKBACK_NUDGE_MAX; s++) {
+      this.x += dir;
+      if (this._enemyBoxOverlapsPlatforms(platforms)) {
+        this.x -= dir;
+        break;
+      }
+    }
+  }
+
+  /** 玩家面朝方向为击退方向；由 takeDamage 在有效扣血后调用 */
+  applyPlayerHitKnockback(player, level = null) {
+    if (!player || this.isDead) return;
+    const dir = player.facingRight ? 1 : -1;
+    this.hitKnockbackVx += dir * ENEMY_HIT_KNOCKBACK_SPEED;
+    this.hitKnockbackVx = constrain(this.hitKnockbackVx, -11, 11);
+    this.vyImpulsePending += ENEMY_HIT_KNOCKBACK_UP;
+    const platforms = level && Array.isArray(level.platforms) ? level.platforms : null;
+    if (platforms) this.nudgeKnockbackPositionFromPlayer(player, platforms);
+  }
+
+  takeDamage(amount, level = null, attacker = null) {
+    if (this.isDead) return;
     this.health = max(0, this.health - amount);
+    if (attacker && amount > 0) this.applyPlayerHitKnockback(attacker, level);
   }
 
   canDamagePlayer() {
@@ -4989,10 +5306,32 @@ class Enemy extends Entity {
     }
     return this.activated;
   }
+
+  hasLineOfSightToPlayer(player, platforms) {
+    if (!player || !Array.isArray(platforms)) return true;
+    const a = { x: this.x + this.w / 2, y: this.y + this.h / 2 };
+    const b = { x: player.x + player.w / 2, y: player.y + player.h / 2 };
+    const minX = Math.min(a.x, b.x);
+    const maxX = Math.max(a.x, b.x);
+    const minY = Math.min(a.y, b.y);
+    const maxY = Math.max(a.y, b.y);
+    for (const p of platforms) {
+      const rects = getCollisionRectsForCollider(p);
+      for (const r of rects) {
+        // 忽略液体底边这类极薄碰撞片段，避免误判遮挡视线
+        if (r.w <= 2 || r.h <= 2) continue;
+        if (r.x > maxX || r.x + r.w < minX || r.y > maxY || r.y + r.h < minY) continue;
+        if (segmentIntersectsRect(a, b, r)) return false;
+      }
+    }
+    return true;
+  }
   
   // 更新敌人状态（追踪玩家）
   update(player, platforms, level = null) {
     if (this.isDead) return;
+
+    this.decayHitKnockback();
     
     const px = player.x + player.w / 2;
     const py = player.y + player.h / 2;
@@ -5001,20 +5340,23 @@ class Enemy extends Entity {
     const distance = Math.hypot(px - ex, py - ey);
     const inWater = this.isInWater(level);
     const chaseSpeed = ENEMY_SPEED * (inWater ? ENEMY_WATER_CHASE_SPEED_SCALE : 1);
-    this.updateActivation(distance);
+    const canTrackPlayer = this.hasLineOfSightToPlayer(player, platforms);
+    this.updateActivation(canTrackPlayer ? distance : Number.POSITIVE_INFINITY);
     
     // 激活后持续追踪玩家
     if (this.activated) {
       // 水平移动：朝向玩家
+      let targetVx = 0;
       if (px < ex - 5) {
-        this.vx = -chaseSpeed;
+        targetVx = -chaseSpeed;
         this.facingRight = false; // 向左移动
       } else if (px > ex + 5) {
-        this.vx = chaseSpeed;
+        targetVx = chaseSpeed;
         this.facingRight = true; // 向右移动
       } else {
-        this.vx = 0;
+        targetVx = 0;
       }
+      this.vx = targetVx + this.hitKnockbackVx;
 
       if (inWater) {
         this.vy += WATER_GRAVITY - WATER_BUOYANCY;
@@ -5024,12 +5366,35 @@ class Enemy extends Entity {
         // 应用重力
         this.vy += this.gravity;
       }
-      
+      if (this.vyImpulsePending) {
+        this.vy -= this.vyImpulsePending;
+        this.vyImpulsePending = 0;
+      }
+
       // 水平移动
       this.x += this.vx;
       this.resolveCollision(platforms, true);
       
       // 垂直移动
+      this.y += this.vy;
+      this.onGround = false;
+      this.resolveCollision(platforms, false);
+    } else {
+      // 未激活时仍可被击退滑动
+      this.vx = this.hitKnockbackVx;
+      if (inWater) {
+        this.vy += WATER_GRAVITY - WATER_BUOYANCY;
+        this.vx *= WATER_DRAG;
+        this.vy *= WATER_DRAG;
+      } else {
+        this.vy += this.gravity;
+      }
+      if (this.vyImpulsePending) {
+        this.vy -= this.vyImpulsePending;
+        this.vyImpulsePending = 0;
+      }
+      this.x += this.vx;
+      this.resolveCollision(platforms, true);
       this.y += this.vy;
       this.onGround = false;
       this.resolveCollision(platforms, false);
@@ -5052,9 +5417,15 @@ class Enemy extends Entity {
       for (const r of rects) {
         if (!rectCollision(box.x, box.y, box.w, box.h, r.x, r.y, r.w, r.h)) continue;
         if (horizontal) {
-          if (this.vx > 0) this.x = r.x - box.w - this.collisionOffsetX;
-          else this.x = r.x + r.w - this.collisionOffsetX;
+          if (this.vx > 0) {
+            this.x = r.x - box.w - this.collisionOffsetX;
+          } else if (this.vx < 0) {
+            this.x = r.x + r.w - this.collisionOffsetX;
+          } else {
+            continue;
+          }
           this.vx = 0;
+          this.hitKnockbackVx = 0;
         } else {
           if (this.vy > 0) {
             this.y = r.y - this.h;
@@ -5082,7 +5453,7 @@ class Vex extends Enemy {
     this.patrolOriginX = x;
     this.patrolRange = 4 * TILE_SIZE; // 出生点左右各 2*TILE_SIZE
     this.patrolDir = -1;
-    this.collisionW = 8;
+    this.collisionW = 30;
     this.collisionH = 22;
     this.collisionOffsetX = (this.w - this.collisionW) / 2;
     this.collisionOffsetY = (this.h - this.collisionH) / 2;
@@ -5091,37 +5462,42 @@ class Vex extends Enemy {
   update(player, platforms, level = null) {
     if (this.isDead) return;
 
+    this.decayHitKnockback();
+
     const px = player.x + player.w / 2;
     const ex = this.x + this.w / 2;
     const ey = this.y + this.h / 2;
     const py = player.y + player.h / 2;
     const distance = Math.hypot(px - ex, py - ey);
-    this.updateActivation(distance);
+    const canTrackPlayer = this.hasLineOfSightToPlayer(player, platforms);
+    this.updateActivation(canTrackPlayer ? distance : Number.POSITIVE_INFINITY);
 
+    let targetVx;
+    let targetVy;
     if (this.activated) {
       if (px < ex - 5) {
-        this.vx = -ENEMY_SPEED;
+        targetVx = -ENEMY_SPEED;
         this.facingRight = false;
       } else if (px > ex + 5) {
-        this.vx = ENEMY_SPEED;
+        targetVx = ENEMY_SPEED;
         this.facingRight = true;
       } else {
-        this.vx = 0;
+        targetVx = 0;
       }
 
       const flySpeedY = ENEMY_SPEED * 0.85;
       if (py < ey - 4) {
-        this.vy = -flySpeedY;
+        targetVy = -flySpeedY;
       } else if (py > ey + 4) {
-        this.vy = flySpeedY;
+        targetVy = flySpeedY;
       } else {
-        this.vy = 0;
+        targetVy = 0;
       }
     } else {
       const minX = this.patrolOriginX - 2 * TILE_SIZE;
       const maxX = this.patrolOriginX + 2 * TILE_SIZE;
       const patrolSpeed = ENEMY_SPEED * 0.85;
-      this.vx = patrolSpeed * this.patrolDir;
+      targetVx = patrolSpeed * this.patrolDir;
 
       if (this.x <= minX) {
         this.x = minX;
@@ -5131,8 +5507,13 @@ class Vex extends Enemy {
         this.patrolDir = -1;
       }
       this.facingRight = this.patrolDir > 0;
-      this.vy = 0;
+      targetVy = 0;
     }
+
+    const vyKnock = this.vyImpulsePending;
+    this.vyImpulsePending = 0;
+    this.vx = targetVx + this.hitKnockbackVx;
+    this.vy = targetVy - vyKnock;
 
     // Vex 可飞行：不受重力影响（vy 由飞行追踪逻辑决定）
     this.x += this.vx;
@@ -5195,6 +5576,8 @@ class Drowned extends Enemy {
   update(player, platforms, level = null) {
     if (this.isDead) return;
 
+    this.decayHitKnockback();
+
     const px = player.x + player.w / 2;
     const py = player.y + player.h / 2;
     const ex = this.x + this.w / 2;
@@ -5202,21 +5585,25 @@ class Drowned extends Enemy {
     const distance = Math.hypot(px - ex, py - ey);
     const inWater = this.isInWater(level);
     const chaseSpeed = ENEMY_SPEED * (inWater ? ENEMY_WATER_CHASE_SPEED_SCALE : 1);
-    this.updateActivation(distance);
+    const canTrackPlayer = this.hasLineOfSightToPlayer(player, platforms);
+    this.updateActivation(canTrackPlayer ? distance : Number.POSITIVE_INFINITY);
 
+    let targetVx;
     if (this.activated) {
       if (px < ex - 5) {
-        this.vx = -chaseSpeed;
+        targetVx = -chaseSpeed;
         this.facingRight = false;
       } else if (px > ex + 5) {
-        this.vx = chaseSpeed;
+        targetVx = chaseSpeed;
         this.facingRight = true;
       } else {
-        this.vx = 0;
+        targetVx = 0;
       }
     } else {
-      this.vx *= 0.92;
+      const kbPrev = this.hitKnockbackVx / ENEMY_HIT_KNOCKBACK_DECAY;
+      targetVx = (this.vx - kbPrev) * 0.92;
     }
+    this.vx = targetVx + this.hitKnockbackVx;
 
     if (inWater) {
       // 统一水中物理：重力 + 浮力 + 阻力
@@ -5238,6 +5625,10 @@ class Drowned extends Enemy {
       this.vy = constrain(this.vy, -1.2, 1.2);
     } else {
       this.vy += this.gravity;
+    }
+    if (this.vyImpulsePending) {
+      this.vy -= this.vyImpulsePending;
+      this.vyImpulsePending = 0;
     }
 
     this.x += this.vx;
@@ -5303,6 +5694,8 @@ class Shark extends Enemy {
   update(player, platforms, level = null) {
     if (this.isDead) return;
 
+    this.decayHitKnockback();
+
     const px = player.x + player.w / 2;
     const py = player.y + player.h / 2;
     const ex = this.x + this.w / 2;
@@ -5310,25 +5703,25 @@ class Shark extends Enemy {
     const distance = Math.hypot(px - ex, py - ey);
     const inWater = this.isInWater(level);
     const chaseSpeed = ENEMY_SPEED * (inWater ? ENEMY_WATER_CHASE_SPEED_SCALE : 1);
-    this.updateActivation(distance);
+    const canTrackPlayer = this.hasLineOfSightToPlayer(player, platforms);
+    this.updateActivation(canTrackPlayer ? distance : Number.POSITIVE_INFINITY);
 
+    let targetVx;
     if (this.activated) {
-      // 检测到玩家后，行为与 drowned 一致：朝玩家追踪
       if (px < ex - 5) {
-        this.vx = -chaseSpeed;
+        targetVx = -chaseSpeed;
         this.facingRight = false;
       } else if (px > ex + 5) {
-        this.vx = chaseSpeed;
+        targetVx = chaseSpeed;
         this.facingRight = true;
       } else {
-        this.vx = 0;
+        targetVx = 0;
       }
     } else {
-      // 未激活时在固定范围内水平往返巡逻
       const minX = this.patrolOriginX - this.patrolRange / 2;
       const maxX = this.patrolOriginX + this.patrolRange / 2;
       const patrolSpeed = ENEMY_SPEED * 0.85;
-      this.vx = patrolSpeed * this.patrolDir;
+      targetVx = patrolSpeed * this.patrolDir;
 
       if (this.x <= minX) {
         this.x = minX;
@@ -5339,6 +5732,7 @@ class Shark extends Enemy {
       }
       this.facingRight = this.patrolDir > 0;
     }
+    this.vx = targetVx + this.hitKnockbackVx;
     this.refreshCollisionAnchor();
 
     if (inWater) {
@@ -5356,6 +5750,10 @@ class Shark extends Enemy {
       this.vy = constrain(this.vy, -1.2, 1.2);
     } else {
       this.vy += this.gravity;
+    }
+    if (this.vyImpulsePending) {
+      this.vy -= this.vyImpulsePending;
+      this.vyImpulsePending = 0;
     }
 
     this.x += this.vx;
@@ -5414,6 +5812,7 @@ class Slime extends Enemy {
     this.gravity = 0.45;
     this.splitSpeedBase = max(2.2, this.w / 26);
     this.vx = random(-0.8, 0.8); // 出生时轻微漂移，降低完全重叠感
+    this.slimeDriveVx = this.vx; // AI 水平分量，与受击击退分开便于摩擦/跳跃逻辑
     this.vy = 0;
     this.collisionW = this.w;
     this.collisionH = this.h;
@@ -5448,6 +5847,8 @@ class Slime extends Enemy {
   update(player, platforms, level = null) {
     if (this.isDead) return;
 
+    this.decayHitKnockback();
+
     const now = millis();
     const delayedTarget = this.getDelayedTarget(now, player);
     const ex = this.x + this.w / 2;
@@ -5456,7 +5857,11 @@ class Slime extends Enemy {
     const dy = delayedTarget.y - ey;
     const distance = Math.hypot(dx, dy);
     const inWater = this.isInWater(level);
-    this.updateActivation(distance, ENEMY_DETECT_RANGE * 1.25);
+    const canTrackPlayer = this.hasLineOfSightToPlayer(player, platforms);
+    this.updateActivation(
+      canTrackPlayer ? distance : Number.POSITIVE_INFINITY,
+      ENEMY_DETECT_RANGE * 1.25
+    );
 
     if (this.activated) {
       const dirX = dx >= 0 ? 1 : -1;
@@ -5464,16 +5869,18 @@ class Slime extends Enemy {
 
       if (this.onGround && now >= this.jumpCooldownUntil) {
         // 史莱姆通过周期跳跃追踪目标
-        this.vx = dirX * this.jumpSpeedX;
+        this.slimeDriveVx = dirX * this.jumpSpeedX;
         this.vy = -this.jumpSpeedY;
         this.onGround = false;
         this.jumpCooldownUntil = now + this.jumpIntervalMs + random(-140, 160);
       } else if (this.onGround) {
-        this.vx *= 0.82;
+        this.slimeDriveVx *= 0.82;
       }
     } else if (this.onGround) {
-      this.vx *= 0.88;
+      this.slimeDriveVx *= 0.88;
     }
+
+    this.vx = this.slimeDriveVx + this.hitKnockbackVx;
 
     if (inWater) {
       this.vy += WATER_GRAVITY - WATER_BUOYANCY;
@@ -5482,14 +5889,19 @@ class Slime extends Enemy {
     } else {
       this.vy += this.gravity;
     }
+    if (this.vyImpulsePending) {
+      this.vy -= this.vyImpulsePending;
+      this.vyImpulsePending = 0;
+    }
     this.x += this.vx;
     this.resolveCollision(platforms, true);
+    this.slimeDriveVx = this.vx - this.hitKnockbackVx;
     this.y += this.vy;
     this.onGround = false;
     this.resolveCollision(platforms, false);
   }
 
-  split(level) {
+  split(level, knockDir = 0) {
     if (!level || !Array.isArray(level.enemies)) return;
     const nextW = Math.floor(this.w / 2);
     const nextH = Math.floor(this.h / 2);
@@ -5513,21 +5925,25 @@ class Slime extends Enemy {
       child.jumpCooldownUntil = millis() + random(120, 420);
       child.x += s.x * max(4, nextW * 0.12);
       child.y += s.y * max(2, nextH * 0.08);
-      // 四散飞溅：给初速度
-      child.vx = s.x * splash * random(0.8, 1.15);
+      // 四散飞溅：给初速度（可选叠加玩家攻击方向的击退）
+      const kbBoost = knockDir * ENEMY_HIT_KNOCKBACK_SPEED * 0.5;
+      child.vx = s.x * splash * random(0.8, 1.15) + kbBoost;
+      child.slimeDriveVx = child.vx;
       child.vy = s.y * splash * random(0.95, 1.25);
       child.onGround = false;
       level.enemies.push(child);
     }
   }
 
-  takeDamage(amount, level = null) {
+  takeDamage(amount, level = null, attacker = null) {
     if (this.isDead) return;
+    if (attacker && amount > 0) this.applyPlayerHitKnockback(attacker, level);
+    const knockDir = attacker && amount > 0 ? (attacker.facingRight ? 1 : -1) : 0;
     if (this.w <= 16 || this.h <= 16) {
       this.health = 0;
       return;
     }
-    this.split(level);
+    this.split(level, knockDir);
     this.health = 0;
   }
 
@@ -5698,11 +6114,11 @@ class TNT extends Pollutant {
     if (platforms) super.update(platforms, level);
     if (!this.armed || this.exploded) return;
     if (now - this.armTime >= this.fuseMs) {
-      this.explode(now, player);
+      this.explode(now, player, level);
     }
   }
 
-  explode(now, player) {
+  explode(now, player, level = null) {
     if (this.exploded) return;
     this.exploded = true;
     this.removeAfter = now + this.postExplodeMs;
@@ -5717,6 +6133,21 @@ class TNT extends Pollutant {
 
     if (d <= this.blastRadius) {
       player.takeDamage(this.damage);
+    }
+
+    if (!level || typeof level.removeTerrainBlock !== 'function') return;
+
+    const centerCol = Math.floor((this.x + this.w * 0.5) / TILE_SIZE);
+    const anchorY = this.y + this.h - 1;
+    const centerRow = Math.floor((CANVAS_H - anchorY - 1) / TILE_SIZE);
+    const neighbors = [
+      [centerCol, centerRow + 1], // up
+      [centerCol, centerRow - 1], // down
+      [centerCol - 1, centerRow], // left
+      [centerCol + 1, centerRow]  // right
+    ];
+    for (const [col, row] of neighbors) {
+      level.removeTerrainBlock(col, row);
     }
   }
 
@@ -6211,6 +6642,13 @@ class Rabbit extends Animal {
     this.scriptTargetX = Number.isFinite(opts.targetX) ? opts.targetX : x;
     this.scriptTargetY = Number.isFinite(opts.targetY) ? opts.targetY : y;
     this.scriptArcHeight = 2 * TILE_SIZE;
+    this.scriptIdleHopEnabled = false;
+    this.scriptIdleHopAt = 0;
+    this.scriptIdleHopDurationMs = 560;
+    this.scriptIdleHopArcHeight = 2 * TILE_SIZE;
+    this.scriptIdleHopMaxArcHeight = 5 * TILE_SIZE;
+    this.scriptIdleHopPauseMs = 0;
+    this.scriptIdleHopPausedUntil = 0;
   }
 
   update(platforms, level = null) {
@@ -6244,10 +6682,44 @@ class Rabbit extends Animal {
         this.onGround = true;
         this.scriptJumping = false;
         this.scriptTriggered = true;
+        this.scriptIdleHopEnabled = true;
+        this.scriptIdleHopAt = now;
+        this.scriptIdleHopDurationMs = 560;
+        this.scriptIdleHopPauseMs = random(780, 1300);
+        this.scriptIdleHopPausedUntil = 0;
+        this.scriptIdleHopArcHeight = random(TILE_SIZE, this.scriptIdleHopMaxArcHeight);
         if (!this.scriptAwarded && typeof game?.addScore === 'function') {
           game.addScore(1);
           this.scriptAwarded = true;
         }
+      }
+      return;
+    }
+
+    if (this.scriptEnabled && this.scriptTriggered && this.scriptIdleHopEnabled) {
+      if (now < this.scriptIdleHopPausedUntil) {
+        this.x = this.scriptTargetX;
+        this.y = this.scriptTargetY;
+        this.vx = 0;
+        this.vy = 0;
+        this.onGround = true;
+        return;
+      }
+
+      const t = constrain((now - this.scriptIdleHopAt) / this.scriptIdleHopDurationMs, 0, 1);
+      const arc = -4 * this.scriptIdleHopArcHeight * t * (1 - t);
+      this.x = this.scriptTargetX;
+      this.y = this.scriptTargetY + arc;
+      this.vx = 0;
+      this.vy = 0;
+      this.onGround = t >= 1;
+
+      if (t >= 1) {
+        this.scriptIdleHopAt = now;
+        this.scriptIdleHopDurationMs = 560;
+        this.scriptIdleHopPauseMs = random(780, 1300);
+        this.scriptIdleHopPausedUntil = now + this.scriptIdleHopPauseMs;
+        this.scriptIdleHopArcHeight = random(TILE_SIZE, this.scriptIdleHopMaxArcHeight);
       }
       return;
     }
@@ -6305,6 +6777,10 @@ class Dolphin extends Entity {
   constructor(x, y, w = DOLPHIN_W, h = DOLPHIN_H) {
     super(x, y, w, h);
     this.baseY = y;
+    this.patrolOriginX = x;
+    this.patrolRange = 12 * TILE_SIZE; // 出生点左右各 6*TILE_SIZE
+    this.patrolDir = 1;
+    this.patrolSpeed = ENEMY_SPEED * 0.85;
     this.mounted = false;
     this.used = false;
     this.swimAway = false;
@@ -6356,7 +6832,18 @@ class Dolphin extends Entity {
       return;
     }
 
-    // 未被碰到前原地轻微上下浮动
+    // 未被碰到前：像 shark 一样左右巡游，并带轻微上下浮动
+    const minX = this.patrolOriginX - this.patrolRange / 2;
+    const maxX = this.patrolOriginX + this.patrolRange / 2;
+    this.x += this.patrolSpeed * this.patrolDir;
+    if (this.x <= minX) {
+      this.x = minX;
+      this.patrolDir = 1;
+    } else if (this.x >= maxX) {
+      this.x = maxX;
+      this.patrolDir = -1;
+    }
+    this.facingRight = this.patrolDir > 0;
     this.y = this.baseY + sin(millis() / 360) * 5;
   }
 
@@ -6367,7 +6854,6 @@ class Dolphin extends Entity {
     imageMode(CENTER);
     translate(this.x + this.w / 2, this.y + this.h / 2);
     scale(this.facingRight ? -1 : 1, 1);
-
     if (img && img.width > 0) {
       image(img, 0, 0, this.w, this.h);
     } else {
@@ -6688,8 +7174,7 @@ class UIManager {
       return [
         [
           commonTools.scissor,
-          commonTools.wrench,
-          commonTools.waterBucket
+          commonTools.wrench
         ],
         [
           [window.turtle_0, t("Turtle", "海龟"), t("Break iron bars to rescue", "拆除铁栏杆进行救援")],
@@ -6705,13 +7190,14 @@ class UIManager {
     if (levelType === "factory") {
       return [
         [
-          commonTools.waterBucket,
           commonTools.limestone
         ],
-        [],
+        [
+          [window.rabbit, t("Rabbit", "兔子"), t("Press button to rescue", "按下按钮进行救援")]
+        ],
         [
           [window.tile_spike, t("Spike", "尖刺"), t("Retracts and extends periodically", "会周期性升降并持续造成伤害")],
-          [window.slimeSprite, t("Slime", "史莱姆"), t("Press F to attack", "按 F 攻击")],
+          [window.tile_acid, t("Acid Pool", "酸液池"), t("Use limestone to neutralize", "使用石灰石中和")],
           [window.vexSprite0, t("Vex", "怨灵"), t("Keep distance or attack", "保持距离或攻击")]
         ]
       ];
@@ -6820,6 +7306,8 @@ function preload() {
   queueSfxList('lava', ['assets/sfx/lava.wav']);
   queueSfxList('recover', ['assets/sfx/recover.wav']);
   queueSfxList('trophy', ['assets/sfx/trophy.wav']);
+  queueSfxList('sword', ['assets/sfx/sword.mp3']);
+  queueSfxList('cat', ['assets/sfx/cat.wav']);
   queueSfxList('click', ['assets/sfx/click.mp3']);
   queueSfxList('win', ['assets/sfx/win.mp3']);
   queueSfxList('lost', ['assets/sfx/lost.mp3']);
@@ -6834,6 +7322,16 @@ function preload() {
   queueSfxList('spike', ['assets/sfx/spike.mp3']);
   queueSfxList('tnt_fuse', ['assets/sfx/tnt/fuse.wav']);
   queueSfxList('tnt_explode', ['assets/sfx/tnt/explode.wav']);
+
+  // 开始界面背景：在 preload 中优先加载，避免首帧闪回退色
+  loadImage(
+    'assets/pic/bg/startscreen.png',
+    (img) => { markBootAssetReady('startBg', img); },
+    () => {
+      markBootAssetFailed('startBg');
+      console.warn('assets/pic/bg/startscreen.png preload 加载失败');
+    }
+  );
 }
 
 function setup() {
@@ -6859,6 +7357,8 @@ function setup() {
     queueSfxList('lava', ['assets/sfx/lava.wav']);
     queueSfxList('recover', ['assets/sfx/recover.wav']);
     queueSfxList('trophy', ['assets/sfx/trophy.wav']);
+    queueSfxList('sword', ['assets/sfx/sword.mp3']);
+    queueSfxList('cat', ['assets/sfx/cat.wav']);
     queueSfxList('click', ['assets/sfx/click.mp3']);
     queueSfxList('win', ['assets/sfx/win.mp3']);
     queueSfxList('lost', ['assets/sfx/lost.mp3']);
@@ -6919,6 +7419,19 @@ function setup() {
 
   game = new Game();
   game.setup();
+  initBgmIfNeeded();
+
+  // 兜底：若 preload 阶段未拿到开始背景，这里再异步重试一次
+  if (!window.startBg) {
+    loadImage(
+      'assets/pic/bg/startscreen.png',
+      (img) => { markBootAssetReady('startBg', img); },
+      () => {
+        markBootAssetFailed('startBg');
+        console.warn('assets/pic/bg/startscreen.png setup 重试加载失败');
+      }
+    );
+  }
 
   // 加载贴图
   const load = (path, key) => loadImage(path, img => window[key] = img, () => console.warn(`${path} 加载失败`));
@@ -7016,8 +7529,6 @@ function setup() {
   groundTiles.forEach(name => loadImage(`assets/pic/ground/${name}.png`, img => window[`tile_${name.replace(/-/g, '_')}`] = img, () => console.warn(`pic/ground/${name}.png 加载失败`)));
   const surroundingTiles = ['dandelion', 'orange_tulip', 'pink_tulip', 'poppy', 'red_mushroom', 'red_tulip', 'brown_mushroom'];
   surroundingTiles.forEach(name => load(`assets/pic/surrounding/${name}.png`, `tile_${name}`));
-  //加载游戏开始界面
-  loadImage('assets/pic/bg/startscreen.png', img => window.startBg = img, () => console.warn('加载失败'));
 
 
 
@@ -7028,9 +7539,16 @@ function setup() {
 function draw() {
 
   applyGameFont();
+  syncBgmPlayback();
   if (drawingContext) {
     drawingContext.fontKerning = 'none';
   }
+
+  if (!isBootAssetsReady()) {
+    drawBootLoadingScreen();
+    return;
+  }
+
   if (game.state === "start") {
     drawStartScreen();
   }
@@ -7052,6 +7570,17 @@ function draw() {
     game.draw();
     drawVictoryScreen();
   }
+}
+
+function drawBootLoadingScreen() {
+  background(0, 0, 0);
+
+  const progress = getBootLoadProgress01();
+
+  textAlign(CENTER, CENTER);
+  textSize(24);
+  fill(230);
+  text(`${Math.round(progress * 100)}%`, width / 2, height / 2);
 }
 
 function keyPressed() {
@@ -7236,25 +7765,25 @@ function mousePressed() {
 
     if (isInside(mouseX, mouseY, ui.musicMinus)) {
       tryPlaySfx('click', { volume: 0.32, rate: 1 });
-      s.musicVolume = max(0, s.musicVolume - 10);
+      setMusicVolume((s.musicVolume ?? 80) - 10);
       return;
     }
 
     if (isInside(mouseX, mouseY, ui.musicPlus)) {
       tryPlaySfx('click', { volume: 0.32, rate: 1 });
-      s.musicVolume = min(100, s.musicVolume + 10);
+      setMusicVolume((s.musicVolume ?? 80) + 10);
       return;
     }
 
     if (isInside(mouseX, mouseY, ui.sfxMinus)) {
       tryPlaySfx('click', { volume: 0.32, rate: 1 });
-      s.sfxVolume = max(0, s.sfxVolume - 10);
+      setSfxVolume((s.sfxVolume ?? 80) - 10);
       return;
     }
 
     if (isInside(mouseX, mouseY, ui.sfxPlus)) {
       tryPlaySfx('click', { volume: 0.32, rate: 1 });
-      s.sfxVolume = min(100, s.sfxVolume + 10);
+      setSfxVolume((s.sfxVolume ?? 80) + 10);
       return;
     }
 
