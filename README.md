@@ -264,47 +264,54 @@ This changes the purpose of play. Progress is not only about reaching the end of
 
 <table border="1" cellpadding="12" cellspacing="0">
   <tr>
-    <td align="center" width="12.5%">
+    <td align="center" width="25%">
       <img src="./SuperCatAndSteve/assets/pic/enemy/zombie_right.png" width="80" alt="Zombie"><br><br>
       <strong>Zombie</strong><br>
       A ground enemy that can hurt player and make player lose health.
     </td>
-    <td align="center" width="12.5%">
-      <img src="./SuperCatAndSteve/assets/pic/enemy/drowned.png" width="80" alt="Drowned"><br><br>
-      <strong>Drowned</strong><br>
-      An underwater enemy that can hurt player and make player lose health.
-    </td>
-    <td align="center" width="12.5%">
-      <img src="./SuperCatAndSteve/assets/pic/enemy/shark_still.png" width="80" alt="Shark"><br><br>
-      <strong>Shark</strong><br>
-      A marine enemy gliding undersea. It can also hurt player. More dangerours than drowned.
-    </td>
-    <td align="center" width="12.5%">
+    <td align="center" width="25%">
       <img src="./SuperCatAndSteve/assets/pic/enemy/slime.png" width="80" alt="Slime"><br><br>
       <strong>Slime</strong><br>
       A sticky and hostile creature that adds variety to enemy encounters.
     </td>
-    <td align="center" width="12.5%">
-      <img src="./SuperCatAndSteve/assets/pic/enemy/vex_0.png" width="80" alt="Vex"><br><br>
-      <strong>Vex</strong><br>
-      A flying enemy type. 
-    </td>
-    <td align="center" width="12.5%">
-      <img src="./SuperCatAndSteve/assets/pic/ground/acid.png" width="80" alt="Acid Pool"><br><br>
-      <strong>Acid Pool</strong><br>
-      A lethal environmental hazard that must be neutralized by limestone.
-    </td>
-    <td align="center" width="12.5%">
+    <td align="center" width="25%">
       <img src="./SuperCatAndSteve/assets/pic/ground/lava.png" width="80" alt="Lava"><br><br>
       <strong>Lava</strong><br>
-      A lethal hazard that can kill the player instantly. It must be treated by buckets of water
+      A lethal hazard that can kill the player instantly. It must be treated by buckets of water.
     </td>
-    <td align="center" width="12.5%">
+    <td align="center" width="25%">
       <img src="./SuperCatAndSteve/assets/pic/item/pollutant/tnt_side.png" width="80" alt="TNT"><br><br>
       <strong>TNT</strong><br>
       A dangerous object that the player should avoid. Will not explode instantly.
     </td>
-    <td align="center" width="12.5%">
+  </tr>
+</table>
+
+<br>
+
+<table border="1" cellpadding="12" cellspacing="0">
+  <tr>
+    <td align="center" width="20%">
+      <img src="./SuperCatAndSteve/assets/pic/enemy/drowned.png" width="80" alt="Drowned"><br><br>
+      <strong>Drowned</strong><br>
+      An underwater enemy that can hurt player and make player lose health.
+    </td>
+    <td align="center" width="20%">
+      <img src="./SuperCatAndSteve/assets/pic/enemy/shark_still.png" width="80" alt="Shark"><br><br>
+      <strong>Shark</strong><br>
+      A marine enemy gliding undersea. It can also hurt player. More dangerous than drowned.
+    </td>
+    <td align="center" width="20%">
+      <img src="./SuperCatAndSteve/assets/pic/enemy/vex_0.png" width="80" alt="Vex"><br><br>
+      <strong>Vex</strong><br>
+      A flying enemy type.
+    </td>
+    <td align="center" width="20%">
+      <img src="./SuperCatAndSteve/assets/pic/ground/acid.png" width="80" alt="Acid Pool"><br><br>
+      <strong>Acid Pool</strong><br>
+      A lethal environmental hazard that must be neutralized by limestone.
+    </td>
+    <td align="center" width="20%">
       <img src="./SuperCatAndSteve/assets/pic/ground/spike.png" width="80" alt="Spike"><br><br>
       <strong>Spike</strong><br>
       A periodically appearing spike in the Factory level that damages the player on contact.
