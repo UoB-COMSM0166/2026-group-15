@@ -5822,11 +5822,11 @@ class TNT extends Pollutant {
     if (platforms) super.update(platforms, level);
     if (!this.armed || this.exploded) return;
     if (now - this.armTime >= this.fuseMs) {
-      this.explode(now, player);
+      this.explode(now, player, level);
     }
   }
 
-  explode(now, player) {
+  explode(now, player, level = null) {
     if (this.exploded) return;
     this.exploded = true;
     this.removeAfter = now + this.postExplodeMs;
@@ -5841,6 +5841,21 @@ class TNT extends Pollutant {
 
     if (d <= this.blastRadius) {
       player.takeDamage(this.damage);
+    }
+
+    if (!level || typeof level.removeTerrainBlock !== 'function') return;
+
+    const centerCol = Math.floor((this.x + this.w * 0.5) / TILE_SIZE);
+    const anchorY = this.y + this.h - 1;
+    const centerRow = Math.floor((CANVAS_H - anchorY - 1) / TILE_SIZE);
+    const neighbors = [
+      [centerCol, centerRow + 1], // up
+      [centerCol, centerRow - 1], // down
+      [centerCol - 1, centerRow], // left
+      [centerCol + 1, centerRow]  // right
+    ];
+    for (const [col, row] of neighbors) {
+      level.removeTerrainBlock(col, row);
     }
   }
 
