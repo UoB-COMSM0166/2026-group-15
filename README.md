@@ -383,21 +383,46 @@ At the beginning of the project, our team did not decide the final game idea str
 
 After careful consideration, we have selected **two game concepts** for further development.
 
-The **first** is a Minecraft-themed 2D platformer. We plan to leverage the iconic pixel art and classic mechanics of Minecraft—such as biome-hopping (from grasslands to deep caves), tool upgrades, and using items like water buckets and TNT—to create a familiar yet fresh exploration and survival experience.
+The **first** is a **Minecraft-themed 2D platformer**. We plan to leverage the iconic pixel art and classic mechanics of Minecraft—such as biome-hopping (from grasslands to deep caves), tool upgrades, and using items like water buckets and TNT—to create a familiar yet fresh exploration and survival experience.
 
 Its major advantages are significantly reduced asset creation by utilizing MC's established visual style and high recognizability among UK audiences. Another key feature of the game is the use of randomly generated enemies, ensuring that each playthrough feels unpredictable. In addition, the game includes multiple environments—such as underground caves, and ocean areas—each with distinct gameplay mechanics and movement constraints.
 
-[![视频预览](https://img.youtube.com/vi/Uex90hFB9x8/maxresdefault.jpg)](https://youtu.be/Uex90hFB9x8)
+<p align="center">
+<img src="docs/images/Super_Steve.gif" alt="Super Steve gameplay preview" />
+</p>
 
-The **second** is an environmental puzzle game centered on a core "time reversal" mechanic with platforms or maze maps. The player starts in a fully polluted city and must navigate through it, undo ecological damage by collecting various pollutants and healing affected wildlife. A character selection system with varied stats (e.g., healing vs. cleanup proficiency) influences multiple endings.
+<p align="center">
+<a href="https://youtu.be/Uex90hFB9x8" target="_blank" style="text-decoration:none; border:none; outline:none;">
+<img src="./docs/images/video icon.png" alt="Video icon" height="22" style="vertical-align:middle; border:none; display:inline-block;">
+<img src="https://img.shields.io/badge/Prototype%20Video%201-4F86F7?style=for-the-badge" alt="Prototype Video 1" style="vertical-align:middle; border:none; display:inline-block;">
+</a>
+</p>
 
-[![视频预览](https://img.youtube.com/vi/nzsu2YbncT4/maxresdefault.jpg)](https://youtu.be/nzsu2YbncT4)
+The **second** is an **environmental puzzle game** centered on a core "time reversal" mechanic with platforms or maze maps. The player starts in a fully polluted city and must navigate through it, undo ecological damage by collecting various pollutants and healing affected wildlife. A character selection system with varied stats (e.g., healing vs. cleanup proficiency) influences multiple endings.
 
-After choosing this direction, we developed the idea into Super Cat and Steve, **an environmental platform game with three themed levels**: forest, ocean, and factory. From this point, our requirements became more specific. The game needed to support basic movement, double jump, combat, item use, mining, score-based level completion, and interactions with environmental hazards. It also needed to include systems for collecting pollutants and rescuing trapped animals, since these actions were central to the theme of the game. According to the current gameplay design, players choose a level at the start, use keyboard controls to move, attack zombies with the F key, use the mouse for tools and mining, and pass the level by gaining enough score through cleanup and rescue tasks.
+<p align="center">
+<img src="docs/images/Deepsea_Meow_Patrol.gif" alt="Deepsea Meow Patrol gameplay preview" />
+</p>
 
-**The following is a paper prototype of our game:**
+<p align="center">
+<a href="https://youtu.be/nzsu2YbncT4" target="_blank" style="text-decoration:none; border:none; outline:none;">
+<img src="./docs/images/video icon.png" alt="Video icon" height="22" style="vertical-align:middle; border:none; display:inline-block;">
+<img src="https://img.shields.io/badge/Prototype%20Video%202-A970FF?style=for-the-badge" alt="Prototype Video 2" style="vertical-align:middle; border:none; display:inline-block;">
+</a>
+</p>
 
-[![视频预览](https://img.youtube.com/vi/Igxwji-czvQ/maxresdefault.jpg)](https://youtu.be/Igxwji-czvQ)
+After choosing this direction, we developed the idea into **Super Cat and Steve**, **an environmental platform game** with three themed levels: forest, ocean, and factory. From this point, our requirements became more specific. The game needed to support basic movement, double jump, combat, item use, mining, score-based level completion, and interactions with environmental hazards. It also needed to include systems for collecting pollutants and rescuing trapped animals, since these actions were central to the theme of the game. According to the current gameplay design, players choose a level at the start, use keyboard controls to move, attack zombies with the F key, use the mouse for tools and mining, and pass the level by gaining enough score through cleanup and rescue tasks.
+
+<p align="center">
+<img src="docs/images/Super_Cat_and_Steve.gif" alt="Super Cat and Steve gameplay preview" />
+</p>
+
+<p align="center">
+<a href="https://youtu.be/9PLawSWQ0Q0" target="_blank" style="text-decoration:none; border:none; outline:none;">
+<img src="./docs/images/video icon.png" alt="Video icon" height="22" style="vertical-align:middle; border:none; display:inline-block;">
+<img src="https://img.shields.io/badge/Final%20Idea%20Video-F28C28?style=for-the-badge" alt="Final Idea Video" style="vertical-align:middle; border:none; display:inline-block;">
+</a>
+</p>
 
 ### 4.2 Stakeholders 
 
