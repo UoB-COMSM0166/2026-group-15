@@ -393,8 +393,7 @@ Its major advantages are significantly reduced asset creation by utilizing MC's 
 
 <p align="center">
 <a href="https://youtu.be/Uex90hFB9x8" target="_blank" style="text-decoration:none; border:none; outline:none;">
-<img src="./docs/images/video icon.png" alt="Video icon" height="22" style="vertical-align:middle; border:none; display:inline-block;">
-<img src="https://img.shields.io/badge/Prototype%20Video%201-4F86F7?style=for-the-badge" alt="Prototype Video 1" style="vertical-align:middle; border:none; display:inline-block;">
+<img src="./docs/images/video icon.png" alt="Video icon" height="22" style="vertical-align:middle; border:none; display:inline-block;"><img src="https://img.shields.io/badge/Prototype%20Video%201-4F86F7?style=for-the-badge" alt="Prototype Video 1" style="vertical-align:middle; border:none; display:inline-block;">
 </a>
 </p>
 
@@ -406,8 +405,7 @@ The **second** is an **environmental puzzle game** centered on a core "time reve
 
 <p align="center">
 <a href="https://youtu.be/nzsu2YbncT4" target="_blank" style="text-decoration:none; border:none; outline:none;">
-<img src="./docs/images/video icon.png" alt="Video icon" height="22" style="vertical-align:middle; border:none; display:inline-block;">
-<img src="https://img.shields.io/badge/Prototype%20Video%202-A970FF?style=for-the-badge" alt="Prototype Video 2" style="vertical-align:middle; border:none; display:inline-block;">
+<img src="./docs/images/video icon.png" alt="Video icon" height="22" style="vertical-align:middle; border:none; display:inline-block;"><img src="https://img.shields.io/badge/Prototype%20Video%202-A970FF?style=for-the-badge" alt="Prototype Video 2" style="vertical-align:middle; border:none; display:inline-block;">
 </a>
 </p>
 
@@ -419,8 +417,7 @@ After choosing this direction, we developed the idea into **Super Cat and Steve*
 
 <p align="center">
 <a href="https://youtu.be/9PLawSWQ0Q0" target="_blank" style="text-decoration:none; border:none; outline:none;">
-<img src="./docs/images/video icon.png" alt="Video icon" height="22" style="vertical-align:middle; border:none; display:inline-block;">
-<img src="https://img.shields.io/badge/Final%20Idea%20Video-F28C28?style=for-the-badge" alt="Final Idea Video" style="vertical-align:middle; border:none; display:inline-block;">
+<img src="./docs/images/video icon.png" alt="Video icon" height="22" style="vertical-align:middle; border:none; display:inline-block;"><img src="https://img.shields.io/badge/Final%20Idea%20Video-F28C28?style=for-the-badge" alt="Final Idea Video" style="vertical-align:middle; border:none; display:inline-block;">
 </a>
 </p>
 
