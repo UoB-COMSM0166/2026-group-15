@@ -441,9 +441,9 @@ The player can start the game, select a level, explore the level, and complete t
 
 The use case **Complete Level** includes **Collect Pollutants** and **Rescue Animals**. These are shown with `<<include>>` relationships because they are required environmental objectives for successfully completing a level.
 
-<!-- <p align="center">
-  <img src="./docs/images/use-case-diagram.png" alt="Use Case Diagram" width="80%" />
-</p> -->
+<p align="center">
+  <img src="./docs/images/use-case-diagram.png" alt="Use Case Diagram" width="75%" />
+</p>
 
 
 
