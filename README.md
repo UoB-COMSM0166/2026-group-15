@@ -513,142 +513,23 @@ Looking back, the requirements stage was not just an early planning task. It pla
 
 ## 5. Design
 
-<p align="center">
-- <img width="1590" height="700" alt="3339b730d5d336317972099c83ecc550" src="https://github.com/user-attachments/assets/b58ce78b-cf50-478e-ae06-c9fbae35e6a1" />
-</p>
 
 ### 5.1 Class Diagram
 
-The class diagram shows the high-level object-oriented design of *Super Cat and Steve*. The `Game` class works as the main controller, connecting the current `Level`, the `Player`, and the `UIManager`. The base `Level` class is extended by `ForestLevel`, `WaterLevel`, and `FactoryLevel`, so each world can define its own terrain, enemies, items, animals, and environmental behaviour while sharing the same overall game loop.
+The class diagram shows the early high-level object-oriented design of *Super Cat and Steve*. 
 
-The diagram also shows how the main gameplay objects are organised. The `Player` handles movement, combat, mining, item collection, and tool use. `Item` is extended into types such as `Tool`, `Pollutant`, and `Weapon`, while `Enemy` and `Animal` represent threats and rescue targets. Overall, the diagram presents the main design structure without including low-level implementation details.
+The `Game` class acts as the main controller of the system. It keeps track of the current `Level`, the `Player`, and the `UIManager`, and it is responsible for coordinating the main game flow such as starting the game, updating the scene, and checking progress.
 
-```mermaid
-classDiagram
+The `Level` class represents the basic structure of a game world. It contains the main objects that appear in a level, such as platforms, enemies, items, and animals. Different level types, including `ForestLevel`, `WaterLevel`, and `FactoryLevel`, inherit from `Level` so that each level can have its own theme and layout while still following the same general structure.
 
-class Game {
-  +currentLevel: Level
-  +state: GameState
-  +player: Player
-  +uiManager: UIManager
-  +startGame()
-  +selectLevel(levelType)
-  +update()
-  +checkCollisions()
-  +checkWinCondition()
-}
+The diagram also shows the main gameplay objects. The `Player` interacts with items, enemies, and animals during gameplay. `Item` is used as a general parent class for collectable or usable objects such as tools, pollutants, and weapons. `Enemy` represents hazards that can harm the player, while `Animal` represents creatures that the player can rescue. The `UIManager` is kept separate from the gameplay classes so that interface elements such as the HUD and progress display can be managed independently.
 
-class Level {
-  +platforms
-  +enemies
-  +items
-  +animals
-  +tileMap
-  +loadAssets()
-  +generateTerrain()
-  +drawLevel()
-}
 
-class ForestLevel {
-  +generateTerrain()
-}
 
-class FactoryLevel {
-  +generateTerrain()
-}
+<p align="center">
+  <img src="./docs/images/class-diagram(final).png" alt="Class Diagram" width="75%" />
+</p>
 
-class WaterLevel {
-  +generateTerrain()
-}
-
-class Platform {
-  +isTerrain
-}
-
-class Player {
-  +health
-  +inventory
-  +equippedWeapon
-  +score
-  +move()
-  +jump()
-  +attack()
-  +collectItem(item)
-  +useTool(tool)
-  +mineBlock()
-  +takeDamage(amount)
-}
-
-class Enemy {
-  +health
-  +attackRange
-  +update(player)
-  +attackPlayer(player)
-  +takeDamage(amount)
-}
-
-class Zombie
-
-class Item {
-  +itemType
-  +applyEffect(target)
-}
-
-class Pollutant {
-  +pollutionType
-  +applyEffect(target)
-}
-
-class Tool {
-  +toolType
-  +use(target)
-}
-
-class Weapon {
-  +weaponType
-  +damage
-  +use(target)
-}
-
-class Animal {
-  +rescueState
-  +onRescued()
-}
-
-class UIManager {
-  +drawHUD(player)
-  +showGuide()
-  +updateProgress()
-}
-
-Level <|-- ForestLevel
-Level <|-- FactoryLevel
-Level <|-- WaterLevel
-
-Enemy <|-- Zombie
-
-Item <|-- Pollutant
-Item <|-- Tool
-Item <|-- Weapon
-
-Item <|-- Animal
-
-Game *-- Player : has
-Game *-- Level : has
-Game *-- UIManager : has
-
-Level *-- Platform : contains
-Level o-- Enemy : enemies
-Level o-- Item : items
-Level o-- Animal : animals
-
-Player o-- Item : inventory
-Player ..> Tool : uses
-Player ..> Weapon : uses
-
-UIManager ..> Player : render HUD
-UIManager ..> Game : read state
-```
 
 ### 5.2 Behavioural Diagram
 
@@ -656,86 +537,18 @@ UIManager ..> Game : read state
 
 The state machine diagram shows the main flow of *Super Cat and Steve* at the screen and game-state level. The player starts from the start screen, enters level selection, chooses one of the three worlds, and then moves into the playing state. During gameplay, the player can open the field guide, return to level selection, lose the game when health reaches zero, or win when the level objective is completed.
 
+<p align="center">
+  <img src="./docs/images/state-machine-diagram.png" alt="State Machine Diagram" width="75%" />
+</p>
 
-```mermaid
-stateDiagram-v2
-    [*] --> StartScreen
-
-    StartScreen --> LevelSelection: Press Enter / Click Start
-    StartScreen --> Settings: Click Settings
-
-    Settings --> StartScreen: Back / Esc
-
-    LevelSelection --> Playing: Select Forest / Water / Factory
-    LevelSelection --> StartScreen: Back / Esc
-
-    state Playing {
-        [*] --> Gameplay
-        Gameplay --> FieldGuide: Open Menu
-        FieldGuide --> Gameplay: Close Menu
-    }
-
-    Playing --> LevelSelection: Click Exit (in HUD)
-    Playing --> GameOver: Player health reaches 0
-    Playing --> Victory: Level objective completed
-
-    GameOver --> StartScreen: Enter / Click
-    Victory --> StartScreen: Enter / Click
-```
 
 #### 5.2.2 Activity Diagram: Core Gameplay Loop
 
 The activity diagram focuses on what happens inside a level. It shows the player exploring the environment, moving through different terrain, collecting items, mining ores, using tools, fighting or avoiding enemies, and rescuing animals. These actions affect health, inventory, score, and progress. The loop continues until the player either completes the objective and reaches victory, or loses all health and enters the game-over state.
 
-
-```mermaid
-flowchart TD
-    A[Enter Selected Level] --> B[Explore Environment]
-
-    B --> C{Player Action}
-    C --> C1[Move / Jump / Swim / Use Pipes]
-    C --> C2[Collect Items]
-    C --> C3[Mine Blocks or Ores]
-    C --> C4[Use Tool]
-    C --> C5[Attack or Avoid Enemy]
-
-    C1 --> D{Encounter Hazard or Enemy?}
-    D -->|Enemy| E{Attack or Avoid?}
-    E -->|Attack| F[Enemy Takes Damage]
-    E -->|Avoid| B
-    F --> B
-
-    D -->|Hazard| G{Correct Tool Available?}
-    G -->|Yes| H[Use Tool to Clear or Reduce Hazard]
-    G -->|No| I[Avoid Hazard]
-    H --> B
-    I --> B
-
-    C2 --> J[Add Item to Inventory / Update Status]
-    J --> B
-
-    C3 --> K{Ore Improves Weapon?}
-    K -->|Yes| L[Upgrade Weapon]
-    K -->|No| B
-    L --> B
-
-    C4 --> M{Tool Used on Rescue Target?}
-    M -->|Yes| N[Rescue Animal and Increase Score]
-    M -->|No| B
-    N --> O{Objective Reached?}
-
-    C5 --> D
-
-    B --> P{Player Takes Damage?}
-    P -->|Yes| Q[Reduce Health]
-    P -->|No| O
-    Q --> R{Health <= 0?}
-    R -->|Yes| S[Game Over]
-    R -->|No| O
-
-    O -->|Yes| T[Victory]
-    O -->|No| B
-```
+<p align="center">
+  <img src="./docs/images/activity-diagram.png" alt="Activity Diagram" width="75%" />
+</p>
 
 
 ### 5.3 Design Conclusion
