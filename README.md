@@ -66,6 +66,7 @@
 | 07       | Lab 7: Think Aloud Study & Heuristic Evaluation          | [README](https://github.com/UoB-COMSM0166/2026-group-15/tree/main/Homework/Homework_Week7_Qualitative%20Evaluation) |
 | 08       | Lab 8: HCI Evaluation — NASA-TLX & SUS                   | [README](https://github.com/UoB-COMSM0166/2026-group-15/tree/main/Homework/Homework_Week8_Quantitative) |
 | 09       | Lab 9: Quality Assurance — Black-Box & White-Box Testing | [README](https://github.com/UoB-COMSM0166/2026-group-15/tree/main/Homework/Homework_Week9-Test%20and%20quality) |
+| 10       | Lab 10: Privacy                                          | [README](https://github.com/UoB-COMSM0166/2026-group-15/tree/main/Homework/Homework_Week10_Privacy) |
 | 11       | Lab 11: Sustainability                                   | [README](https://github.com/UoB-COMSM0166/2026-group-15/tree/main/Homework/Homework_Week11_Sustainability) |
 
 </div>
