@@ -109,7 +109,6 @@ Each level is both intriguing and educational. The player moves forward, jump ac
 #### Characters
 
 <div align="center">
-
 <table border="1" cellpadding="12" cellspacing="0">
   <tr>
     <td align="center" width="50%">
@@ -125,13 +124,10 @@ Each level is both intriguing and educational. The player moves forward, jump ac
   </tr>
 </table>
 </div>
-<br>
-
 
 #### Main Tasks
 
 <div align="center">
-
 <table border="1" cellpadding="12" cellspacing="0">
   <tr>
     <td align="center" width="20%"><strong>Rescue animals</strong></td>
@@ -148,16 +144,11 @@ Each level is both intriguing and educational. The player moves forward, jump ac
     <td align="center">Collect healing items such as apples and golden apples to restore health.</td>
   </tr>
 </table>
-
 </div>
-
-<br>
-
 
 #### Tools and Useful Items
 
 <div align="center">
-
   <table border="1" cellpadding="12" cellspacing="0" width="80%">
     <tr>
       <td align="center" width="33.3%">
@@ -233,12 +224,9 @@ Each level is both intriguing and educational. The player moves forward, jump ac
 
 </div>
 
-<br>
-
 #### Trapped Animals
 
 <div align="center">
-
 <table border="1" cellpadding="12" cellspacing="0">
   <tr>
     <td align="center" width="25%">
@@ -263,9 +251,7 @@ Each level is both intriguing and educational. The player moves forward, jump ac
     </td>
   </tr>
 </table>
-
 </div>
-<br>
 
 #### Enemies and Dangers
 
@@ -327,7 +313,6 @@ Each level is both intriguing and educational. The player moves forward, jump ac
     </td>
   </tr>
 </table>
-
 </div>
 
 #### Worlds and Environments
