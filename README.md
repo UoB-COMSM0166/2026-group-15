@@ -432,10 +432,68 @@ The player was still the main stakeholder, so most of our functional requirement
 </p>
 
 ### 4.3 Use Case Diagram
+The use case diagram below shows the main interactions between the player and the game system, **Super Cat and Steve**. 
 
-This use case diagram shows the main ways the player interacts with Super Cat and Steve. The player starts the game, selects a level, and then enters the main part of the gameplay, shown here as Explore Level. From this point, the player can carry out several different actions during the level, such as collecting pollutants, rescuing animals, using tools, fighting enemies, and mining resources.
 
-We placed Explore Level at the centre of the diagram because it is the core activity of the game. Most of the important gameplay actions happen during exploration, while Complete Level represents the final objective. In our game, finishing a level is closely connected to environmental tasks, especially pollutant collection and animal rescue. For this reason, these two actions are shown as key parts of level completion. Overall, the diagram highlights that environmental protection is built into the gameplay itself rather than added only as background theme.
+
+![Use Case Diagram](https://www.plantuml.com/plantuml/png/TP9VImCn3C3Vyod2tZTmS_zaZCcOlYWCpts0q8kphDSURIeRudUtEs_ZAlhI4dw_f4deAWXvYPK1ms-2uj3h_RjWgJqhqSv2E6XRyrX4QMi35gUWry_vTa-jGlWGNbIRfSmPzG83eB9uN_dP69PKKZ3FMF67mOnZJJM6zJOXlN1HRBZsqHh3d3IAJOHbcmm-J3LT9uMf3B1VXdDFo2IGAAWNn8HzMuR4paDT8AmO0ZQl4r9Qy9zAjD1uTu_Vvl9E0twlGyT8vYXvpG4pUtaf_1ykMkArNgmEw5a5tUeLzAG4BTRqJ1Lz6q9u5GiZKZsD0qUuMF1Hs9RBPGBZ_y3aRv38l2NJXcYhJ2ovoRcGsIy2gvIS_jOt)
+
+### Use Case Diagram Description
+
+This use case diagram shows the main ways the player interacts with **Super Cat and Steve**. The player can start the game, select a level, explore the level, and complete the level. The use case **Explore Level** is placed at the centre of the gameplay because most of the in-level actions happen during exploration.
+
+During exploration, the player may choose to use tools, fight enemies, or mine resources. These are shown with `<<extend>>` relationships because they are optional behaviours that only happen in certain gameplay situations.
+
+The use case **Complete Level** includes **Collect Pollutants** and **Rescue Animals**. These are shown with `<<include>>` relationships because they are required environmental objectives for successfully completing a level. This shows that environmental protection is part of the core gameplay, not just a background theme.
+
+#### Use Case Specification
+
+| Field | Description |
+|---|---|
+| **Use Case Name** | Explore Level |
+| **Primary Actor** | Player |
+| **Brief Description** | The player explores the selected level, interacts with the environment, collects pollutants, rescues animals, and may use tools, fight enemies, or mine resources. |
+| **Preconditions** | The player has started the game and selected a level. |
+| **Postconditions** | The player has explored the level and the system has updated the player's progress. |
+
+#### Basic Flow
+
+1. The player starts the game.
+2. The system displays the main menu.
+3. The player selects a level.
+4. The system loads the selected level.
+5. The player begins exploring the level.
+6. The system displays the level environment, including obstacles, enemies, pollutants, animals, resources, and tools.
+7. The player moves through the level and interacts with objects.
+8. The player collects pollutants found in the level.
+9. The player rescues animals found in the level.
+10. The system updates the player's progress.
+11. The player continues exploring until the level objectives are completed.
+
+#### Alternative Flows
+
+##### A1: Player Uses Tools
+
+1. The player chooses to use a tool during exploration.
+2. The system checks whether the tool is available.
+3. If the tool is available, the system applies the tool effect.
+4. If the tool is not available, the system displays a message telling the player that the tool cannot be used.
+
+##### A2: Player Fights Enemies
+
+1. The player encounters an enemy during exploration.
+2. The player chooses to fight or avoid the enemy.
+3. If the player fights, the system starts the combat interaction.
+4. If the player wins, the system allows the player to continue exploring.
+5. If the player loses, the system reduces the player's health or restarts from a checkpoint.
+
+##### A3: Player Mines Resources
+
+1. The player finds a mineable resource during exploration.
+2. The player chooses to mine the resource.
+3. The system checks whether the player has the correct tool.
+4. If the player has the correct tool, the system adds the resource to the player's inventory.
+5. If the player does not have the correct tool, the system displays a message explaining that the resource cannot be mined.
 
 <p align="center">
 <img src="./docs/images/case diagram.png" alt="case diagram" width="100%" />
