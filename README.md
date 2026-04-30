@@ -34,12 +34,12 @@
   - [4.5 Reflection on the Requirements Process](#45-reflection-on-the-requirements-process)
 - [5. Design](#5-design)
   - [5.1 Class Diagram](#51-class-diagram)
-  - [5.2 Communication Diagram](#52-communication-diagram)
+  - [5.2 Behavioural Diagram](#52-behavioural-diagram)
   - [5.3 Design Conclusion](#53-design-conclusion)
 - [6. Implementation](#6-implementation)
   - [Challenge 1: Force-Based Movement across Land, Water and Pipes](#challenge-1-force-based-movement-across-land-water-and-pipes)
-  - [Challenge 2: Hint Cat Following and Obstacle-Aware Feedback](#challenge-2-Hint-Cat-Following-and-Obstacle-Aware-Feedback)
-  - [Challenge 3: Enemy Pursuit and Splitting Slime Behaviour](#Challenge-3-Enemy-Pursuit-and-Splitting-Slime-Behaviour)
+  - [Challenge 2: Hint Cat Following and Obstacle-Aware Feedback](#challenge-2-hint-cat-following-and-obstacle-aware-feedback)
+  - [Challenge 3: Enemy Pursuit and Splitting Slime Behaviour](#challenge-3-enemy-pursuit-and-splitting-slime-behaviour)
 - [7. Evaluation](#7-evaluation)
   - [7.1 Qualitative Analysis](#71-qualitative-analysis)
   - [7.2 Quantitative Analysis](#72-quantitative-analysis)
@@ -48,7 +48,7 @@
 - [9. Sustainability](#9-sustainability)
 - [10. Conclusion](#10-conclusion)
 - [11. Individual Contribution](#11-individual-contribution)
-- [12. AI Statement](#12-AI-Statement)
+- [12. AI Statement](#12-ai-statement)
 
 ---
 
