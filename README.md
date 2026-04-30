@@ -156,8 +156,6 @@ Each level is both intriguing and educational. The player moves forward, jump ac
 
 #### Tools and Useful Items
 
-#### Tools and Useful Items
-
 <div align="center">
 
   <table border="1" cellpadding="12" cellspacing="0" width="80%">
@@ -173,33 +171,28 @@ Each level is both intriguing and educational. The player moves forward, jump ac
         Used to cut traps and nets found in the environment. Essential for rescuing trapped birds and fish.
       </td>
       <td align="center" width="33.3%">
-        <img src="./SuperCatAndSteve/assets/pic/cursor/cursor_mine.png" width="90" alt="Mining Tool"><br><br>
-        <strong>Mining Tool</strong><br>
-        A specialized tool used for mining precious minerals or breaking through specific environmental blocks.
+        <img src="./SuperCatAndSteve/assets/pic/item/tool/seed.png" width="90" alt="Vine Seed"><br><br>
+        <strong>Vine Seed</strong><br>
+        Can be planted in specific spots within the forest level to quickly grow a tall, climbable vine.
       </td>
     </tr>
   </table>
 
   <br>
 
-  <table border="1" cellpadding="12" cellspacing="0" width="100%">
+  <table border="1" cellpadding="12" cellspacing="0" width="80%">
     <tr>
-      <td align="center" width="25%">
-        <img src="./SuperCatAndSteve/assets/pic/item/tool/seed.png" width="90" alt="Vine Seed"><br><br>
-        <strong>Vine Seed</strong><br>
-        Can be planted in specific spots within the forest level to quickly grow a tall, climbable vine.
-      </td>
-      <td align="center" width="25%">
+      <td align="center" width="33.3%">
         <img src="./SuperCatAndSteve/assets/pic/item/tool/vine.png" width="30" alt="Vine"><br><br>
         <strong>Vine</strong><br>
         Created after using the vine seed. It works as a ladder and helps the player reach higher platforms.
       </td>
-      <td align="center" width="25%">
+      <td align="center" width="33.3%">
         <img src="./SuperCatAndSteve/assets/pic/item/tool/wrench.png" width="90" alt="Wrench"><br><br>
         <strong>Wrench</strong><br>
         A heavy-duty tool used to break iron cages and rescue turtles held captive in the factory level.
       </td>
-      <td align="center" width="25%">
+      <td align="center" width="33.3%">
         <img src="./SuperCatAndSteve/assets/pic/item/tool/limestone.png" width="90" alt="Limestone"><br><br>
         <strong>Limestone</strong><br>
         A reactive mineral used to neutralise dangerous acid pools, making them safe for the player to cross.
