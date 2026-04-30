@@ -51,6 +51,7 @@
 - [12. AI Statement](#12-AI-Statement)
 
 ---
+
 ## 1. Weekly Labs
 
 <div align="center">
@@ -68,6 +69,7 @@
 | 11       | Lab 11: Sustainability                                   | [README](https://github.com/UoB-COMSM0166/2026-group-15/tree/main/Homework/Homework_Week11_Sustainability) |
 
 </div>
+
 ---
 
 ## 2. Team
@@ -95,13 +97,11 @@
 
 **Super Cat and Steve** is an environmental-themed platform adventure built around three different worlds: forest, ocean, and factory.
 
-Each level shares the same core. Move forward, jump across platforms, avoid danger, and stay alive. But the goal is not just to reach the end. Players use tools, rescue trapped animals, and deal with enemies such as zombies along the way.
+Each level is both intriguing and educational. The player moves forward, jump across platforms, avoid danger, and stay alive. Players use tools, rescue trapped animals, and deal with enemies such as zombies along the way. But the goal is not just to reach the end. The player can gain knowledge about sustainability through gameplay.
 
 ### 3.1 What Makes It Original
 
-*Super Cat and Steve* begins with the structure of a classic pixel-art platform game, but the team wanted it to do more than just ask the player to jump, fight, and survive. The environmental theme shaped the game from an early stage, so the player is asked not only to move through the world, but also to repair it, protect wildlife, and respond to different kinds of hazards in different settings.
-
-This changes the purpose of play. Progress is not only about reaching the end of a level. The player must also rescue trapped animals, use tools correctly, recover health when needed, adapt to new environmental mechanics, and survive a range of enemies and dangerous terrain. In this way, environmental protection becomes part of the gameplay itself rather than just part of the game’s background.
+*Super Cat and Steve* is a classic pixel-art platform game, but we wanted it to do more than just ask the player to jump, fight, and survive. The environmental-themed game requires the player to deal with pollution with tools, protect wildlife, and respond to different kinds of hazards in different settings. In this way, environmental protection becomes part of the gameplay itself rather than just part of the game’s background.
 
 ### 3.2 Brief Intro to the Game 
 
@@ -123,9 +123,7 @@ This changes the purpose of play. Progress is not only about reaching the end of
     </td>
   </tr>
 </table>
-
 </div>
-
 <br>
 
 
@@ -370,7 +368,7 @@ This changes the purpose of play. Progress is not only about reaching the end of
 
 ### 4.1 Early-stage Design and Ideation
 
-At the beginning of the project, our team did not decide the final game idea straight away. We first had a brainstorming session where each member suggested possible game types. The ideas we discussed included obstacle-avoidance games such as Snake and Temple Run, matching games like Tetris, level-based platform games inspired by Mario, and battle-style games based on a simplified version of Hearthstone. This gave us several possible directions and helped us compare different types of gameplay before making a decision.
+At the beginning of the project, our team did not decide the final game idea straight away. We first had a brainstorm where each member suggested possible game types. The ideas we discussed included obstacle-avoidance games such as Snake and Temple Run, matching games like Tetris, level-based platform games inspired by Mario, and battle-style games based on a simplified version of Hearthstone. This gave us several possible directions and helped us compare different types of gameplay before making a decision.
 
 <p align="center"><strong>Game Ideas and Discussion Results</strong></p>
 
@@ -386,9 +384,9 @@ At the beginning of the project, our team did not decide the final game idea str
 
 After careful consideration, we have selected **two game concepts** for further development.
 
-The **first** is a **Minecraft-themed 2D platformer**. We plan to leverage the iconic pixel art and classic mechanics of Minecraft—such as biome-hopping (from grasslands to deep caves), tool upgrades, and using items like water buckets and TNT—to create a familiar yet fresh exploration and survival experience.
+The **first** is a **Minecraft-themed 2D platformer**. We plan to use the iconic pixel art and classic mechanics of Minecraft—such as biome-hopping (from grasslands to deep caves), tool upgrades, and using items like water buckets and TNT—to create a familiar but new exploration and survival experience.
 
-Its major advantages are significantly reduced asset creation by utilizing MC's established visual style and high recognizability among UK audiences. Another key feature of the game is the use of randomly generated enemies, ensuring that each playthrough feels unpredictable. In addition, the game includes multiple environments—such as underground caves, and ocean areas—each with distinct gameplay mechanics and movement constraints.
+Its major advantages are significantly reduced asset creation by utilizing MC's visual style and high popularity among world-wide players. Another key feature of the game is the use of randomly generated enemies, ensuring that each playthrough feels unpredictable. In addition, the game includes multiple environments—such as underground caves, and ocean areas—each with distinct gameplay mechanics and movement constraints.
 
 <p align="center">
 <img src="docs/images/Super_Steve.gif" alt="Super Steve gameplay preview" />
@@ -400,7 +398,7 @@ Its major advantages are significantly reduced asset creation by utilizing MC's 
 </a>
 </p>
 
-The **second** is an **environmental puzzle game** centered on a core "time reversal" mechanic with platforms or maze maps. The player starts in a fully polluted city and must navigate through it, undo ecological damage by collecting various pollutants and healing affected wildlife. A character selection system with varied stats (e.g., healing vs. cleanup proficiency) influences multiple endings.
+The **second** idea is an **environmental puzzle game** centered on a core "time reversal" mechanic with platforms or maze maps. The player begins in a polluted city and needs to clean it step by step. They collect rubbish, help injured animals to repair the environment. Different characters have different strengths, such as cleaning faster or healing animals better, which can lead to different endings.
 
 <p align="center">
 <img src="docs/images/Deepsea_Meow_Patrol.gif" alt="Deepsea Meow Patrol gameplay preview" />
@@ -412,7 +410,7 @@ The **second** is an **environmental puzzle game** centered on a core "time reve
 </a>
 </p>
 
-After choosing this direction, we developed the idea into **Super Cat and Steve**, **an environmental platform game** with three themed levels: forest, ocean, and factory. From this point, our requirements became more specific. The game needed to support basic movement, double jump, combat, item use, mining, score-based level completion, and interactions with environmental hazards. It also needed to include systems for collecting pollutants and rescuing trapped animals, since these actions were central to the theme of the game. According to the current gameplay design, players choose a level at the start, use keyboard controls to move, attack zombies with the F key, use the mouse for tools and mining, and pass the level by gaining enough score through cleanup and rescue tasks.
+After choosing this direction, we developed the idea into **Super Cat and Steve**, **an environmental platform game** with three themed levels: forest, ocean, and factory. From this point, our requirements became more specific. The game needed to support basic movement, double jump, combat, item use, mining, score-based level completion, and interactions with environmental hazards. It also needed to include systems rescuing trapped animals, since it central to the theme of the game. According to the current gameplay design, players choose a level at the start, use keyboard controls to move, attack zombies with the F key, use the mouse for tools and mining, and pass the level by gaining enough score through  rescue tasks.
 
 <p align="center">
 <img src="docs/images/Super_Cat_and_Steve.gif" alt="Super Cat and Steve gameplay preview" />
@@ -426,10 +424,11 @@ After choosing this direction, we developed the idea into **Super Cat and Steve*
 
 ### 4.2 Stakeholders 
 
-To make our requirements clearer, we used the approach introduced in the requirements workshop. We first identified the stakeholders for the game, then grouped their needs into broader epics, and finally turned these into user stories and acceptance criteria. This was useful because it made us think about the project from different perspectives instead of only from the programmer’s side. In our materials, the stakeholders included not only players but also the development team, artists, testers, publishers, reviewers, teaching staff, and organisations interested in environmental education. This wider view helped us think more carefully about usability, portability, educational purpose, and overall presentation.
+To make our requirements clearer, we followed the approach introduced in the requirements workshop. We first identified the stakeholders of the game, then grouped their needs into broader epics, and finally developed these into user stories and acceptance criteria.
 
-The player was still the main stakeholder, so most of our functional requirements were written around the player’s actions. A player should be able to choose a level, move through the environment, avoid or attack enemies, collect pollutants, use tools, rescue animals, and complete the level by earning enough points. However, writing these requirements as user stories made them more precise. Instead of saying that the game should be “interesting” or “educational”, we had to describe exactly what the user would do and what the system should return in response. The acceptance criteria were especially helpful because they gave us a simple way to decide whether a feature worked properly or not.
+For this project, the stakeholders include players, the development team, artists, testers, publishers, reviewers, teaching staff, and organisations interested in environmental education. Defining the stakeholders was useful because it helped us think about the project from different perspectives, rather than only from the programmer's point of view. 
 
+#### Onion Model
 <p align="center">
 <img src="./docs/images/onion model.png" alt="onion model" width="100%" />
 </p>
@@ -502,15 +501,17 @@ The following user stories were selected from our earlier requirements discussio
 
 ### 4.5 Reflection on the Requirements Process
 
-Through the requirements workshop, our team developed a clearer, more systematic way to capture and structure requirements by first analysing the jogging‑app case study and then applying the same techniques to our own environmental protection game. Starting from the case helped us separate the method (stakeholders → epics → user stories → acceptance criteria) from any specific domain, so we could later reuse it for our game design.
+Through the requirements workshop, our team learned a clearer way to organise requirements. We first looked at the jogging-app case study, and then used the same process for our environmental protection game. This helped us understand the steps more easily: identify stakeholders, group their needs into epics, write user stories, and then create acceptance criteria.
 
-​In the case study, we began by identifying stakeholders such as employees, managers, health services, and transport providers, which showed us how many different parties are affected by a single app. From there we defined epics to describe high‑level goals, then broke these into user stories using the “As a… I want… So that…” template, which forced us to think concretely about each stakeholder’s needs and benefits.
+In the jogging-app example, we thought about different stakeholders, such as employees, managers, health services, and transport providers. This showed us that even a simple app can affect many different groups of people. After that, we wrote epics to describe the main goals, and then turned them into user stories using the “As a... I want... So that...” format. This made the requirements easier to understand because each story focused on one user and one purpose.
 
-We then wrote acceptance criteria in the Given–When–Then format to turn those stories into testable, unambiguous conditions, clarifying what “done” means for each requirement. After this, we transferred the same process to our environmental protection game by identifying our own stakeholders (players, environmental agencies, developers, etc.), grouping their goals into epics, and expressing concrete user stories and acceptance criteria for gameplay, learning outcomes, and technical behaviour.
+We also used the Given–When–Then format to write acceptance criteria. This was useful because it made each requirement more testable. Instead of only saying what the feature should do, we had to explain what should happen in a specific situation. This made the requirements clearer and reduced misunderstanding.
 
-​Applying these techniques to our game solidified the connection between requirements and the product's core context. It helped us align technical tasks (e.g., efficient asset loading) with business goals (portability) and user values (environmental education), ensuring that every feature we plan serves a clear purpose for both the project and its users.
+After practising with the case study, we applied the same method to our own game. We identified stakeholders such as players, developers, testers, teaching staff, and people interested in environmental education. Then we wrote epics, user stories, and acceptance criteria for the main parts of the game, including gameplay, learning about the environment, and basic technical features.
 
-Looking back, the requirements stage was not just an early planning task. It played an important role in shaping the whole project. It helped us choose an idea that matched both our interests and our technical ability, and it also gave us a clearer structure for development. Without that stage, the game would probably have remained a general “environmental game” idea rather than becoming a more focused platform adventure with clear goals and mechanics.
+This process helped us connect the requirements to the actual game idea. For example, rescuing animals and collecting pollutants are not just extra features. They support the main theme of environmental protection. It also helped us think about the game from more than one point of view, not only from the programmer’s side.
+
+Overall, the requirements stage was important for our project. It helped us turn a general idea about an environmental game into a more focused platform adventure. It also gave us a clearer plan for development, because we knew what the main users needed and what each feature was supposed to achieve.
 
 ---
 
@@ -864,23 +865,31 @@ At the same time, regularly asking what each change meant for players and for th
 
 ## 9. Sustainability
 
-We reviewed the Green Software Foundation implementation patterns for web systems and selected the ones that were most relevant to a browser-based p5.js game. Since our project runs entirely on the client side and depends heavily on image assets, rendering, and repeated updates in the game loop, the most useful patterns were the ones related to **image size**, **request count**, **unnecessary data collection**, and **runtime work in the browser**. The catalogue describes these patterns as practical ways to reduce bandwidth, storage, and device-side processing, which made them relevant to our project even at a small scale.
+For the sustainability part, we looked at the Green Software Foundation patterns and chose the ones that fit our project best. Since our game is a browser-based p5.js game, the main things we needed to think about were image assets, file loading, unnecessary data use, and how much work the browser has to do while the game is running.
+
+Our game runs on the client side, so even small design choices can affect loading time and performance. Because of this, we focused on patterns that could help reduce bandwidth, reduce the number of requests, and avoid unnecessary processing during gameplay.
 
 ### Optimize image size
 
-One pattern we clearly used was **Optimize image size**. The Green Software Foundation recommends storing images at dimensions close to the size at which they are actually displayed, so that bandwidth and processing are not wasted on oversized assets. In our game, this was especially important because most of the visuals are pixel art rather than large painted backgrounds. We deliberately kept the pixel assets small, and our art workflow also controlled sprite dimensions to avoid loading problems. In the code, this design is reflected in the fixed low-resolution canvas (`640 × 360`), the standard `32 × 32` tile system, and several small UI or weapon sprite sizes. This helped keep the game visually consistent while also reducing unnecessary asset size.
+One pattern we used was **Optimize image size**. Our game uses pixel art, so we did not need very large images. Most sprites and tiles are small and are drawn at a fixed size in the game. This fits the visual style of the game and also avoids loading images that are much bigger than needed.
+
+This can also be seen in the code. The game uses a low-resolution canvas size of `640 × 360`, and the level tiles are based on a `32 × 32` tile system. Some UI and weapon images also use small fixed sizes. These choices helped keep the game consistent visually, while also keeping the asset size lower.
 
 ### Keep request counts low
 
-A second relevant pattern was **Keep request counts low**. The catalogue explains that fewer files and requests reduce the energy needed to display a page. Our game does not generate a separate image for every terrain block. Instead, it reuses a limited set of tile textures and draws them repeatedly through a tile mapping system. The same approach is used for decorative objects, sprites, and UI icons: resources are loaded once, stored under shared keys, and then reused in different parts of the game. This is visible in the central image-loading logic and in helper functions such as `getTextures()` and `drawTile()`. In practice, this meant we could build long levels and multiple environments without a huge number of unique asset files.
+Another pattern we considered was **Keep request counts low**. The game does not use a different image for every block or object. Instead, it reuses the same tile textures many times across the level. This is useful because the game has long levels, but it does not need a huge number of separate image files.
+
+For example, the tile system loads a set of textures and then draws them repeatedly when building the level. Helper functions such as `getTextures()` and `drawTile()` support this approach. The same idea is used for sprites, decorations, and UI icons. Assets are loaded once and reused in different places, which keeps the project lighter and easier to manage.
 
 ### Avoid tracking unnecessary data
 
-Another pattern we followed, at least by design, was **Avoid tracking unnecessary data**. The Green Software Foundation points out that user tracking and extra data collection add environmental cost through additional scripts, processing, storage, and network traffic. Our game is a local browser game and, in the current code we reviewed, there is no evidence of analytics, advertising scripts, or external tracking requests. This means the game avoids a common source of unnecessary overhead in modern web applications. For a student project, this was not only simpler to implement, but also aligned well with the idea of keeping the system lightweight.
+We also followed the idea of **Avoid tracking unnecessary data**. Our game does not need to collect user data to work. It is a local browser game. This keeps the game simpler and avoids extra network traffic. For our project, this was also a sensible choice because the goal of the game is gameplay and environmental education, not collecting data from players.
 
 ### Minimize main thread work
 
-The fourth pattern, **Minimize main thread work**, was only partly addressed, but it is still relevant to our implementation. Browser games run much of their logic on the main thread, so unnecessary updates can quickly affect performance. In our code, some choices already move in this direction. For example, enemies are not fully active from the start; they are first activated only when the player enters a defined detection range. Decorative elements such as trees, coral, kelp, and water are also separated from full collision platforms, which reduces the amount of collision work the system needs to perform. Cooldown values and delayed attack checks are also used to stop certain actions from being processed every possible frame. These decisions do not eliminate main-thread pressure, but they do show an effort to keep repeated computations under control.
+The pattern **Minimize main thread work** is also relevant to our game. Because the game runs in the browser, too much repeated work in the game loop could make the game slower. We did not fully optimise this area, but some parts of the design already help reduce unnecessary processing.
+
+For example, enemies are only activated when the player gets close enough, rather than all enemies being fully active from the beginning. Decorative objects such as trees, coral, kelp, and water are also separated from solid collision platforms. This means the game does not need to check collision for every visual object. We also use cooldowns and delays for actions such as attacks, so they are not processed every single frame.
 
 ---
 
