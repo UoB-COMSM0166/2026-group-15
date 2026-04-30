@@ -39,7 +39,7 @@
 - [6. Implementation](#6-implementation)
   - [Challenge 1: Force-Based Movement across Land, Water and Pipes](#challenge-1-force-based-movement-across-land-water-and-pipes)
   - [Challenge 2: Hint Cat Following and Obstacle-Aware Feedback](#challenge-2-hint-cat-following-and-obstacle-aware-feedback)
-  - [Challenge 3: Enemy Pursuit and Splitting Slime Behaviour](#challenge-3-enemy-pursuit-and-splitting-slime-behaviour)
+  - [Challenge 3: Enemy Pursuit, Knockback and Splitting Slime Behaviour](#challenge-3-enemy-pursuit-knockback-and-splitting-slime-behaviour)
 - [7. Evaluation](#7-evaluation)
   - [7.1 Qualitative Analysis](#71-qualitative-analysis)
   - [7.2 Quantitative Analysis](#72-quantitative-analysis)
@@ -600,11 +600,13 @@ Obstacle handling reuses the same collision queries and terrain height checks as
 
 We then connected this follower to the feedback systems in the HUD. The game already tracks level progress in the update loop, so we reused that value to drive both the top progress bar and a cat icon that moves along it. The displayed progress interpolates towards the maximum distance reached, which keeps the bar and icon smooth and consistent with the player’s movement. At the same time, the hint system uses the same UI cat as an anchor for short context-sensitive messages when the player rescues animals, collects pollutants or encounters hazards. In other words, the player sees the same hint character in two forms: as a delayed follower in the world, and as a cat icon on the progress bar that anchors messages about hazards, tools and objectives.
 
-### Challenge 3: Enemy Pursuit and Splitting Slime Behaviour
+### Challenge 3: Enemy Pursuit, Knockback and Splitting Slime Behaviour
 
 The enemy system focused on active pursuit and the splitting behaviour of the slime, so that enemies felt proactive rather than static.
 
 A shared update loop handled detection, movement and damage. When the player attacks, the game scans for enemies within a configurable range, filters them by relative position and collision boxes, and applies damage to the closest valid target. Contact damage works in the opposite direction: instead of dealing damage in a single instant, the game accumulates overlap time and converts it into damage per second. This is easier to tune than writing separate one-off rules for each enemy type.
+
+The enemy knockback is implemented as a hit-induced velocity component in the Enemy base class: when the player lands an attack, the player’s facing direction is converted into a knockback direction, horizontal knockback velocity hitKnockbackVx is added (with clamping), a one-shot vertical impulse vyImpulsePending is queued, and a short immediate positional nudge is attempted to make the hit feel responsive. During updates, hitKnockbackVx decays each frame and is added to the target velocity, producing motion that is both knocked back and still behaviour-driven, while the vertical impulse is applied on the next frame; on horizontal collision, the knockback term is zeroed so the effect ends cleanly against walls.
 
 The slime added extra complexity. After taking enough damage, it splits into several smaller slimes instead of disappearing. Each child slime is spawned with its own position, collision box and an initial “splash” velocity so that the fragments spread out rather than stacking on one spot. These new slimes are immediately added to the main enemy update loop, so they inherit the same movement, pursuit and damage behaviour as any other enemy. Removing the parent while adding the children in the same frame required careful handling to avoid glitches in collision and damage checks.
 
