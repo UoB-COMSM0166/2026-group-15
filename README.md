@@ -10,8 +10,7 @@
 
 <p align="center">
   <a href="https://youtu.be/XIkc94IBQnA" target="_blank">
-    <img src="./docs/images/video icon.png" alt="Video icon" height="22"><img src="https://img.shields.io/badge/Watch%20Our%20Video-F28C28?style=for-the-badge" alt="Watch Our Video">
-  </a>
+    <img src="./docs/images/video icon.png" alt="Video icon" height="22"><img src="https://img.shields.io/badge/Watch%20Our%20Video-F28C28?style=for-the-badge" alt="Watch Our Video"></a>
   &nbsp;&nbsp;
   <a href="https://uob-comsm0166.github.io/2026-group-15/SuperCatAndSteve/" target="_blank">
     <img src="./SuperCatAndSteve/assets/pic/player_cat/Alex_right.png" alt="Alex right" height="22"><img src="https://img.shields.io/badge/Play%20Our%20Game-63C74D?style=for-the-badge" alt="Play Our Game">
