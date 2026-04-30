@@ -57,14 +57,14 @@
 | 01       | Lab 1: Game Ideas                                        | [README](https://github.com/UoB-COMSM0166/2026-group-15/tree/main/Homework/Homework_Week1_GameIdeas) |
 | 02       | Lab 2: Spray Fun and Brainstorm                          | [README](https://github.com/UoB-COMSM0166/2026-group-15/tree/main/Homework/Homework_Week2_SprayFun) |
 | 03       | Lab 3: Prototype & Game Selection                        | [README](https://github.com/UoB-COMSM0166/2026-group-15/tree/main/Homework/Homework_Week3_Prototypes) |
-| 04       | Lab 4: User Stories & Requirements Engineering           | [README](link_to_readme_04) |
-| 05       | Lab 5: Object-Oriented Design & Agile Estimation         | [README](link_to_readme_05) |
-| 07       | Lab 7: Think Aloud Study & Heuristic Evaluation          | [README](link_to_readme_07) |
-| 08       | Lab 8: HCI Evaluation — NASA-TLX & SUS                   | [README](link_to_readme_08) |
-| 09       | Lab 9: Quality Assurance — Black-Box & White-Box Testing | [README](link_to_readme_09) |
+| 04       | Lab 4: User Stories & Requirements Engineering           | [README](https://github.com/UoB-COMSM0166/2026-group-15/tree/main/Homework/Homework_Week4_User%20Story%20and%20Requirement%20Engineering) |
+| 05       | Lab 5: Object-Oriented Design & Agile Estimation         | [README](https://github.com/UoB-COMSM0166/2026-group-15/tree/main/Homework/Homework_Week5_Object%20Orientated%20Design) |
+| 07       | Lab 7: Think Aloud Study & Heuristic Evaluation          | [README](https://github.com/UoB-COMSM0166/2026-group-15/tree/main/Homework/Homework_Week7_Qualitative%20Evaluation) |
+| 08       | Lab 8: HCI Evaluation — NASA-TLX & SUS                   | [README](https://github.com/UoB-COMSM0166/2026-group-15/tree/main/Homework/Homework_Week8_Quantitative) |
+| 09       | Lab 9: Quality Assurance — Black-Box & White-Box Testing | [README](https://github.com/UoB-COMSM0166/2026-group-15/tree/main/Homework/Homework_Week9-Test%20and%20quality) |
+| 11       | Lab 11: Sustainability                                   | [README](https://github.com/UoB-COMSM0166/2026-group-15/tree/main/Homework/Homework_Week11_Sustainability) |
 
 </div>
-
 ---
 
 ## 2. Team
@@ -441,9 +441,9 @@ The player can start the game, select a level, explore the level, and complete t
 
 The use case **Complete Level** includes **Collect Pollutants** and **Rescue Animals**. These are shown with `<<include>>` relationships because they are required environmental objectives for successfully completing a level.
 
-<p align="center">
+<!-- <p align="center">
   <img src="./docs/images/use-case-diagram.png" alt="Use Case Diagram" width="80%" />
-</p>
+</p> -->
 
 
 
@@ -482,9 +482,6 @@ The use case **Complete Level** includes **Collect Pollutants** and **Rescue Ani
 2. The player chooses to mine the resource by clicking
 3. If the resourse is metal or gem, player's weapon gets upgraded
 
-<p align="center">
-<img src="./docs/images/case diagram.png" alt="case diagram" width="100%" />
-</p>
 
 ### 4.4 User Stories and Acceptance Criteria
 
