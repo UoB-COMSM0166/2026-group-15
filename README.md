@@ -453,7 +453,7 @@ The use case **Complete Level** includes **Collect Pollutants** and **Rescue Ani
 |---|---|
 | **Use Case Name** | Explore Level |
 | **Primary Actor** | Player |
-| **Brief Description** | The player explores the selected level, interacts with the environment, collects pollutants, rescues animals, and may use tools, fight enemies, or mine resources. |
+| **Brief Description** | The player explores the selected level and rescues animals. The player may use tools, fight enemies, or mine resources. |
 | **Preconditions** | The player has started the game and selected a level. |
 | **Postconditions** | The player has explored the level and the system has updated the player's progress. |
 
