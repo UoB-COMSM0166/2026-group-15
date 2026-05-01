@@ -555,7 +555,7 @@ Our original plan for movement was standard platformer jumps on land, slower mot
 We kept one movement loop based on velocity plus environment-specific forces. On land, the player receives an upward impulse when jumping and gravity pulling them down, but we used lighter gravity while going up and heavier gravity while falling. This gave better jump control while keeping a clear sense of weight when landing.
 
 <p align="center">
-  <img src="docs/images/Land%20–%20jumping%20behaviour.gif" alt="Land – jumping behaviour">
+  <img src="docs/images/Land%20–%20jumping%20behaviour.gif" alt="Land – jumping behaviour" width="90%">
 </p>
 
 >**Land – jumping behaviour :** 
@@ -564,7 +564,7 @@ We kept one movement loop based on velocity plus environment-specific forces. On
 Water exposed problems immediately. Simply lowering gravity slowed the drop but still felt like moving through air. We added upward buoyancy to counter part of gravity, and horizontal drag to reduce speed. The underlying “velocity plus forces” update loop stayed the same, but the very different values are what gave the ocean levels their distinct feel.
 
 <p align="center">
-  <img src="docs/images/Underwater%20movement%20–%20buoyancy%20and%20drift.gif" alt="Underwater movement – buoyancy and drift">
+  <img src="docs/images/Underwater%20movement%20–%20buoyancy%20and%20drift.gif" alt="Underwater movement – buoyancy and drift" width="90%">
 </p>
 
 >**Underwater movement – buoyancy and drift :**
@@ -573,7 +573,7 @@ Water exposed problems immediately. Simply lowering gravity slowed the drop but 
 Pipes were different again: the player is mostly carried by a constant flow force that directly offsets their velocity when they pass through the blue pipe zones. Getting the balance right took several rounds of playtesting: if the flow was too weak it had almost no impact, and if it was too strong it became very hard to control. The final version still felt powerful, but gave players enough time to react to hazards.
 
 <p align="center">
-  <img src="docs/images/pipes-flow.gif" alt="Pipes – flow‑driven movement">
+  <img src="docs/images/pipes-flow.gif" alt="Pipes – flow‑driven movement" width="90%">
 </p>
 
 >**Pipes – flow‑driven movement :**
@@ -592,7 +592,7 @@ The core technical problem was how to avoid snapping the cat directly to the pla
 Obstacle handling reuses the same collision queries and terrain height checks as the player. The cat’s position is derived from world coordinates and ground height, so it automatically stays on walkable surfaces and respects platforms and walls, instead of needing its own physics controller.
 
 <p align="center">
-  <img src="docs/images/Hint%20cat%20–%20delayed%20follow%20and%20HUD%20feedback.gif" alt="Hint cat – delayed follow and HUD feedback">
+  <img src="docs/images/Hint%20cat%20–%20delayed%20follow%20and%20HUD%20feedback.gif" alt="Hint cat – delayed follow and HUD feedback" width="90%">
 </p>
 
 >**Hint cat – delayed follow and HUD feedback :**
@@ -609,7 +609,7 @@ A shared update loop handled detection, movement and damage. When the player att
 The enemy knockback is implemented as a hit-induced velocity component in the Enemy base class: when the player lands an attack, the player’s facing direction is converted into a knockback direction, horizontal knockback velocity hitKnockbackVx is added (with clamping), a one-shot vertical impulse vyImpulsePending is queued, and a short immediate positional nudge is attempted to make the hit feel responsive. During updates, hitKnockbackVx decays each frame and is added to the target velocity, producing motion that is both knocked back and still behaviour-driven, while the vertical impulse is applied on the next frame; on horizontal collision, the knockback term is zeroed so the effect ends cleanly against walls.
 
 <p align="center">
-  <img src="docs/images/enemy_knockback.gif" alt="Slime – splitting on damage">
+  <img src="docs/images/enemy_knockback.gif" alt="Slime – splitting on damage" width="90%">
 </p>
 
 >**Enemy knockback on hit :**
@@ -618,9 +618,7 @@ The enemy knockback is implemented as a hit-induced velocity component in the En
 The slime added extra complexity. After taking enough damage, it splits into several smaller slimes instead of disappearing. Each child slime is spawned with its own position, collision box and an initial “splash” velocity so that the fragments spread out rather than stacking on one spot. These new slimes are immediately added to the main enemy update loop, so they inherit the same movement, pursuit and damage behaviour as any other enemy. Removing the parent while adding the children in the same frame required careful handling to avoid glitches in collision and damage checks.
 
 <p align="center">
-  <img src="docs/images/Slime%20–%20splitting%20on%20damage.gif"
-       alt="Slime – splitting on damage"
-       width="50%">
+  <img src="docs/images/Slime%20–%20splitting%20on%20damage.gif" alt="Slime – splitting on damage" width="90%">
 </p>
 
 >**Slime – splitting on damage :**
@@ -629,7 +627,7 @@ The slime added extra complexity. After taking enough damage, it splits into sev
 For pursuit behaviour, we kept the logic straightforward. Chasing enemies compute their horizontal direction from the player’s position and move towards them whenever the player is within range. Vertical movement is heavily damped, especially in water or uneven terrain, so enemies do not instantly jump to the player’s height. Collision separation reuses the same approach as the player: when enemies overlap, the system pushes them apart along the least disruptive axis and clears the corresponding velocity component. This keeps close encounters stable, even when several enemies are active at once.
 
 <p align="center">
-  <img src="docs/images/Enemies%20–%20active%20pursuit.gif" alt="Enemies – active pursuit">
+  <img src="docs/images/Enemies%20–%20active%20pursuit.gif" alt="Enemies – active pursuit" width="90%">
 </p>
 
 >**Enemies – active pursuit :**
