@@ -608,10 +608,19 @@ A shared update loop handled detection, movement and damage. When the player att
 
 The enemy knockback is implemented as a hit-induced velocity component in the Enemy base class: when the player lands an attack, the player’s facing direction is converted into a knockback direction, horizontal knockback velocity hitKnockbackVx is added (with clamping), a one-shot vertical impulse vyImpulsePending is queued, and a short immediate positional nudge is attempted to make the hit feel responsive. During updates, hitKnockbackVx decays each frame and is added to the target velocity, producing motion that is both knocked back and still behaviour-driven, while the vertical impulse is applied on the next frame; on horizontal collision, the knockback term is zeroed so the effect ends cleanly against walls.
 
+<p align="center">
+  <img src="docs/images/enemy_knockback.gif" alt="Slime – splitting on damage">
+</p>
+
+>**Enemy knockback on hit :**
+>Enemies being struck by the player and briefly launched backwards, demonstrating the hit-induced knockback velocity, vertical impulse, and wall-respecting collision handling used in the enemy system.
+
 The slime added extra complexity. After taking enough damage, it splits into several smaller slimes instead of disappearing. Each child slime is spawned with its own position, collision box and an initial “splash” velocity so that the fragments spread out rather than stacking on one spot. These new slimes are immediately added to the main enemy update loop, so they inherit the same movement, pursuit and damage behaviour as any other enemy. Removing the parent while adding the children in the same frame required careful handling to avoid glitches in collision and damage checks.
 
 <p align="center">
-  <img src="docs/images/Slime%20–%20splitting%20on%20damage.gif" alt="Slime – splitting on damage">
+  <img src="docs/images/Slime%20–%20splitting%20on%20damage.gif"
+       alt="Slime – splitting on damage"
+       width="50%">
 </p>
 
 >**Slime – splitting on damage :**
